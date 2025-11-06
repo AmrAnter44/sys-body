@@ -9,6 +9,15 @@ export async function GET() {
       include: {
         expenses: {
           where: { type: 'staff_loan', isPaid: false }
+        },
+        // ✅ جلب حضور اليوم
+        attendance: {
+          where: {
+            checkIn: {
+              gte: new Date(new Date().setHours(0, 0, 0, 0))
+            }
+          },
+          orderBy: { checkIn: 'desc' }
         }
       }
     })
@@ -23,10 +32,27 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, phone, position, salary, notes } = body
+    const { staffCode, name, phone, position, salary, notes } = body
+
+    // ✅ التحقق من وجود staffCode
+    if (!staffCode) {
+      return NextResponse.json({ error: 'رقم الموظف مطلوب' }, { status: 400 })
+    }
+
+    // ✅ التحقق من عدم تكرار الرقم
+    const existingStaff = await prisma.staff.findUnique({
+      where: { staffCode: parseInt(staffCode) }
+    })
+
+    if (existingStaff) {
+      return NextResponse.json({ 
+        error: `رقم ${staffCode} مستخدم بالفعل للموظف: ${existingStaff.name}` 
+      }, { status: 400 })
+    }
 
     const staff = await prisma.staff.create({
       data: {
+        staffCode: parseInt(staffCode),
         name,
         phone,
         position,
@@ -46,7 +72,22 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { id, ...data } = body
+    const { id, staffCode, ...data } = body
+
+    // ✅ إذا كان في تحديث للـ staffCode، تحقق من عدم التكرار
+    if (staffCode) {
+      const existingStaff = await prisma.staff.findUnique({
+        where: { staffCode: parseInt(staffCode) }
+      })
+
+      if (existingStaff && existingStaff.id !== id) {
+        return NextResponse.json({ 
+          error: `رقم ${staffCode} مستخدم بالفعل` 
+        }, { status: 400 })
+      }
+
+      data.staffCode = parseInt(staffCode)
+    }
 
     const staff = await prisma.staff.update({
       where: { id },

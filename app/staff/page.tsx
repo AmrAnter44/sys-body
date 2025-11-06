@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 interface Staff {
   id: string
+  staffCode: number  // ✅ الرقم البسيط
   name: string
   phone?: string
   position?: string
@@ -13,7 +14,16 @@ interface Staff {
   createdAt: string
 }
 
-// قائمة الوظائف الثابتة
+interface Attendance {
+  id: string
+  staffId: string
+  staff: Staff
+  checkIn: string
+  checkOut: string | null
+  duration: number | null
+  createdAt: string
+}
+
 const POSITIONS = [
   { value: 'مدرب', label: '💪 مدرب', icon: '💪' },
   { value: 'ريسبشن', label: '👔 ريسبشن', icon: '👔' },
@@ -28,17 +38,26 @@ const POSITIONS = [
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<Staff[]>([])
+  const [todayAttendance, setTodayAttendance] = useState<Attendance[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [showOtherPosition, setShowOtherPosition] = useState(false)
+  
+  // ✅ حالة Scanner
+  const [scannerInput, setScannerInput] = useState('')
+  const [lastScanTime, setLastScanTime] = useState<Date | null>(null)
+  const [scanMessage, setScanMessage] = useState('')
+  const scannerRef = useRef<HTMLInputElement>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
 
   const [formData, setFormData] = useState({
+    staffCode: '',  // ✅ الرقم البسيط
     name: '',
     phone: '',
     position: '',
-    customPosition: '', // للوظيفة المخصصة
+    customPosition: '',
     salary: 0,
     notes: '',
   })
@@ -55,12 +74,130 @@ export default function StaffPage() {
     }
   }
 
+  const fetchTodayAttendance = async () => {
+    try {
+      const response = await fetch('/api/attendance?today=true')
+      const data = await response.json()
+      setTodayAttendance(data)
+    } catch (error) {
+      console.error('Error fetching attendance:', error)
+    }
+  }
+
   useEffect(() => {
     fetchStaff()
+    fetchTodayAttendance()
+    
+    const interval = setInterval(fetchTodayAttendance, 60000)
+    return () => clearInterval(interval)
   }, [])
+
+  // ✅ دوال الصوت
+  const playSuccessSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      }
+      const ctx = audioContextRef.current
+      const times = [0, 0.15, 0.3]
+      const frequencies = [523.25, 659.25, 783.99]
+      
+      times.forEach((time, index) => {
+        const oscillator = ctx.createOscillator()
+        const gainNode = ctx.createGain()
+        oscillator.connect(gainNode)
+        gainNode.connect(ctx.destination)
+        oscillator.type = 'sine'
+        oscillator.frequency.setValueAtTime(frequencies[index], ctx.currentTime + time)
+        gainNode.gain.setValueAtTime(0.7, ctx.currentTime + time)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + time + 0.3)
+        oscillator.start(ctx.currentTime + time)
+        oscillator.stop(ctx.currentTime + time + 0.3)
+      })
+    } catch (error) {
+      console.error('Error playing sound:', error)
+    }
+  }
+
+  const playErrorSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      }
+      const ctx = audioContextRef.current
+      const oscillator = ctx.createOscillator()
+      const gainNode = ctx.createGain()
+      oscillator.connect(gainNode)
+      gainNode.connect(ctx.destination)
+      oscillator.type = 'square'
+      oscillator.frequency.setValueAtTime(200, ctx.currentTime)
+      gainNode.gain.setValueAtTime(0.5, ctx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+      oscillator.start(ctx.currentTime)
+      oscillator.stop(ctx.currentTime + 0.3)
+    } catch (error) {
+      console.error('Error playing sound:', error)
+    }
+  }
+
+  // ✅ معالجة السكان بالرقم
+  const handleScan = async (staffCode: string) => {
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffCode: staffCode.trim() }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        playSuccessSound()
+        setScanMessage(data.message)
+        setLastScanTime(new Date())
+        fetchTodayAttendance()
+        setTimeout(() => setScanMessage(''), 5000)
+      } else {
+        playErrorSound()
+        setScanMessage(`❌ ${data.error || 'فشل تسجيل الحضور'}`)
+        setTimeout(() => setScanMessage(''), 5000)
+      }
+    } catch (error) {
+      console.error('Scan error:', error)
+      playErrorSound()
+      setScanMessage('❌ حدث خطأ في تسجيل الحضور')
+      setTimeout(() => setScanMessage(''), 5000)
+    }
+  }
+
+  // ✅ معالجة إدخال Scanner
+  const handleScannerInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && scannerInput.trim()) {
+      handleScan(scannerInput.trim())
+      setScannerInput('')
+    }
+  }
+
+  // ✅ حساب مدة الحضور
+  const calculateDuration = (checkIn: string, checkOut: string | null) => {
+    const start = new Date(checkIn)
+    const end = checkOut ? new Date(checkOut) : new Date()
+    const diffMinutes = Math.floor((end.getTime() - start.getTime()) / (1000 * 60))
+    const hours = Math.floor(diffMinutes / 60)
+    const minutes = diffMinutes % 60
+    return `${hours}س ${minutes}د`
+  }
+
+  // ✅ التحقق من حالة الموظف
+  const isStaffPresent = (staffId: string) => {
+    return todayAttendance.some(
+      (att) => att.staffId === staffId && !att.checkOut
+    )
+  }
 
   const resetForm = () => {
     setFormData({
+      staffCode: '',
       name: '',
       phone: '',
       position: '',
@@ -74,12 +211,12 @@ export default function StaffPage() {
   }
 
   const handleEdit = (staffMember: Staff) => {
-    // التحقق إذا كانت الوظيفة موجودة في القائمة الثابتة
     const isStandardPosition = POSITIONS.some(
       (pos) => pos.value === staffMember.position && pos.value !== 'other'
     )
 
     setFormData({
+      staffCode: staffMember.staffCode.toString(),
       name: staffMember.name,
       phone: staffMember.phone || '',
       position: isStandardPosition ? staffMember.position || '' : 'other',
@@ -102,7 +239,6 @@ export default function StaffPage() {
     setLoading(true)
     setMessage('')
 
-    // تحديد الوظيفة النهائية
     const finalPosition =
       formData.position === 'other' ? formData.customPosition : formData.position
 
@@ -112,12 +248,18 @@ export default function StaffPage() {
       return
     }
 
+    if (!formData.staffCode) {
+      setMessage('❌ يرجى إدخال رقم الموظف')
+      setLoading(false)
+      return
+    }
+
     try {
       const url = '/api/staff'
       const method = editingStaff ? 'PUT' : 'POST'
       const body = editingStaff
-        ? { id: editingStaff.id, ...formData, position: finalPosition }
-        : { ...formData, position: finalPosition }
+        ? { id: editingStaff.id, ...formData, position: finalPosition, staffCode: parseInt(formData.staffCode) }
+        : { ...formData, position: finalPosition, staffCode: parseInt(formData.staffCode) }
 
       const response = await fetch(url, {
         method,
@@ -125,13 +267,16 @@ export default function StaffPage() {
         body: JSON.stringify(body),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
         setMessage(editingStaff ? '✅ تم تحديث الموظف بنجاح!' : '✅ تم إضافة الموظف بنجاح!')
         setTimeout(() => setMessage(''), 3000)
         fetchStaff()
         resetForm()
       } else {
-        setMessage('❌ فشلت العملية')
+        setMessage(`❌ ${data.error || 'فشلت العملية'}`)
+        setTimeout(() => setMessage(''), 5000)
       }
     } catch (error) {
       console.error(error)
@@ -168,13 +313,11 @@ export default function StaffPage() {
     }
   }
 
-  // دالة للحصول على أيقونة الوظيفة
   const getPositionIcon = (position: string): string => {
     const pos = POSITIONS.find((p) => p.value === position)
     return pos ? pos.icon : '👤'
   }
 
-  // دالة للحصول على لون الوظيفة
   const getPositionColor = (position: string): string => {
     const colors: { [key: string]: string } = {
       مدرب: 'bg-green-100 text-green-800',
@@ -189,7 +332,6 @@ export default function StaffPage() {
     return colors[position] || 'bg-gray-100 text-gray-800'
   }
 
-  // إحصائيات حسب الوظيفة
   const getStaffByPosition = () => {
     const counts: { [key: string]: number } = {}
     staff.forEach((s) => {
@@ -201,13 +343,149 @@ export default function StaffPage() {
   }
 
   const staffByPosition = getStaffByPosition()
+  const presentStaff = todayAttendance.filter((att) => !att.checkOut).length
+  const totalCheckedIn = todayAttendance.length
 
   return (
     <div className="container mx-auto p-6" dir="rtl">
+      {/* ✅ قسم Scanner للحضور والانصراف */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-8 text-white">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+              <span className="text-5xl">🔢</span>
+              <span>سكانر الحضور والانصراف</span>
+            </h2>
+            <p className="text-blue-100">اكتب أو اسكن رقم الموظف للتسجيل التلقائي</p>
+          </div>
+          {lastScanTime && (
+            <div className="bg-white/20 backdrop-blur px-6 py-3 rounded-xl">
+              <p className="text-sm">آخر تسجيل</p>
+              <p className="text-xl font-bold">{lastScanTime.toLocaleTimeString('ar-EG')}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl p-6">
+          <input
+            ref={scannerRef}
+            type="text"
+            value={scannerInput}
+            onChange={(e) => setScannerInput(e.target.value)}
+            onKeyPress={handleScannerInput}
+            className="w-full px-6 py-6 border-4 border-blue-400 rounded-xl text-4xl font-bold text-center focus:border-blue-600 focus:ring-4 focus:ring-blue-200 transition text-gray-800"
+            placeholder="22"
+            autoFocus
+          />
+          <p className="text-center text-gray-600 mt-3 text-sm">
+            💡 اكتب الرقم واضغط Enter (أو استخدم Scanner لقراءة الرقم)
+          </p>
+        </div>
+
+        {scanMessage && (
+          <div
+            className={`mt-4 p-6 rounded-xl text-center font-bold text-2xl animate-pulse ${
+              scanMessage.includes('✅')
+                ? 'bg-green-500'
+                : 'bg-red-500'
+            }`}
+          >
+            {scanMessage}
+          </div>
+        )}
+      </div>
+
+      {/* ✅ قسم حضور اليوم */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-4 border-green-200">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            <span>📊</span>
+            <span>حضور اليوم</span>
+          </h3>
+          <div className="flex gap-4">
+            <div className="bg-green-100 px-6 py-3 rounded-xl text-center">
+              <p className="text-sm text-green-700">موجودين الآن</p>
+              <p className="text-3xl font-bold text-green-800">{presentStaff}</p>
+            </div>
+            <div className="bg-blue-100 px-6 py-3 rounded-xl text-center">
+              <p className="text-sm text-blue-700">إجمالي الحضور</p>
+              <p className="text-3xl font-bold text-blue-800">{totalCheckedIn}</p>
+            </div>
+          </div>
+        </div>
+
+        {todayAttendance.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-right">الرقم</th>
+                  <th className="px-4 py-3 text-right">الاسم</th>
+                  <th className="px-4 py-3 text-right">الوظيفة</th>
+                  <th className="px-4 py-3 text-right">وقت الحضور</th>
+                  <th className="px-4 py-3 text-right">وقت الانصراف</th>
+                  <th className="px-4 py-3 text-right">المدة</th>
+                  <th className="px-4 py-3 text-right">الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todayAttendance.map((att) => (
+                  <tr key={att.id} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <span className="bg-blue-500 text-white px-3 py-1 rounded-lg font-bold">
+                        #{att.staff.staffCode}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-bold">{att.staff.name}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${getPositionColor(
+                          att.staff.position || ''
+                        )}`}
+                      >
+                        {getPositionIcon(att.staff.position || '')} {att.staff.position || '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {new Date(att.checkIn).toLocaleTimeString('ar-EG')}
+                    </td>
+                    <td className="px-4 py-3">
+                      {att.checkOut
+                        ? new Date(att.checkOut).toLocaleTimeString('ar-EG')
+                        : '-'}
+                    </td>
+                    <td className="px-4 py-3 font-bold">
+                      {calculateDuration(att.checkIn, att.checkOut)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          att.checkOut
+                            ? 'bg-gray-200 text-gray-700'
+                            : 'bg-green-500 text-white animate-pulse'
+                        }`}
+                      >
+                        {att.checkOut ? '👋 انصرف' : '✅ موجود'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-400">
+            <div className="text-6xl mb-4">😴</div>
+            <p className="text-xl">لا يوجد حضور مسجل اليوم</p>
+          </div>
+        )}
+      </div>
+
+      {/* باقي الصفحة - إدارة الموظفين */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">👥 إدارة الموظفين</h1>
-          <p className="text-gray-600">إضافة وتعديل وحذف الموظفين</p>
+
         </div>
         <button
           onClick={() => {
@@ -249,6 +527,26 @@ export default function StaffPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* ✅ رقم الموظف */}
+              <div>
+                <label className="block text-sm font-bold mb-2 text-gray-700">
+                  رقم الموظف <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={formData.staffCode}
+                  onChange={(e) => setFormData({ ...formData, staffCode: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-2xl font-bold"
+                  placeholder="22"
+                  disabled={!!editingStaff}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {editingStaff ? '⚠️ لا يمكن تغيير الرقم بعد الإنشاء' : '💡 رقم بسيط مثل: 22, 33, 44'}
+                </p>
+              </div>
+
               {/* الاسم */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
@@ -260,7 +558,7 @@ export default function StaffPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                  placeholder="اسم الموظف"
+                  placeholder="محمد أحمد"
                 />
               </div>
 
@@ -414,30 +712,6 @@ export default function StaffPage() {
         </div>
       </div>
 
-      {/* إحصائيات الوظائف */}
-      {Object.keys(staffByPosition).length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <span>📊</span>
-            <span>توزيع الموظفين حسب الوظيفة</span>
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Object.entries(staffByPosition)
-              .sort(([, a], [, b]) => b - a)
-              .map(([position, count]) => (
-                <div
-                  key={position}
-                  className={`${getPositionColor(position)} rounded-lg p-4 text-center`}
-                >
-                  <div className="text-3xl mb-2">{getPositionIcon(position)}</div>
-                  <p className="font-bold text-lg">{position}</p>
-                  <p className="text-2xl font-black">{count}</p>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
       {/* جدول الموظفين */}
       {loading ? (
         <div className="text-center py-12">جاري التحميل...</div>
@@ -447,6 +721,7 @@ export default function StaffPage() {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
                 <tr>
+                  <th className="px-4 py-3 text-right">الرقم</th>
                   <th className="px-4 py-3 text-right">الاسم</th>
                   <th className="px-4 py-3 text-right">الهاتف</th>
                   <th className="px-4 py-3 text-right">الوظيفة</th>
@@ -461,9 +736,23 @@ export default function StaffPage() {
                     key={staffMember.id}
                     className={`border-t hover:bg-gray-50 transition ${
                       !staffMember.isActive ? 'opacity-60' : ''
-                    }`}
+                    } ${isStaffPresent(staffMember.id) ? 'bg-green-50' : ''}`}
                   >
-                    <td className="px-4 py-3 font-semibold">{staffMember.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xl">
+                        #{staffMember.staffCode}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{staffMember.name}</span>
+                        {isStaffPresent(staffMember.id) && (
+                          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                            ✅ موجود
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{staffMember.phone || '-'}</td>
                     <td className="px-4 py-3">
                       <span

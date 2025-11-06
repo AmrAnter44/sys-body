@@ -134,18 +134,34 @@ model MemberCounter {
 }
 
 model Staff {
-  id        String    @id @default(cuid())
-  name      String
-  phone     String?
-  position  String?
-  salary    Float?
-  notes     String?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  expenses  Expense[]
+  id         String       @id @default(cuid())
+  staffCode  Int?    @unique
+  name       String
+  phone      String?
+  position   String?
+  salary     Float?
+  notes      String?
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  expenses   Expense[]
+  attendance Attendance[] 
 }
 
+
+model Attendance {
+  id          String    @id @default(cuid())
+  staffId     String
+  staff       Staff     @relation(fields: [staffId], references: [id])
+  checkIn     DateTime  
+  checkOut    DateTime? 
+  duration    Int?      
+  notes       String?
+  createdAt   DateTime  @default(now())
+  
+  @@index([staffId])
+  @@index([checkIn])
+}
 model Expense {
   id          String   @id @default(cuid())
   type        String   
@@ -170,3 +186,4 @@ model Invitation {
   memberId    String
   member      Member   @relation(fields: [memberId], references: [id])
 }
+
