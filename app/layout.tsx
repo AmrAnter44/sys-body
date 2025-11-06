@@ -4,8 +4,8 @@ import Navbar from '../components/Navbar'
 import { PreventInputScroll } from './PreventInputScroll'
 
 export const metadata: Metadata = {
-  title: 'نظام إدارة الصالة الرياضية',
-  description: 'نظام شامل لإدارة صالات الرياضة',
+  title: 'نظام إدارة الصالة الرياضية - X GYM',
+  description: 'نظام شامل لإدارة صالات الرياضة مع البحث السريع',
 }
 
 export default function RootLayout({
@@ -15,6 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
+      <head>
+        <link rel="icon" href="/icon.png" />
+      </head>
       <body className="bg-gray-50 min-h-screen">
         <PreventInputScroll />
         <Navbar />
