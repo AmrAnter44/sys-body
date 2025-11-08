@@ -26,6 +26,7 @@ export default function Navbar() {
     { href: '/search', label: 'البحث', icon: '🔍' },
     { href: '/closing', label: 'التقفيل', icon: '💰' },
     { href: '/settings', label: 'الإعدادات', icon: '⚙️' },
+    { href: '/attendance-report', label: 'حضور', icon: '📊' },
   ]
 
   // Open search modal with Ctrl+K

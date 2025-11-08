@@ -290,16 +290,7 @@ const handleScan = async (staffCode: string) => {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) return
 
-    try {
-      await fetch(`/api/staff?id=${id}`, { method: 'DELETE' })
-      fetchStaff()
-    } catch (error) {
-      console.error('Error:', error)
-    }
-  }
 
   const toggleActive = async (staffMember: Staff) => {
     try {
@@ -791,12 +782,7 @@ const handleScan = async (staffCode: string) => {
                         >
                           ✏️ تعديل
                         </button>
-                        <button
-                          onClick={() => handleDelete(staffMember.id)}
-                          className="text-red-600 hover:text-red-800 font-semibold transition hover:underline"
-                        >
-                          🗑️ حذف
-                        </button>
+
                       </div>
                     </td>
                   </tr>

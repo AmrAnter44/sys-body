@@ -1,103 +1,102 @@
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
 model Member {
-  id                String    @id @default(cuid())
-  memberNumber      Int?      @unique // ✅ جعلها اختيارية لدعم Other
+  id                String       @id @default(cuid())
+  memberNumber      Int          @unique
   name              String
   phone             String
   profileImage      String?
-  inBodyScans       Int       @default(0)
-  invitations       Int       @default(0)
-  freePTSessions    Int       @default(0)
+  inBodyScans       Int          @default(0)
+  invitations       Int          @default(0)
+  freePTSessions    Int          @default(0)
   subscriptionPrice Float
-  remainingAmount   Float     @default(0)
+  remainingAmount   Float        @default(0)
   notes             String?
-  isActive          Boolean   @default(true)
+  isActive          Boolean      @default(true)
   startDate         DateTime?
   expiryDate        DateTime?
-  createdAt         DateTime  @default(now())
-  receipts          Receipt[]
+  createdAt         DateTime     @default(now())
   invitationRecords Invitation[]
+  receipts          Receipt[]
 }
 
 model PT {
-  ptNumber          Int         @id
+  ptNumber          Int         @id @default(autoincrement())
   clientName        String
   phone             String
   sessionsPurchased Int
   sessionsRemaining Int
   coachName         String
   pricePerSession   Float
-  startDate         DateTime? 
-  expiryDate        DateTime? 
+  startDate         DateTime?
+  expiryDate        DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-  receipts          Receipt[]
   sessions          PTSession[]
+  receipts          Receipt[]
 }
 
 model PTSession {
-  id            String   @id @default(cuid())
-  ptNumber      Int
-  pt            PT       @relation(fields: [ptNumber], references: [ptNumber])
-  clientName    String
-  coachName     String
-  sessionDate   DateTime
-  notes         String?
-  createdAt     DateTime @default(now())
-  
+  id          String   @id @default(cuid())
+  ptNumber    Int
+  clientName  String
+  coachName   String
+  sessionDate DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  pt          PT       @relation(fields: [ptNumber], references: [ptNumber])
+
   @@index([ptNumber])
   @@index([sessionDate])
 }
 
 model DayUseInBody {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   phone       String
-  serviceType String   
+  serviceType String
   price       Float
   staffName   String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   receipts    Receipt[]
 }
 
 model Visitor {
-  id            String      @id @default(cuid())
-  name          String
-  phone         String      @unique
-  notes         String?
-  source        String      @default("walk-in")
-  interestedIn  String?
-  status        String      @default("pending")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  
-  followUps     FollowUp[]
-  
+  id           String     @id @default(cuid())
+  name         String
+  phone        String     @unique
+  notes        String?
+  source       String     @default("walk-in")
+  interestedIn String?
+  status       String     @default("pending")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  followUps    FollowUp[]
+
   @@index([status])
   @@index([createdAt])
   @@index([phone])
 }
 
 model FollowUp {
-  id                String    @id @default(cuid())
-  visitorId         String
-  visitor           Visitor   @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  notes             String
-  contacted         Boolean   @default(false)
-  nextFollowUpDate  DateTime?
-  result            String?
-  salesName         String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
+  id               String    @id @default(cuid())
+  visitorId        String
+  notes            String
+  contacted        Boolean   @default(false)
+  nextFollowUpDate DateTime?
+  result           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  salesName        String?
+  visitor          Visitor   @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
   @@index([visitorId])
   @@index([nextFollowUpDate])
   @@index([contacted])
@@ -106,36 +105,33 @@ model FollowUp {
 model Receipt {
   id            String        @id @default(cuid())
   receiptNumber Int           @unique
-  type          String        
+  type          String
   amount        Float
-  itemDetails   String        
-  paymentMethod String        @default("cash") 
-  staffName     String?       // ✅ إضافة اسم الموظف
+  itemDetails   String
+  paymentMethod String        @default("cash")
   createdAt     DateTime      @default(now())
-  
+  staffName    String?   // ✅ حقل جديد
   memberId      String?
-  member        Member?       @relation(fields: [memberId], references: [id])
-  
   ptNumber      Int?
-  pt            PT?           @relation(fields: [ptNumber], references: [ptNumber])
-  
   dayUseId      String?
   dayUse        DayUseInBody? @relation(fields: [dayUseId], references: [id])
+  pt            PT?           @relation(fields: [ptNumber], references: [ptNumber])
+  member        Member?       @relation(fields: [memberId], references: [id])
 }
 
 model ReceiptCounter {
-  id      Int @id @default(1)
+  id      Int @id @default(autoincrement())
   current Int @default(1000)
 }
 
 model MemberCounter {
-  id      Int @id @default(1)
+  id      Int @id @default(autoincrement())
   current Int @default(1000)
 }
 
 model Staff {
   id         String       @id @default(cuid())
-  staffCode  Int?    @unique
+  staffCode  Int          @unique  // ✅ رقم الموظف الفريد
   name       String
   phone      String?
   position   String?
@@ -145,45 +141,44 @@ model Staff {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   expenses   Expense[]
-  attendance Attendance[] 
+  attendance Attendance[] // ✅ علاقة الحضور
+
+  @@index([staffCode])
 }
 
-
 model Attendance {
-  id          String    @id @default(cuid())
-  staffId     String
-  staff       Staff     @relation(fields: [staffId], references: [id])
-  checkIn     DateTime  
-  checkOut    DateTime? 
-  duration    Int?      
-  notes       String?
-  createdAt   DateTime  @default(now())
-  
+  id        String   @id @default(cuid())
+  staffId   String
+  checkIn   DateTime
+  checkOut  DateTime?
+  duration  Int?     // بالدقائق
+  notes     String?
+  createdAt DateTime @default(now())
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
   @@index([staffId])
   @@index([checkIn])
 }
+
 model Expense {
   id          String   @id @default(cuid())
-  type        String   
+  type        String
   amount      Float
   description String
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
   staffId     String?
-  staff       Staff?   @relation(fields: [staffId], references: [id])
   isPaid      Boolean  @default(false)
+  staff       Staff?   @relation(fields: [staffId], references: [id])
 }
 
 model Invitation {
-  id          String   @id @default(cuid())
-  guestName   String
-  guestPhone  String
-  notes       String?
-  createdAt   DateTime @default(now())
-  
-  memberId    String
-  member      Member   @relation(fields: [memberId], references: [id])
+  id         String   @id @default(cuid())
+  guestName  String
+  guestPhone String
+  notes      String?
+  createdAt  DateTime @default(now())
+  memberId   String
+  member     Member   @relation(fields: [memberId], references: [id])
 }
-
