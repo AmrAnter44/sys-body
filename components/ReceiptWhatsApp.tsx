@@ -231,7 +231,7 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
                   setShowSendModal(false)
                   setPhone('')
                 }}
-                disabled={sending}
+                disabled={sending} 
                 className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition disabled:opacity-50"
               >
                 إلغاء

@@ -11,10 +11,15 @@ export async function generateBarcode(text: string): Promise<string> {
     bwipjs.toCanvas(canvas, {
       bcid: 'code128',       // نوع الباركود
       text: text,            // النص المراد تحويله
-      scale: 3,              // حجم الصورة
-      height: 10,            // ارتفاع الباركود (بالمليمتر)
+      scale: 6,              // حجم الصورة
+      height: 14,            // ارتفاع الباركود (بالمليمتر)
       includetext: true,     // عرض النص تحت الباركود
       textxalign: 'center',  // محاذاة النص
+      backgroundcolor: 'ffffff',  // ✅ خلفية بيضاء
+      barcolor: '000000',         // ✅ لون الباركود أسود
+      textcolor: '000000',        // ✅ لون النص أسود
+      paddingwidth: 24,           // ✅ مسافة من الجوانب
+      paddingheight: 12,           // ✅ مسافة من أعلى وأسفل
     })
     
     return canvas.toDataURL('image/png')

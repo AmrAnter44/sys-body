@@ -28,9 +28,31 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
     }
   }
 
-  const handleSendBarcode = () => {
-    const message = prepareBarcodeMessage(memberNumber, memberName)
-    sendWhatsAppMessage(memberPhone, message)
+  const handleSendBarcode = async () => {
+    try {
+      // أولاً: توليد وتحميل الباركود
+      let imageToDownload = barcodeImage
+      
+      if (!imageToDownload) {
+        imageToDownload = await generateBarcode(memberNumber.toString())
+        setBarcodeImage(imageToDownload)
+      }
+      
+      // تحميل صورة الباركود تلقائياً
+      downloadBarcode(imageToDownload, `barcode-${memberNumber}.png`)
+      
+      // الانتظار قليلاً ثم فتح واتساب
+      setTimeout(() => {
+        const message = prepareBarcodeMessage(memberNumber, memberName)
+        sendWhatsAppMessage(memberPhone, message)
+        
+        // رسالة توضيحية للمستخدم
+        alert('✅ تم تحميل صورة الباركود!\n\n📱 سيتم فتح واتساب الآن، قم بإرفاق الصورة المحملة مع الرسالة.')
+      }, 500)
+    } catch (error) {
+      console.error('Error:', error)
+      alert('حدث خطأ أثناء معالجة الباركود')
+    }
   }
 
   const handleDownloadBarcode = () => {
@@ -69,7 +91,7 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
             className="bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2"
           >
             <span>📲</span>
-            <span>إرسال واتساب</span>
+            <span>تحميل وإرسال واتساب</span>
           </button>
         </div>
       </div>
@@ -131,7 +153,7 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
                 className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold flex items-center justify-center gap-2"
               >
                 <span>📲</span>
-                <span>إرسال عبر واتساب</span>
+                <span>تحميل وإرسال عبر واتساب</span>
               </button>
 
               <button
@@ -143,10 +165,16 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
             </div>
 
             {/* ملاحظة */}
-            <div className="mt-4 bg-yellow-50 border-r-4 border-yellow-400 p-3 rounded-lg">
-              <p className="text-xs text-yellow-800">
-                💡 يمكن استخدام هذا الباركود للدخول السريع بمسح الكود
+            <div className="mt-4 bg-blue-50 border-r-4 border-blue-400 p-3 rounded-lg">
+              <p className="text-xs text-blue-800 font-semibold mb-2">
+                📱 كيفية الإرسال عبر واتساب:
               </p>
+              <ol className="text-xs text-blue-700 space-y-1 pr-4">
+                <li>1️⃣ اضغط على "تحميل وإرسال"</li>
+                <li>2️⃣ سيتم تحميل صورة الباركود تلقائياً</li>
+                <li>3️⃣ سيفتح واتساب مع الرسالة</li>
+                <li>4️⃣ أرفق الصورة المحملة مع الرسالة</li>
+              </ol>
             </div>
           </div>
         </div>

@@ -6,14 +6,14 @@ import { ReceiptToPrint } from '../components/ReceiptToPrint'
 import PaymentMethodSelector from './Paymentmethodselector'
 import { formatDateYMD, calculateRemainingDays } from '../lib/dateFormatter'
 import ImageUpload from '../components/ImageUpload'
-import BarcodeWhatsApp from '../components/BarcodeWhatsApp' 
-// في MemberDetailPage - تحديث interface
+import BarcodeWhatsApp from '../components/BarcodeWhatsApp'
+
 interface Member {
   id: string
   memberNumber: number
   name: string
   phone: string
-  profileImage?: string | null // ✅ إضافة الصورة
+  profileImage?: string | null
   inBodyScans: number
   invitations: number
   freePTSessions?: number
@@ -37,7 +37,6 @@ export default function MemberDetailPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
 
-  // نماذج العمليات
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: 'cash',
@@ -51,7 +50,6 @@ export default function MemberDetailPage() {
 
   const [activeModal, setActiveModal] = useState<string | null>(null)
 
-  // جلب بيانات العضو
   const fetchMember = async () => {
     try {
       const response = await fetch('/api/members')
@@ -75,7 +73,6 @@ export default function MemberDetailPage() {
     fetchMember()
   }, [memberId])
 
-  // دفع المبلغ المتبقي
   const handlePayment = async () => {
     if (!member || paymentData.amount <= 0) {
       alert('يرجى إدخال مبلغ صحيح')
@@ -103,7 +100,6 @@ export default function MemberDetailPage() {
       })
 
       if (response.ok) {
-        // إنشاء إيصال للدفع
         const receiptResponse = await fetch('/api/receipts/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -145,7 +141,6 @@ export default function MemberDetailPage() {
     }
   }
 
-  // تنقيص حصة InBody
   const handleUseInBody = async () => {
     if (!member || member.inBodyScans <= 0) {
       alert('لا توجد حصص InBody متبقية')
@@ -176,12 +171,7 @@ export default function MemberDetailPage() {
       setLoading(false)
     }
   }
-      <BarcodeWhatsApp
-        memberNumber={member.memberNumber}
-        memberName={member.name}
-        memberPhone={member.phone}
-      />
-  // تنقيص حصة دعوة
+
   const handleUseInvitation = async () => {
     if (!member || member.invitations <= 0) {
       alert('لا توجد دعوات متبقية')
@@ -213,7 +203,6 @@ export default function MemberDetailPage() {
     }
   }
 
-  // تنقيص حصة PT مجانية
   const handleUseFreePT = async () => {
     if (!member || member.freePTSessions <= 0) {
       alert('لا توجد حصص PT مجانية متبقية')
@@ -245,7 +234,6 @@ export default function MemberDetailPage() {
     }
   }
 
-  // تجميد الاشتراك (إضافة أيام)
   const handleFreeze = async () => {
     if (!member || !member.expiryDate || freezeData.days <= 0) {
       alert('يرجى إدخال عدد أيام صحيح')
@@ -311,7 +299,6 @@ export default function MemberDetailPage() {
 
   return (
     <div className="container mx-auto p-6" dir="rtl">
-      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">👤 تفاصيل العضو</h1>
@@ -331,149 +318,149 @@ export default function MemberDetailPage() {
         </div>
       )}
 
- {/* بطاقة معلومات العضو */}
-<div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-2xl p-8 mb-6">
-  {/* ✅ إضافة الصورة */}
-  <div className="flex items-center gap-6 mb-6 pb-6 border-b border-white border-opacity-20">
-    {/* صورة العضو */}
-    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white bg-opacity-20 flex-shrink-0">
-      {member.profileImage ? (
-        <img 
-          src={member.profileImage} 
-          alt={member.name}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-white">
-          <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-2xl p-8 mb-6">
+        <div className="flex items-center gap-6 mb-6 pb-6 border-b border-white border-opacity-20">
+          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white bg-opacity-20 flex-shrink-0">
+            {member.profileImage ? (
+              <img 
+                src={member.profileImage} 
+                alt={member.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white">
+                <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1">
+            <p className="text-sm opacity-90 mb-2">رقم العضوية</p>
+            <p className="text-5xl font-bold mb-4">#{member.memberNumber}</p>
+            <p className="text-sm opacity-90 mb-2">الاسم</p>
+            <p className="text-3xl font-bold">{member.name}</p>
+          </div>
+
+          <div className="text-left">
+            <p className="text-sm opacity-90 mb-2">رقم الهاتف</p>
+            <p className="text-2xl font-mono">{member.phone}</p>
+          </div>
         </div>
-      )}
-    </div>
 
-    {/* المعلومات الأساسية */}
-    <div className="flex-1">
-      <p className="text-sm opacity-90 mb-2">رقم العضوية</p>
-      <p className="text-5xl font-bold mb-4">#{member.memberNumber}</p>
-      <p className="text-sm opacity-90 mb-2">الاسم</p>
-      <p className="text-3xl font-bold">{member.name}</p>
-    </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white bg-opacity-20 rounded-lg p-4">
+            <p className="text-sm opacity-90">الحالة</p>
+            <p className="text-lg font-bold">
+              {member.isActive && !isExpired ? '✅ نشط' : '❌ منتهي'}
+            </p>
+          </div>
+          <div className="bg-white bg-opacity-20 rounded-lg p-4">
+            <p className="text-sm opacity-90">تاريخ الانتهاء</p>
+            <p className="text-lg font-mono">
+              {formatDateYMD(member.expiryDate)}
+            </p>
+            {daysRemaining !== null && daysRemaining > 0 && (
+              <p className="text-xs opacity-75 mt-1">باقي {daysRemaining} يوم</p>
+            )}
+          </div>
+          <div className="bg-white bg-opacity-20 rounded-lg p-4">
+            <p className="text-sm opacity-90">سعر الاشتراك</p>
+            <p className="text-2xl font-bold">{member.subscriptionPrice} ج.م</p>
+          </div>
+          <div className="bg-white bg-opacity-20 rounded-lg p-4">
+            <p className="text-sm opacity-90">المبلغ المتبقي</p>
+            <p className="text-2xl font-bold text-yellow-300">{member.remainingAmount} ج.م</p>
+          </div>
+        </div>
+      </div>
 
-    {/* رقم الهاتف */}
-    <div className="text-left">
-      <p className="text-sm opacity-90 mb-2">رقم الهاتف</p>
-      <p className="text-2xl font-mono">{member.phone}</p>
-    </div>
-  </div>
+      {/* ✅ إضافة Barcode WhatsApp Component */}
+      <div className="mb-6">
+        <BarcodeWhatsApp
+          memberNumber={member.memberNumber}
+          memberName={member.name}
+          memberPhone={member.phone}
+        />
+      </div>
 
-  {/* باقي تفاصيل الاشتراك */}
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div className="bg-white bg-opacity-20 rounded-lg p-4">
-      <p className="text-sm opacity-90">الحالة</p>
-      <p className="text-lg font-bold">
-        {member.isActive && !isExpired ? '✅ نشط' : '❌ منتهي'}
-      </p>
-    </div>
-    <div className="bg-white bg-opacity-20 rounded-lg p-4">
-      <p className="text-sm opacity-90">تاريخ الانتهاء</p>
-      <p className="text-lg font-mono">
-        {formatDateYMD(member.expiryDate)}
-      </p>
-      {daysRemaining !== null && daysRemaining > 0 && (
-        <p className="text-xs opacity-75 mt-1">باقي {daysRemaining} يوم</p>
-      )}
-    </div>
-    <div className="bg-white bg-opacity-20 rounded-lg p-4">
-      <p className="text-sm opacity-90">سعر الاشتراك</p>
-      <p className="text-2xl font-bold">{member.subscriptionPrice} ج.م</p>
-    </div>
-    <div className="bg-white bg-opacity-20 rounded-lg p-4">
-      <p className="text-sm opacity-90">المبلغ المتبقي</p>
-      <p className="text-2xl font-bold text-yellow-300">{member.remainingAmount} ج.م</p>
-    </div>
-  </div>
-</div>
-
-{/* ✅ تعديل الصورة */}
-<div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-  <div className="flex items-center gap-3 mb-4">
-    <div className="bg-purple-100 p-3 rounded-full">
-      <span className="text-3xl">📷</span>
-    </div>
-    <div>
-      <h3 className="text-xl font-bold">تعديل الصورة</h3>
-      <p className="text-sm text-gray-600">تغيير صورة العضو</p>
-    </div>
-  </div>
-  <button
-    onClick={() => setActiveModal('edit-image')}
-    disabled={loading}
-    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
-  >
-    📷 تعديل الصورة
-  </button>
-</div>
-
-{/* ✅ Modal تعديل الصورة */}
-{activeModal === 'edit-image' && (
-  <div 
-    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-    style={{ zIndex: 9999 }}
-    onClick={(e) => {
-      if (e.target === e.currentTarget) setActiveModal(null)
-    }}
-  >
-    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-2xl font-bold">📷 تعديل صورة العضو</h3>
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-purple-100 p-3 rounded-full">
+            <span className="text-3xl">📷</span>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">تعديل الصورة</h3>
+            <p className="text-sm text-gray-600">تغيير صورة العضو</p>
+          </div>
+        </div>
         <button
-          onClick={() => setActiveModal(null)}
-          className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
-          type="button"
+          onClick={() => setActiveModal('edit-image')}
+          disabled={loading}
+          className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
         >
-          ×
+          📷 تعديل الصورة
         </button>
       </div>
 
-      <ImageUpload
-        currentImage={member.profileImage}
-        onImageChange={async (url) => {
-          try {
-            const response = await fetch('/api/members', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: member.id,
-                profileImage: url
-              })
-            })
+      {activeModal === 'edit-image' && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveModal(null)
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold">📷 تعديل صورة العضو</h3>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+                type="button"
+              >
+                ×
+              </button>
+            </div>
 
-            if (response.ok) {
-              setMessage('✅ تم تحديث الصورة بنجاح')
-              setTimeout(() => setMessage(''), 3000)
-              setActiveModal(null)
-              fetchMember()
-            }
-          } catch (error) {
-            setMessage('❌ فشل تحديث الصورة')
-          }
-        }}
-        disabled={loading}
-      />
+            <ImageUpload
+              currentImage={member.profileImage}
+              onImageChange={async (url) => {
+                try {
+                  const response = await fetch('/api/members', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      id: member.id,
+                      profileImage: url
+                    })
+                  })
 
-      <button
-        type="button"
-        onClick={() => setActiveModal(null)}
-        className="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
-      >
-        إغلاق
-      </button>
-    </div>
-  </div>
-)}
+                  if (response.ok) {
+                    setMessage('✅ تم تحديث الصورة بنجاح')
+                    setTimeout(() => setMessage(''), 3000)
+                    setActiveModal(null)
+                    fetchMember()
+                  }
+                } catch (error) {
+                  setMessage('❌ فشل تحديث الصورة')
+                }
+              }}
+              disabled={loading}
+            />
 
-      {/* الحصص المتاحة */}
+            <button
+              type="button"
+              onClick={() => setActiveModal(null)}
+              className="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-lg p-6 border-r-4 border-green-500">
           <div className="flex items-center justify-between mb-4">
@@ -527,9 +514,7 @@ export default function MemberDetailPage() {
         </div>
       </div>
 
-      {/* العمليات الرئيسية */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* دفع المبلغ المتبقي */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-green-100 p-3 rounded-full">
@@ -549,7 +534,6 @@ export default function MemberDetailPage() {
           </button>
         </div>
 
-        {/* تجميد الاشتراك */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-blue-100 p-3 rounded-full">
@@ -570,7 +554,6 @@ export default function MemberDetailPage() {
         </div>
       </div>
 
-      {/* Modal: دفع المبلغ */}
       {activeModal === 'payment' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
@@ -653,7 +636,6 @@ export default function MemberDetailPage() {
         </div>
       )}
 
-      {/* Modal: تجميد */}
       {activeModal === 'freeze' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
@@ -735,7 +717,6 @@ export default function MemberDetailPage() {
         </div>
       )}
 
-      {/* الإيصال */}
       {showReceipt && receiptData && (
         <ReceiptToPrint
           receiptNumber={receiptData.receiptNumber}

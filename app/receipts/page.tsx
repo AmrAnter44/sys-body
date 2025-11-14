@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { printReceiptFromData } from '../../lib/printSystem'
+import ReceiptWhatsApp from '../../components/ReceiptWhatsApp'
 
 interface ReceiptData {
   id: string
@@ -27,7 +28,7 @@ export default function ReceiptsPage() {
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
   const [nextReceiptNumber, setNextReceiptNumber] = useState<number>(1000)
   
-  // ✅ حالات Modal التعديل
+  // حالات Modal التعديل
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingReceipt, setEditingReceipt] = useState<ReceiptData | null>(null)
   const [editFormData, setEditFormData] = useState({
@@ -39,7 +40,11 @@ export default function ReceiptsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [updateMessage, setUpdateMessage] = useState('')
 
-  // ✅ حالات Modal الحذف
+  // حالات Modal التفاصيل
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [viewingReceipt, setViewingReceipt] = useState<ReceiptData | null>(null)
+
+  // حالات Modal الحذف
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingReceipt, setDeletingReceipt] = useState<ReceiptData | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -67,7 +72,7 @@ export default function ReceiptsPage() {
     }
   }
 
-  // ✅ فتح Modal التعديل
+  // فتح Modal التعديل
   const handleOpenEditModal = (receipt: ReceiptData) => {
     setEditingReceipt(receipt)
     setEditFormData({
@@ -80,7 +85,7 @@ export default function ReceiptsPage() {
     setUpdateMessage('')
   }
 
-  // ✅ تحديث الإيصال
+  // تحديث الإيصال
   const handleUpdateReceipt = async () => {
     if (!editingReceipt) return
 
@@ -117,11 +122,8 @@ export default function ReceiptsPage() {
 
       if (response.ok) {
         setUpdateMessage('✅ تم تحديث الإيصال بنجاح')
-        
-        // تحديث القائمة
         await fetchReceipts()
         
-        // إغلاق Modal بعد ثانيتين
         setTimeout(() => {
           setShowEditModal(false)
           setUpdateMessage('')
@@ -138,13 +140,13 @@ export default function ReceiptsPage() {
     }
   }
 
-  // ✅ فتح Modal الحذف
+  // فتح Modal الحذف
   const handleOpenDeleteModal = (receipt: ReceiptData) => {
     setDeletingReceipt(receipt)
     setShowDeleteModal(true)
   }
 
-  // ✅ حذف الإيصال
+  // حذف الإيصال
   const handleDeleteReceipt = async () => {
     if (!deletingReceipt) return
 
@@ -158,10 +160,7 @@ export default function ReceiptsPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // تحديث القائمة
         await fetchReceipts()
-        
-        // إغلاق Modal
         setShowDeleteModal(false)
         setDeletingReceipt(null)
       } else {
@@ -173,6 +172,12 @@ export default function ReceiptsPage() {
     } finally {
       setIsDeleting(false)
     }
+  }
+
+  // فتح Modal التفاصيل
+  const handleOpenDetailsModal = (receipt: ReceiptData) => {
+    setViewingReceipt(receipt)
+    setShowDetailsModal(true)
   }
 
   useEffect(() => {
@@ -581,8 +586,11 @@ export default function ReceiptsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {/* ✅ أزرار الإجراءات */}
-                        <div className="flex gap-2">
+                        <ReceiptWhatsApp 
+                          receipt={receipt}
+                          onDetailsClick={() => handleOpenDetailsModal(receipt)}
+                        />
+                        <div className="flex gap-2 mt-2">
                           <button
                             onClick={() => handlePrintReceipt(receipt)}
                             className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition font-medium shadow-md hover:shadow-lg flex items-center gap-1"
@@ -617,7 +625,7 @@ export default function ReceiptsPage() {
 
           {filteredReceipts.length === 0 && (
             <div className="text-center py-20 text-gray-500">
-              <div className="text-6xl mb-4">📭</div>
+              <div className="text-6xl mb-4">🔍</div>
               <p className="text-xl font-medium">لا توجد إيصالات تطابق البحث</p>
               <p className="text-sm mt-2">جرّب تغيير معايير البحث أو الفلترة</p>
             </div>
@@ -625,24 +633,237 @@ export default function ReceiptsPage() {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="mt-6 bg-blue-50 border-r-4 border-blue-500 p-5 rounded-lg">
-        <div className="flex items-start gap-3">
-          <div className="text-3xl">💡</div>
-          <div className="flex-1">
-            <h4 className="font-bold text-blue-800 mb-2">نصائح سريعة</h4>
-            <ul className="space-y-1 text-sm text-blue-800">
-              <li>• استخدم البحث للعثور على إيصال محدد برقمه أو باسم العميل أو الموظف</li>
-              <li>• فلتر حسب طريقة الدفع لمعرفة الإيرادات من كل وسيلة</li>
-              <li>• اطبع الإيصال مباشرة من زر 🖨️</li>
-              <li>• عدّل أي إيصال من زر ✏️</li>
-              <li>• احذف إيصال خاطئ من زر 🗑️</li>
-            </ul>
+      {/* Modal تفاصيل الإيصال */}
+      {showDetailsModal && viewingReceipt && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDetailsModal(false)
+              setViewingReceipt(null)
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">🧾</span>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">تفاصيل الإيصال</h2>
+                  <p className="text-sm text-gray-500">إيصال #{viewingReceipt.receiptNumber}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false)
+                  setViewingReceipt(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* معلومات الإيصال الأساسية */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">رقم الإيصال</p>
+                  <p className="text-3xl font-bold text-green-600">#{viewingReceipt.receiptNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">النوع</p>
+                  <span className={`px-4 py-2 rounded-lg text-sm font-bold ${getTypeColor(viewingReceipt.type)}`}>
+                    {getTypeLabel(viewingReceipt.type)}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">المبلغ</p>
+                  <p className="text-3xl font-bold text-green-600">{viewingReceipt.amount} ج.م</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">طريقة الدفع</p>
+                  <span className={`px-4 py-2 rounded-lg text-sm font-bold border-2 ${getPaymentMethodColor(viewingReceipt.paymentMethod)}`}>
+                    {getPaymentMethodLabel(viewingReceipt.paymentMethod)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* تفاصيل العميل */}
+            {(() => {
+              const details = JSON.parse(viewingReceipt.itemDetails)
+              return (
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 mb-6">
+                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span>👤</span>
+                    <span>تفاصيل العميل</span>
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {details.memberNumber && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <span className="text-gray-600">رقم العضوية:</span>
+                        <span className="font-bold text-blue-600">#{details.memberNumber}</span>
+                      </div>
+                    )}
+                    
+                    {(details.memberName || details.clientName || details.name) && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <span className="text-gray-600">الاسم:</span>
+                        <span className="font-bold text-gray-800">
+                          {details.memberName || details.clientName || details.name}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {details.phone && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <span className="text-gray-600">الهاتف:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-800 dir-ltr">{details.phone}</span>
+                          <button
+                            onClick={() => {
+                              const receiptMessage = `السلام عليكم ورحمة الله وبركاته\n\nإيصالك:\n\nرقم الإيصال: #${viewingReceipt.receiptNumber}\nالمبلغ: ${viewingReceipt.amount} ج.م\nطريقة الدفع: ${getPaymentMethodLabel(viewingReceipt.paymentMethod)}\nالتاريخ: ${new Date(viewingReceipt.createdAt).toLocaleDateString('ar-EG')}\n\nشكراً لك 🙏`
+                              window.open(`https://wa.me/${details.phone}?text=${encodeURIComponent(receiptMessage)}`, '_blank')
+                            }}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1"
+                          >
+                            <span>📱</span>
+                            <span>أرسل</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {details.coachName && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <span className="text-gray-600">المدرب:</span>
+                        <span className="font-bold text-gray-800">{details.coachName}</span>
+                      </div>
+                    )}
+
+                    {details.sessionsPurchased && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <span className="text-gray-600">الجلسات المشتراة:</span>
+                        <span className="font-bold text-gray-800">{details.sessionsPurchased} جلسة</span>
+                      </div>
+                    )}
+
+                    {details.serviceType && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <span className="text-gray-600">نوع الخدمة:</span>
+                        <span className="font-bold text-gray-800">
+                          {details.serviceType === 'DayUse' ? 'يوم استخدام' : 'InBody'}
+                        </span>
+                      </div>
+                    )}
+
+                    {details.remainingAmount > 0 && (
+                      <div className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-200">
+                        <span className="text-red-600 font-bold">المبلغ المتبقي:</span>
+                        <span className="font-bold text-red-600">{details.remainingAmount} ج.م</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* معلومات العملية */}
+            <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 mb-6">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>⚙️</span>
+                <span>معلومات العملية</span>
+              </h3>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                  <span className="text-gray-600">التاريخ والوقت:</span>
+                  <span className="font-bold text-gray-800">
+                    {new Date(viewingReceipt.createdAt).toLocaleDateString('ar-EG', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                
+                {viewingReceipt.staffName && (
+                  <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                    <span className="text-gray-600">الموظف المسؤول:</span>
+                    <span className="font-bold text-gray-800 flex items-center gap-2">
+                      <span>👷</span>
+                      {viewingReceipt.staffName}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* أزرار الإجراءات */}
+            <div className="flex gap-3">
+              {(() => {
+                const details = JSON.parse(viewingReceipt.itemDetails)
+                return details.phone ? (
+                  <button
+                    onClick={() => {
+                      const receiptMessage = `السلام عليكم ورحمة الله وبركاته\n\nإيصالك:\n\nرقم الإيصال: #${viewingReceipt.receiptNumber}\nالمبلغ: ${viewingReceipt.amount} ج.م\nطريقة الدفع: ${getPaymentMethodLabel(viewingReceipt.paymentMethod)}\nالتاريخ: ${new Date(viewingReceipt.createdAt).toLocaleDateString('ar-EG')}\n\nشكراً لك 🙏`
+                      window.open(`https://wa.me/${details.phone}?text=${encodeURIComponent(receiptMessage)}`, '_blank')
+                    }}
+                    className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg font-bold hover:from-green-600 hover:to-green-700 transition flex items-center justify-center gap-2"
+                  >
+                    <span>📱</span>
+                    <span>إرسال واتساب</span>
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="flex-1 bg-gray-300 text-gray-600 px-6 py-3 rounded-lg font-bold cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <span>📱</span>
+                    <span>لا يوجد رقم هاتف</span>
+                  </button>
+                )
+              })()}
+              
+              <button
+                onClick={() => handlePrintReceipt(viewingReceipt)}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:from-blue-600 hover:to-blue-700 transition flex items-center justify-center gap-2"
+              >
+                <span>🖨️</span>
+                <span>طباعة</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false)
+                  setViewingReceipt(null)
+                  handleOpenEditModal(viewingReceipt)
+                }}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-bold hover:from-orange-600 hover:to-orange-700 transition flex items-center justify-center gap-2"
+              >
+                <span>✏️</span>
+                <span>تعديل</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false)
+                  setViewingReceipt(null)
+                }}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ✅ Modal تعديل الإيصال */}
+      {/* Modal تعديل الإيصال */}
       {showEditModal && editingReceipt && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
@@ -794,7 +1015,7 @@ export default function ReceiptsPage() {
         </div>
       )}
 
-      {/* ✅ Modal تأكيد الحذف */}
+      {/* Modal تأكيد الحذف */}
       {showDeleteModal && deletingReceipt && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" dir="rtl">
@@ -858,19 +1079,22 @@ export default function ReceiptsPage() {
         </div>
       )}
 
-      {/* CSS للأنيميشن */}
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-      `}</style>
+      {/* Quick Actions */}
+      <div className="mt-6 bg-blue-50 border-r-4 border-blue-500 p-5 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="text-3xl">💡</div>
+          <div className="flex-1">
+            <h4 className="font-bold text-blue-800 mb-2">نصائح سريعة</h4>
+            <ul className="space-y-1 text-sm text-blue-800">
+              <li>• استخدم البحث للعثور على إيصال محدد برقمه أو باسم العميل أو الموظف</li>
+              <li>• فلّتر حسب طريقة الدفع لمعرفة الإيرادات من كل وسيلة</li>
+              <li>• اطبع الإيصال مباشرة من زر 🖨️</li>
+              <li>• عدّل أي إيصال من زر ✏️</li>
+              <li>• احذف إيصال خاطئ من زر 🗑️</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

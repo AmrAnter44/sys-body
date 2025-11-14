@@ -7,6 +7,7 @@ import { ReceiptToPrint } from '../../../components/ReceiptToPrint'
 import PaymentMethodSelector from '../../../components/Paymentmethodselector'
 import RenewalForm from '../../../components/RenewalForm'
 import { formatDateYMD, calculateRemainingDays } from '../../../lib/dateFormatter'
+import BarcodeWhatsApp from '../../../components/BarcodeWhatsApp'
 
 interface Member {
   id: string
@@ -493,6 +494,14 @@ export default function MemberDetailPage() {
           </div>
         </div>
       </div>
+
+            <div className="mb-6">
+              <BarcodeWhatsApp
+                memberNumber={member.memberNumber}
+                memberName={member.name}
+                memberPhone={member.phone}
+              />
+            </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-lg p-6 border-r-4 border-green-500">
