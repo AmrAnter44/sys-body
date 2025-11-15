@@ -183,3 +183,69 @@ model Invitation {
   memberId   String
   member     Member   @relation(fields: [memberId], references: [id])
 }
+
+
+
+// schema.prisma
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("STAFF") // "ADMIN" | "MANAGER" | "STAFF"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  permissions Permission?
+  activityLogs ActivityLog[]
+}
+
+model Permission {
+  id       String  @id @default(cuid())
+  userId   String  @unique
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // صلاحيات الأعضاء
+  canViewMembers    Boolean @default(false)
+  canCreateMembers  Boolean @default(false)
+  canEditMembers    Boolean @default(false)
+  canDeleteMembers  Boolean @default(false)
+  
+  // صلاحيات PT
+  canViewPT         Boolean @default(false)
+  canCreatePT       Boolean @default(false)
+  canEditPT         Boolean @default(false)
+  canDeletePT       Boolean @default(false)
+  
+  // صلاحيات الموظفين
+  canViewStaff      Boolean @default(false)
+  canCreateStaff    Boolean @default(false)
+  canEditStaff      Boolean @default(false)
+  canDeleteStaff    Boolean @default(false)
+  
+  // صلاحيات الإيصالات
+  canViewReceipts   Boolean @default(false)
+  canEditReceipts   Boolean @default(false)
+  canDeleteReceipts Boolean @default(false)
+  
+  // صلاحيات التقارير والإعدادات
+  canViewReports    Boolean @default(false)
+  canViewFinancials Boolean @default(false)
+  canAccessSettings Boolean @default(false)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // "CREATE_MEMBER", "DELETE_RECEIPT", etc.
+  resource  String   // "Member", "Receipt", "Staff"
+  resourceId String?
+  details   String?  // JSON string
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+}
