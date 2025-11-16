@@ -27,13 +27,10 @@ export default function ClosingPage() {
   const [dailyData, setDailyData] = useState<DailyData[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState<'week' | 'month' | 'custom'>('month')
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('monthly')
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
-  
-  const [customDateFrom, setCustomDateFrom] = useState('')
-  const [customDateTo, setCustomDateTo] = useState('')
-  const [customTimeFrom, setCustomTimeFrom] = useState('00:00')
-  const [customTimeTo, setCustomTimeTo] = useState('23:59')
+  const [selectedDay, setSelectedDay] = useState(new Date().toISOString().split('T')[0])
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
   
   const [totals, setTotals] = useState({
     floor: 0,
@@ -65,17 +62,15 @@ export default function ClosingPage() {
       const filterDate = (dateString: string) => {
         const d = new Date(dateString)
         
-        if (dateFilter === 'week') {
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          return d >= weekAgo
-        } else if (dateFilter === 'month') {
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-        } else if (dateFilter === 'custom' && customDateFrom && customDateTo) {
-          const fromDateTime = new Date(`${customDateFrom}T${customTimeFrom}:00`)
-          const toDateTime = new Date(`${customDateTo}T${customTimeTo}:59`)
-          return d >= fromDateTime && d <= toDateTime
+        if (viewMode === 'daily') {
+          // في الوضع اليومي، نعرض اليوم المحدد فقط
+          const selectedDate = new Date(selectedDay)
+          return d.toDateString() === selectedDate.toDateString()
+        } else {
+          // في الوضع الشهري، نعرض الشهر المحدد
+          const [year, month] = selectedMonth.split('-')
+          return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month) - 1
         }
-        return true
       }
 
       const filteredReceipts = receipts.filter((r: any) => filterDate(r.createdAt))
@@ -201,7 +196,7 @@ export default function ClosingPage() {
 
   useEffect(() => {
     fetchData()
-  }, [dateFilter, customDateFrom, customDateTo, customTimeFrom, customTimeTo])
+  }, [viewMode, selectedDay, selectedMonth])
 
   const handlePrint = () => {
     window.print()
@@ -209,18 +204,15 @@ export default function ClosingPage() {
 
   const handleExportExcel = async () => {
     try {
-      // إنشاء Workbook جديد
       const workbook = new ExcelJS.Workbook()
       workbook.creator = 'X-GYM'
       workbook.created = new Date()
 
-      // ===== الورقة الرئيسية =====
       const mainSheet = workbook.addWorksheet('التقفيل المالي', {
         views: [{ rightToLeft: true }],
         properties: { defaultColWidth: 12 }
       })
 
-      // Header Row مع تنسيق
       const headerRow = mainSheet.addRow([
         'التاريخ',
         'Floor',
@@ -235,7 +227,6 @@ export default function ClosingPage() {
         ...staffList.map(staff => staff.name)
       ])
 
-      // تنسيق الـ Header
       headerRow.font = { bold: true, size: 12, name: 'Arial' }
       headerRow.fill = {
         type: 'pattern',
@@ -251,7 +242,6 @@ export default function ClosingPage() {
         right: { style: 'thin' }
       }
 
-      // Data Rows
       dailyData.forEach((day, index) => {
         const totalStaffLoans = Object.values(day.staffLoans).reduce((a, b) => a + b, 0)
         const row = mainSheet.addRow([
@@ -268,7 +258,6 @@ export default function ClosingPage() {
           ...staffList.map(staff => day.staffLoans[staff.name] || 0)
         ])
 
-        // تلوين الصفوف بالتناوب
         if (index % 2 === 0) {
           row.fill = {
             type: 'pattern',
@@ -280,7 +269,6 @@ export default function ClosingPage() {
         row.alignment = { horizontal: 'right', vertical: 'middle' }
         row.font = { name: 'Arial', size: 11 }
         
-        // إضافة borders
         row.eachCell((cell) => {
           cell.border = {
             top: { style: 'thin' },
@@ -291,7 +279,6 @@ export default function ClosingPage() {
         })
       })
 
-      // Totals Row
       const totalStaffLoansAll = dailyData.reduce((sum, day) => 
         sum + Object.values(day.staffLoans).reduce((a, b) => a + b, 0), 0
       )
@@ -330,7 +317,6 @@ export default function ClosingPage() {
         }
       })
 
-      // Net Profit Row
       mainSheet.addRow([])
       const profitRow = mainSheet.addRow(['صافي الربح', totals.netProfit])
       profitRow.font = { bold: true, size: 14, name: 'Arial' }
@@ -341,7 +327,6 @@ export default function ClosingPage() {
       }
       profitRow.alignment = { horizontal: 'right', vertical: 'middle' }
 
-      // ملخص مالي
       mainSheet.addRow([])
       const summaryTitle = mainSheet.addRow(['الملخص المالي'])
       summaryTitle.font = { bold: true, size: 13, name: 'Arial' }
@@ -357,7 +342,6 @@ export default function ClosingPage() {
       mainSheet.addRow(['عدد الأيام', dailyData.length])
       mainSheet.addRow(['متوسط اليوم', dailyData.length > 0 ? Math.round(totals.totalRevenue / dailyData.length) : 0])
 
-      // طرق الدفع
       mainSheet.addRow([])
       const paymentTitle = mainSheet.addRow(['طرق الدفع'])
       paymentTitle.font = { bold: true, size: 13, name: 'Arial' }
@@ -372,22 +356,20 @@ export default function ClosingPage() {
       mainSheet.addRow(['إنستاباي', totals.instapay])
       mainSheet.addRow(['محفظة', totals.wallet])
 
-      // تعيين عرض الأعمدة
       mainSheet.columns = [
-        { width: 15 }, // التاريخ
-        { width: 12 }, // Floor
-        { width: 12 }, // PT
-        { width: 12 }, // كاش
-        { width: 12 }, // فيزا
-        { width: 14 }, // إنستاباي
-        { width: 12 }, // محفظة
-        { width: 12 }, // مصاريف
-        { width: 45 }, // تفاصيل المصاريف
-        { width: 14 }, // إجمالي السلف
+        { width: 15 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 14 },
+        { width: 12 },
+        { width: 12 },
+        { width: 45 },
+        { width: 14 },
         ...staffList.map(() => ({ width: 14 }))
       ]
 
-      // ===== ورقة تفاصيل الإيصالات =====
       if (dailyData.some(day => day.receipts.length > 0)) {
         const receiptsSheet = workbook.addWorksheet('تفاصيل الإيصالات', {
           views: [{ rightToLeft: true }]
@@ -434,7 +416,6 @@ export default function ClosingPage() {
         ]
       }
 
-      // ===== ورقة تفاصيل المصروفات =====
       if (dailyData.some(day => day.expensesList.length > 0)) {
         const expensesSheet = workbook.addWorksheet('تفاصيل المصروفات', {
           views: [{ rightToLeft: true }]
@@ -479,19 +460,14 @@ export default function ClosingPage() {
         ]
       }
 
-      // تحديد اسم الملف
       let fileName = 'تقفيل_مالي'
-      if (dateFilter === 'custom' && customDateFrom && customDateTo) {
-        fileName += `_${customDateFrom}_الى_${customDateTo}`
-      } else if (dateFilter === 'week') {
-        fileName += '_اسبوع'
-      } else if (dateFilter === 'month') {
-        const now = new Date()
-        fileName += `_${now.getFullYear()}_${now.getMonth() + 1}`
+      if (viewMode === 'daily') {
+        fileName += `_${selectedDay}`
+      } else {
+        fileName += `_${selectedMonth}`
       }
       fileName += '.xlsx'
 
-      // تصدير الملف
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const url = window.URL.createObjectURL(blob)
@@ -538,86 +514,67 @@ export default function ClosingPage() {
       <div className="mb-6 no-print">
         <h1 className="text-3xl font-bold mb-2">💰 التقفيل المالي التفصيلي</h1>
         <p className="text-gray-600">تقرير يومي شامل مع تفصيل كل العمليات</p>
+        
+        {/* View Mode Tabs */}
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => setViewMode('daily')}
+            className={`px-6 py-3 rounded-lg font-bold transition ${
+              viewMode === 'daily'
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            📅 التقفيل اليومي
+          </button>
+          <button
+            onClick={() => setViewMode('monthly')}
+            className={`px-6 py-3 rounded-lg font-bold transition ${
+              viewMode === 'monthly'
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            📆 التقفيل الشهري
+          </button>
+        </div>
       </div>
 
       {/* Controls */}
       <div className="mb-6 bg-white p-6 rounded-lg shadow-md no-print">
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">📅 نوع الفترة</label>
-            <div className="flex gap-2">
-              {(['week', 'month', 'custom'] as const).map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setDateFilter(filter)}
-                  className={`px-4 py-2 rounded-lg transition ${
-                    dateFilter === filter
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {filter === 'week' && '📅 آخر أسبوع'}
-                  {filter === 'month' && '📆 هذا الشهر'}
-                  {filter === 'custom' && '🔧 فترة مخصصة'}
-                </button>
-              ))}
+          {viewMode === 'daily' ? (
+            /* اختيار اليوم للعرض اليومي */
+            <div>
+              <label className="block text-sm font-medium mb-2">📅 اختر اليوم</label>
+              <input
+                type="date"
+                value={selectedDay}
+                onChange={(e) => setSelectedDay(e.target.value)}
+                className="px-4 py-2 border-2 rounded-lg font-mono text-lg"
+              />
+              <p className="text-sm text-gray-600 mt-2">
+                عرض تفاصيل يوم {new Date(selectedDay).toLocaleDateString('ar-EG', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </p>
             </div>
-          </div>
-
-          {dateFilter === 'custom' && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-              <h3 className="font-bold mb-3 flex items-center gap-2">
-                <span>🔧</span>
-                <span>تحديد الفترة الزمنية</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">📍 من التاريخ</label>
-                  <input
-                    type="date"
-                    value={customDateFrom}
-                    onChange={(e) => setCustomDateFrom(e.target.value)}
-                    className="w-full px-3 py-2 border-2 rounded-lg font-mono"
-                  />
-                  <label className="block text-sm font-medium mt-2 mb-2">⏰ الساعة</label>
-                  <input
-                    type="time"
-                    value={customTimeFrom}
-                    onChange={(e) => setCustomTimeFrom(e.target.value)}
-                    className="w-full px-3 py-2 border-2 rounded-lg font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">📍 إلى التاريخ</label>
-                  <input
-                    type="date"
-                    value={customDateTo}
-                    onChange={(e) => setCustomDateTo(e.target.value)}
-                    className="w-full px-3 py-2 border-2 rounded-lg font-mono"
-                  />
-                  <label className="block text-sm font-medium mt-2 mb-2">⏰ الساعة</label>
-                  <input
-                    type="time"
-                    value={customTimeTo}
-                    onChange={(e) => setCustomTimeTo(e.target.value)}
-                    className="w-full px-3 py-2 border-2 rounded-lg font-mono"
-                  />
-                </div>
-              </div>
-
-              {customDateFrom && customDateTo && (
-                <div className="mt-3 bg-white border-2 border-blue-300 rounded-lg p-3">
-                  <p className="text-sm">
-                    <strong>📊 الفترة المحددة:</strong>
-                    <br />
-                    من: {new Date(`${customDateFrom}T${customTimeFrom}`).toLocaleString('ar-EG')}
-                    <br />
-                    إلى: {new Date(`${customDateTo}T${customTimeTo}`).toLocaleString('ar-EG')}
-                  </p>
-                </div>
-              )}
+          ) : (
+            /* اختيار الشهر للعرض الشهري */
+            <div>
+              <label className="block text-sm font-medium mb-2">📅 اختر الشهر</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-4 py-2 border-2 rounded-lg font-mono text-lg"
+              />
+              <p className="text-sm text-gray-600 mt-2">
+                عرض جميع أيام شهر {new Date(selectedMonth + '-01').toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}
+              </p>
             </div>
           )}
 
@@ -654,13 +611,12 @@ export default function ClosingPage() {
           {/* Header للطباعة */}
           <div className="text-center mb-6 print-only" style={{ display: 'none' }}>
             <h1 className="text-3xl font-bold mb-2">X - GYM</h1>
-            <p className="text-lg text-gray-600">التقفيل المالي التفصيلي</p>
-            {dateFilter === 'custom' && customDateFrom && customDateTo && (
-              <p className="text-sm text-gray-600">
-                من {new Date(`${customDateFrom}T${customTimeFrom}`).toLocaleString('ar-EG')} 
-                إلى {new Date(`${customDateTo}T${customTimeTo}`).toLocaleString('ar-EG')}
-              </p>
-            )}
+            <p className="text-lg text-gray-600">
+              {viewMode === 'daily' 
+                ? `التقفيل اليومي - ${new Date(selectedDay).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+                : `التقفيل الشهري - ${new Date(selectedMonth + '-01').toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}`
+              }
+            </p>
           </div>
 
           {/* Summary Cards */}
@@ -731,6 +687,221 @@ export default function ClosingPage() {
 
           {/* Excel-like Table */}
           <div className="bg-white rounded-lg shadow-lg overflow-x-auto mb-6">
+            {viewMode === 'daily' ? (
+              /* عرض تفاصيل اليوم المحدد مباشرة */
+              dailyData.length > 0 ? (
+                <div className="p-6 space-y-6">
+                  {dailyData.map((day) => (
+                    <div key={day.date} className="space-y-4">
+                      {/* معلومات اليوم */}
+                      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-lg">
+                        <h2 className="text-2xl font-bold mb-2">
+                          📅 {new Date(day.date).toLocaleDateString('ar-EG', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                          <div className="bg-white/20 p-3 rounded-lg">
+                            <p className="text-sm opacity-90">Floor</p>
+                            <p className="text-xl font-bold">{day.floor > 0 ? day.floor.toFixed(0) : '0'} ج.م</p>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-lg">
+                            <p className="text-sm opacity-90">PT</p>
+                            <p className="text-xl font-bold">{day.pt > 0 ? day.pt.toFixed(0) : '0'} ج.م</p>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-lg">
+                            <p className="text-sm opacity-90">المصروفات</p>
+                            <p className="text-xl font-bold">{day.expenses > 0 ? day.expenses.toFixed(0) : '0'} ج.م</p>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-lg">
+                            <p className="text-sm opacity-90">الإجمالي</p>
+                            <p className="text-xl font-bold">{((day.floor + day.pt) - day.expenses).toFixed(0)} ج.م</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* طرق الدفع */}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="font-bold text-lg mb-3">💳 طرق الدفع</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="bg-white p-3 rounded-lg border-2 border-green-200">
+                            <p className="text-sm text-gray-600">كاش 💵</p>
+                            <p className="text-lg font-bold text-green-600">{day.cash > 0 ? day.cash.toFixed(0) : '0'}</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border-2 border-blue-200">
+                            <p className="text-sm text-gray-600">فيزا 💳</p>
+                            <p className="text-lg font-bold text-blue-600">{day.visa > 0 ? day.visa.toFixed(0) : '0'}</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border-2 border-purple-200">
+                            <p className="text-sm text-gray-600">إنستاباي 📱</p>
+                            <p className="text-lg font-bold text-purple-600">{day.instapay > 0 ? day.instapay.toFixed(0) : '0'}</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border-2 border-orange-200">
+                            <p className="text-sm text-gray-600">محفظة 💰</p>
+                            <p className="text-lg font-bold text-orange-600">{day.wallet > 0 ? day.wallet.toFixed(0) : '0'}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* السلف */}
+                      {Object.keys(day.staffLoans).length > 0 && (
+                        <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
+                          <h3 className="font-bold text-lg mb-3">💰 سلف الموظفين</h3>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {Object.entries(day.staffLoans).map(([staffName, amount]) => (
+                              <div key={staffName} className="bg-white p-3 rounded-lg">
+                                <p className="text-sm text-gray-600">{staffName}</p>
+                                <p className="text-lg font-bold text-red-600">{amount.toFixed(0)} ج.م</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* الإيصالات */}
+                      {day.receipts.length > 0 ? (
+                        <div>
+                          <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                            <span>🧾</span>
+                            <span>الإيصالات ({day.receipts.length})</span>
+                          </h4>
+                          <div className="bg-white rounded-lg overflow-hidden border-2 border-blue-200">
+                            <table className="w-full text-sm">
+                              <thead className="bg-blue-100">
+                                <tr>
+                                  <th className="px-3 py-2 text-right">الوقت</th>
+                                  <th className="px-3 py-2 text-right">رقم الإيصال</th>
+                                  <th className="px-3 py-2 text-right">النوع</th>
+                                  <th className="px-3 py-2 text-right">التفاصيل</th>
+                                  <th className="px-3 py-2 text-right">المبلغ</th>
+                                  <th className="px-3 py-2 text-right">طريقة الدفع</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {day.receipts.map((receipt: any) => {
+                                  const details = JSON.parse(receipt.itemDetails)
+                                  return (
+                                    <tr key={receipt.id} className="border-t hover:bg-blue-50">
+                                      <td className="px-3 py-2 font-mono text-xs">
+                                        {new Date(receipt.createdAt).toLocaleTimeString('ar-EG')}
+                                      </td>
+                                      <td className="px-3 py-2 font-bold text-green-600">
+                                        #{receipt.receiptNumber}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                          {getTypeLabel(receipt.type)}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {details.memberName && (
+                                          <div>
+                                            {details.memberName}
+                                            {details.memberNumber && (
+                                              <span className="text-xs text-gray-600"> (#{details.memberNumber})</span>
+                                            )}
+                                          </div>
+                                        )}
+                                        {details.clientName && <div>{details.clientName}</div>}
+                                        {details.name && <div>{details.name}</div>}
+                                      </td>
+                                      <td className="px-3 py-2 font-bold text-green-600">
+                                        {receipt.amount} ج.م
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <span className="text-xs">
+                                          {getPaymentMethodLabel(receipt.paymentMethod)}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-8 rounded-lg text-center">
+                          <p className="text-gray-500 text-lg">📭 لا توجد إيصالات في هذا اليوم</p>
+                        </div>
+                      )}
+
+                      {/* المصروفات */}
+                      {day.expensesList.length > 0 ? (
+                        <div>
+                          <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                            <span>💸</span>
+                            <span>المصروفات ({day.expensesList.length})</span>
+                          </h4>
+                          <div className="bg-white rounded-lg overflow-hidden border-2 border-red-200">
+                            <table className="w-full text-sm">
+                              <thead className="bg-red-100">
+                                <tr>
+                                  <th className="px-3 py-2 text-right">الوقت</th>
+                                  <th className="px-3 py-2 text-right">النوع</th>
+                                  <th className="px-3 py-2 text-right">الوصف</th>
+                                  <th className="px-3 py-2 text-right">الموظف</th>
+                                  <th className="px-3 py-2 text-right">المبلغ</th>
+                                  <th className="px-3 py-2 text-right">الحالة</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {day.expensesList.map((expense: any) => (
+                                  <tr key={expense.id} className="border-t hover:bg-red-50">
+                                    <td className="px-3 py-2 font-mono text-xs">
+                                      {new Date(expense.createdAt).toLocaleTimeString('ar-EG')}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <span className={`px-2 py-1 rounded text-xs ${
+                                        expense.type === 'gym_expense' 
+                                          ? 'bg-orange-100 text-orange-800' 
+                                          : 'bg-purple-100 text-purple-800'
+                                      }`}>
+                                        {expense.type === 'gym_expense' ? 'مصروف جيم' : 'سلفة'}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2">{expense.description}</td>
+                                    <td className="px-3 py-2">
+                                      {expense.staff ? expense.staff.name : '-'}
+                                    </td>
+                                    <td className="px-3 py-2 font-bold text-red-600">
+                                      {expense.amount} ج.م
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {expense.type === 'staff_loan' && (
+                                        <span className={`px-2 py-1 rounded text-xs ${
+                                          expense.isPaid 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : 'bg-red-100 text-red-800'
+                                        }`}>
+                                          {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-8 rounded-lg text-center">
+                          <p className="text-gray-500 text-lg">📭 لا توجد مصروفات في هذا اليوم</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <p className="text-gray-500 text-lg">📭 لا توجد بيانات لهذا اليوم</p>
+                </div>
+              )
+            ) : (
+              /* الجدول العادي للعرض الشهري */
             <table className="w-full border-collapse text-sm excel-table">
               <thead>
                 <tr className="bg-gray-200 border-2 border-gray-400">
@@ -991,6 +1162,7 @@ export default function ClosingPage() {
                 </tr>
               </tbody>
             </table>
+            )}
           </div>
         </>
       )}
