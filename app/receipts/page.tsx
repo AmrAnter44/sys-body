@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePermissions } from '../../hooks/usePermissions'
+import PermissionDenied from '../../components/PermissionDenied'
+import ReceiptWhatsApp from '../../components/ReceiptWhatsApp'
+import { ReceiptDetailModal } from '../../components/ReceiptDetailModal'
 
 interface Receipt {
   id: string
@@ -19,6 +23,8 @@ interface Receipt {
 
 export default function ReceiptsPage() {
   const router = useRouter()
+  const { hasPermission, loading: permissionsLoading, user } = usePermissions()
+  
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,14 +32,62 @@ export default function ReceiptsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterPayment, setFilterPayment] = useState('all')
+  const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
+  const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    receiptNumber: 0,
+    amount: 0,
+    paymentMethod: 'cash',
+    staffName: ''
+  })
 
-  useEffect(() => {
-    fetchReceipts()
-  }, [])
+  // ✅ جميع الـ hooks يجب أن تكون قبل أي return
+  const canEdit = hasPermission('canEditReceipts')
+  const canDelete = hasPermission('canDeleteReceipts')
 
-  useEffect(() => {
-    applyFilters()
-  }, [receipts, searchTerm, filterType, filterPayment])
+  // ✅ تعريف الدوال قبل استخدامها في useEffect
+  const applyFilters = () => {
+    if (!Array.isArray(receipts)) {
+      setFilteredReceipts([])
+      return
+    }
+
+    let filtered = [...receipts]
+
+    // فلتر البحث
+    if (searchTerm) {
+      filtered = filtered.filter(r => {
+        try {
+          const details = JSON.parse(r.itemDetails)
+          return (
+            r.receiptNumber.toString().includes(searchTerm) ||
+            details.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            details.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            details.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            details.memberNumber?.toString().includes(searchTerm) ||
+            details.ptNumber?.toString().includes(searchTerm) ||
+            details.phone?.includes(searchTerm) ||
+            r.staffName?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        } catch {
+          return false
+        }
+      })
+    }
+
+    // فلتر النوع
+    if (filterType !== 'all') {
+      filtered = filtered.filter(r => r.type === filterType)
+    }
+
+    // فلتر طريقة الدفع
+    if (filterPayment !== 'all') {
+      filtered = filtered.filter(r => r.paymentMethod === filterPayment)
+    }
+
+    setFilteredReceipts(filtered)
+  }
 
   const fetchReceipts = async () => {
     try {
@@ -54,7 +108,6 @@ export default function ReceiptsPage() {
 
       if (response.ok) {
         const data = await response.json()
-        // ✅ التأكد إن data هو array
         if (Array.isArray(data)) {
           setReceipts(data)
           setFilteredReceipts(data)
@@ -79,53 +132,38 @@ export default function ReceiptsPage() {
     }
   }
 
-  const applyFilters = () => {
-    // ✅ التأكد إن receipts هو array
-    if (!Array.isArray(receipts)) {
-      setFilteredReceipts([])
-      return
+  // ✅ useEffect بعد تعريف الدوال
+  useEffect(() => {
+    if (!permissionsLoading && hasPermission('canViewReceipts')) {
+      fetchReceipts()
     }
+  }, [permissionsLoading])
 
-    let filtered = [...receipts]
+  useEffect(() => {
+    applyFilters()
+  }, [receipts, searchTerm, filterType, filterPayment])
 
-    // فلتر البحث
-    if (searchTerm) {
-      filtered = filtered.filter(r => {
-        try {
-          const details = JSON.parse(r.itemDetails)
-          return (
-            r.receiptNumber.toString().includes(searchTerm) ||
-            details.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            details.memberNumber?.toString().includes(searchTerm) ||
-            r.staffName?.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        } catch {
-          return false
-        }
-      })
-    }
+  // ✅ التحقق من الصلاحيات بعد كل الـ hooks
+  if (permissionsLoading) {
+    return (
+      <div className="container mx-auto p-6 text-center" dir="rtl">
+        <div className="text-6xl mb-4">⏳</div>
+        <p className="text-xl">جاري التحميل...</p>
+      </div>
+    )
+  }
 
-    // فلتر النوع
-    if (filterType !== 'all') {
-      filtered = filtered.filter(r => r.type === filterType)
-    }
-
-    // فلتر طريقة الدفع
-    if (filterPayment !== 'all') {
-      filtered = filtered.filter(r => r.paymentMethod === filterPayment)
-    }
-
-    setFilteredReceipts(filtered)
+  // ✅ إذا لم يكن لديه صلاحية العرض
+  if (!hasPermission('canViewReceipts')) {
+    return <PermissionDenied message="ليس لديك صلاحية عرض الإيصالات" />
   }
 
   const getTotalRevenue = () => {
-    // ✅ التأكد إن filteredReceipts هو array
     if (!Array.isArray(filteredReceipts)) return 0
     return filteredReceipts.reduce((sum, r) => sum + r.amount, 0)
   }
 
   const getTodayCount = () => {
-    // ✅ التأكد إن filteredReceipts هو array
     if (!Array.isArray(filteredReceipts)) return 0
     const today = new Date().toDateString()
     return filteredReceipts.filter(r => 
@@ -133,13 +171,24 @@ export default function ReceiptsPage() {
     ).length
   }
 
+  const getTodayRevenue = () => {
+    if (!Array.isArray(filteredReceipts)) return 0
+    const today = new Date().toDateString()
+    return filteredReceipts
+      .filter(r => new Date(r.createdAt).toDateString() === today)
+      .reduce((sum, r) => sum + r.amount, 0)
+  }
+
   const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       'Member': '🆕 عضو جديد',
-      'تجديد عضويه': '🔄 تجديد',
+      'تجديد عضويه': '🔄 تجديد عضوية',
+      'اشتراك برايفت': '💪 PT جديد',
+      'تجديد برايفت': '🔄 تجديد PT',
       'PT': '💪 PT',
       'DayUse': '📅 Day Use',
-      'Payment': '💰 دفع متبقي'
+      'Payment': '💰 دفع متبقي',
+      'InBody': '⚖️ InBody'
     }
     return labels[type] || type
   }
@@ -152,6 +201,83 @@ export default function ReceiptsPage() {
       'instapay': '💸 إنستاباي'
     }
     return labels[method] || method
+  }
+
+  const handleDelete = async (receiptId: string) => {
+    if (!canDelete) {
+      setMessage('❌ ليس لديك صلاحية حذف الإيصالات')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    if (!confirm('هل أنت متأكد من حذف هذا الإيصال؟ لا يمكن التراجع عن هذا الإجراء!')) return
+
+    try {
+      const response = await fetch(`/api/receipts/update?id=${receiptId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setMessage('✅ تم حذف الإيصال بنجاح')
+        fetchReceipts()
+      } else {
+        const error = await response.json()
+        setMessage(`❌ ${error.error || 'فشل حذف الإيصال'}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setMessage('❌ حدث خطأ في الحذف')
+    }
+    setTimeout(() => setMessage(''), 3000)
+  }
+
+  const handleOpenEdit = (receipt: Receipt) => {
+    if (!canEdit) {
+      setMessage('❌ ليس لديك صلاحية تعديل الإيصالات')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    setEditingReceipt(receipt)
+    setEditFormData({
+      receiptNumber: receipt.receiptNumber,
+      amount: receipt.amount,
+      paymentMethod: receipt.paymentMethod,
+      staffName: receipt.staffName || ''
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingReceipt) return
+
+    try {
+      const response = await fetch('/api/receipts/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptId: editingReceipt.id,
+          receiptNumber: editFormData.receiptNumber,
+          amount: editFormData.amount,
+          paymentMethod: editFormData.paymentMethod,
+          staffName: editFormData.staffName
+        })
+      })
+
+      if (response.ok) {
+        setMessage('✅ تم تحديث الإيصال بنجاح')
+        setShowEditModal(false)
+        setEditingReceipt(null)
+        fetchReceipts()
+      } else {
+        const error = await response.json()
+        setMessage(`❌ ${error.error || 'فشل تحديث الإيصال'}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setMessage('❌ حدث خطأ في التحديث')
+    }
+    setTimeout(() => setMessage(''), 3000)
   }
 
   const handlePrint = (receipt: Receipt) => {
@@ -168,31 +294,168 @@ export default function ReceiptsPage() {
           <meta charset="utf-8">
           <title>إيصال رقم ${receipt.receiptNumber}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            .receipt { max-width: 400px; margin: 0 auto; border: 2px solid #000; padding: 20px; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            .row { display: flex; justify-content: space-between; margin: 10px 0; }
-            .total { font-size: 20px; font-weight: bold; margin-top: 20px; padding-top: 10px; border-top: 2px solid #000; }
-            @media print { button { display: none; } }
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .receipt { 
+              max-width: 400px; 
+              margin: 0 auto; 
+              border: 2px solid #000; 
+              padding: 20px;
+              background: white;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 20px; 
+              border-bottom: 2px solid #000; 
+              padding-bottom: 10px; 
+            }
+            .header h2 {
+              margin: 0 0 10px 0;
+              color: #333;
+            }
+            .row { 
+              display: flex; 
+              justify-content: space-between; 
+              margin: 10px 0;
+              padding: 5px 0;
+            }
+            .row.highlight {
+              background: #f0f0f0;
+              padding: 5px 10px;
+              margin: 5px -10px;
+              border-radius: 5px;
+            }
+            .label {
+              font-weight: bold;
+              color: #555;
+            }
+            .value {
+              color: #333;
+            }
+            .total { 
+              font-size: 20px; 
+              font-weight: bold; 
+              margin-top: 20px; 
+              padding-top: 10px; 
+              border-top: 2px solid #000; 
+              text-align: center;
+            }
+            .total .amount {
+              color: #2ecc71;
+              font-size: 24px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px dashed #999;
+              color: #666;
+              font-size: 12px;
+            }
+            @media print { 
+              body { background: white; }
+              button { display: none; }
+              .receipt { box-shadow: none; }
+            }
           </style>
         </head>
         <body>
           <div class="receipt">
             <div class="header">
-              <h2>إيصال رقم: ${receipt.receiptNumber}</h2>
-              <p>${new Date(receipt.createdAt).toLocaleString('ar-EG')}</p>
+              <h2>🧾 إيصال رقم: ${receipt.receiptNumber}</h2>
+              <p style="margin: 5px 0; color: #666;">${new Date(receipt.createdAt).toLocaleString('ar-EG', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</p>
             </div>
-            <div class="row"><span>النوع:</span><span>${getTypeLabel(receipt.type)}</span></div>
-            ${details.memberName ? `<div class="row"><span>العضو:</span><span>${details.memberName}</span></div>` : ''}
-            ${details.memberNumber ? `<div class="row"><span>رقم العضوية:</span><span>${details.memberNumber}</span></div>` : ''}
-            <div class="row"><span>طريقة الدفع:</span><span>${getPaymentMethodLabel(receipt.paymentMethod)}</span></div>
-            ${receipt.staffName ? `<div class="row"><span>الموظف:</span><span>${receipt.staffName}</span></div>` : ''}
+            
+            <div class="row highlight">
+              <span class="label">النوع:</span>
+              <span class="value">${getTypeLabel(receipt.type)}</span>
+            </div>
+            
+            ${details.memberName || details.clientName || details.name ? `
+              <div class="row">
+                <span class="label">العميل:</span>
+                <span class="value">${details.memberName || details.clientName || details.name}</span>
+              </div>
+            ` : ''}
+            
+            ${details.phone ? `
+              <div class="row">
+                <span class="label">الهاتف:</span>
+                <span class="value">${details.phone}</span>
+              </div>
+            ` : ''}
+            
+            ${details.memberNumber ? `
+              <div class="row highlight">
+                <span class="label">رقم العضوية:</span>
+                <span class="value">#${details.memberNumber}</span>
+              </div>
+            ` : ''}
+            
+            ${details.ptNumber ? `
+              <div class="row highlight">
+                <span class="label">رقم PT:</span>
+                <span class="value">#${details.ptNumber}</span>
+              </div>
+            ` : ''}
+            
+            ${details.sessionsPurchased ? `
+              <div class="row">
+                <span class="label">عدد الجلسات:</span>
+                <span class="value">${details.sessionsPurchased} جلسة</span>
+              </div>
+            ` : ''}
+            
+            ${details.coachName ? `
+              <div class="row">
+                <span class="label">المدرب:</span>
+                <span class="value">${details.coachName}</span>
+              </div>
+            ` : ''}
+            
+            ${details.subscriptionMonths ? `
+              <div class="row">
+                <span class="label">مدة الاشتراك:</span>
+                <span class="value">${details.subscriptionMonths} شهر</span>
+              </div>
+            ` : ''}
+            
+            <div class="row">
+              <span class="label">طريقة الدفع:</span>
+              <span class="value">${getPaymentMethodLabel(receipt.paymentMethod)}</span>
+            </div>
+            
+            ${receipt.staffName ? `
+              <div class="row">
+                <span class="label">الموظف:</span>
+                <span class="value">${receipt.staffName}</span>
+              </div>
+            ` : ''}
+            
             <div class="total">
-              <div class="row"><span>المبلغ:</span><span>${receipt.amount} جنيه</span></div>
+              <div>المبلغ الإجمالي</div>
+              <div class="amount">${receipt.amount.toLocaleString('ar-EG')} جنيه</div>
+            </div>
+            
+            <div class="footer">
+              شكراً لثقتكم 🙏 | نتمنى لكم تجربة ممتعة 💪
             </div>
           </div>
+          
           <div style="text-align: center; margin-top: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">طباعة</button>
+            <button onclick="window.print()" style="padding: 10px 30px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px;">
+              🖨️ طباعة
+            </button>
           </div>
         </body>
         </html>
@@ -201,6 +464,7 @@ export default function ReceiptsPage() {
     } catch (error) {
       console.error('Error printing receipt:', error)
       printWindow.close()
+      alert('❌ حدث خطأ في الطباعة')
     }
   }
 
@@ -213,30 +477,17 @@ export default function ReceiptsPage() {
     )
   }
 
-  // ✅ عرض رسالة إذا لم يكن هناك صلاحية
-  if (message && message.includes('صلاحية')) {
-    return (
-      <div className="container mx-auto p-6" dir="rtl">
-        <div className="bg-red-100 border-r-4 border-red-500 p-6 rounded-lg text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <p className="text-xl text-red-800 font-bold">{message}</p>
-          <button
-            onClick={() => router.push('/')}
-            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            العودة للرئيسية
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="container mx-auto p-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">🧾 الإيصالات</h1>
           <p className="text-gray-600">عرض وإدارة جميع الإيصالات</p>
+          {user && (
+            <p className="text-sm text-gray-500 mt-1">
+              👤 {user.name} - {user.role === 'ADMIN' ? '👑 مدير' : user.role === 'MANAGER' ? '📊 مشرف' : '👷 موظف'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -249,25 +500,51 @@ export default function ReceiptsPage() {
       )}
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
-          <div className="text-3xl font-bold">{filteredReceipts.length}</div>
-          <div className="text-sm opacity-90">إجمالي الإيصالات</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold">{filteredReceipts.length}</div>
+              <div className="text-sm opacity-90">إجمالي الإيصالات</div>
+            </div>
+            <div className="text-5xl opacity-20">📊</div>
+          </div>
         </div>
         
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
-          <div className="text-3xl font-bold">{getTotalRevenue().toLocaleString()} جنيه</div>
-          <div className="text-sm opacity-90">إجمالي الإيرادات</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold">{getTotalRevenue().toLocaleString()}</div>
+              <div className="text-sm opacity-90">إجمالي الإيرادات (ج.م)</div>
+            </div>
+            <div className="text-5xl opacity-20">💰</div>
+          </div>
         </div>
         
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
-          <div className="text-3xl font-bold">{getTodayCount()}</div>
-          <div className="text-sm opacity-90">إيصالات اليوم</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold">{getTodayCount()}</div>
+              <div className="text-sm opacity-90">إيصالات اليوم</div>
+            </div>
+            <div className="text-5xl opacity-20">📅</div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold">{getTodayRevenue().toLocaleString()}</div>
+              <div className="text-sm opacity-90">إيرادات اليوم (ج.م)</div>
+            </div>
+            <div className="text-5xl opacity-20">💵</div>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <h3 className="text-lg font-bold mb-4">🔍 البحث والفلاتر</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">🔍 بحث</label>
@@ -275,7 +552,7 @@ export default function ReceiptsPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="رقم الإيصال، اسم العضو، الموظف..."
+              placeholder="رقم الإيصال، اسم العميل، الهاتف، الموظف..."
               className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -289,9 +566,11 @@ export default function ReceiptsPage() {
             >
               <option value="all">الكل</option>
               <option value="Member">عضو جديد</option>
-              <option value="تجديد عضويه">تجديد</option>
-              <option value="PT">PT</option>
+              <option value="تجديد عضويه">تجديد عضوية</option>
+              <option value="اشتراك برايفت">PT جديد</option>
+              <option value="تجديد برايفت">تجديد PT</option>
               <option value="DayUse">Day Use</option>
+              <option value="InBody">InBody</option>
               <option value="Payment">دفع متبقي</option>
             </select>
           </div>
@@ -311,6 +590,19 @@ export default function ReceiptsPage() {
             </select>
           </div>
         </div>
+
+        {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
+          <button
+            onClick={() => {
+              setSearchTerm('')
+              setFilterType('all')
+              setFilterPayment('all')
+            }}
+            className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            ❌ مسح الفلاتر
+          </button>
+        )}
       </div>
 
       {/* Receipts Table */}
@@ -321,6 +613,7 @@ export default function ReceiptsPage() {
               <tr>
                 <th className="px-6 py-4 text-right font-bold">رقم الإيصال</th>
                 <th className="px-6 py-4 text-right font-bold">النوع</th>
+                <th className="px-6 py-4 text-right font-bold">العميل</th>
                 <th className="px-6 py-4 text-right font-bold">المبلغ</th>
                 <th className="px-6 py-4 text-right font-bold">طريقة الدفع</th>
                 <th className="px-6 py-4 text-right font-bold">الموظف</th>
@@ -335,6 +628,8 @@ export default function ReceiptsPage() {
                   details = JSON.parse(receipt.itemDetails)
                 } catch {}
 
+                const clientName = details.memberName || details.clientName || details.name || '-'
+
                 return (
                   <tr key={receipt.id} className="border-t hover:bg-blue-50 transition">
                     <td className="px-6 py-4">
@@ -346,7 +641,21 @@ export default function ReceiptsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-bold text-green-600">{receipt.amount} جنيه</span>
+                      <div>
+                        <p className="font-semibold">{clientName}</p>
+                        {details.phone && (
+                          <p className="text-xs text-gray-600">{details.phone}</p>
+                        )}
+                        {details.memberNumber && (
+                          <p className="text-xs text-blue-600">عضوية #{details.memberNumber}</p>
+                        )}
+                        {details.ptNumber && (
+                          <p className="text-xs text-green-600">PT #{details.ptNumber}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-bold text-green-600">{receipt.amount.toLocaleString()} ج.م</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm">{getPaymentMethodLabel(receipt.paymentMethod)}</span>
@@ -355,15 +664,50 @@ export default function ReceiptsPage() {
                       <span className="text-sm text-gray-600">{receipt.staffName || '-'}</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(receipt.createdAt).toLocaleString('ar-EG')}
+                      {new Date(receipt.createdAt).toLocaleString('ar-EG', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handlePrint(receipt)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                      >
-                        🖨️ طباعة
-                      </button>
+                      <div className="flex gap-2">
+                        {/* ✅ WhatsApp Component */}
+                        <ReceiptWhatsApp 
+                          receipt={receipt} 
+                          onDetailsClick={() => setSelectedReceipt(receipt)}
+                        />
+                        
+                        <button
+                          onClick={() => handlePrint(receipt)}
+                          className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm transition shadow-md hover:shadow-lg"
+                          title="طباعة"
+                        >
+                          🖨️
+                        </button>
+
+                        {canEdit && (
+                          <button
+                            onClick={() => handleOpenEdit(receipt)}
+                            className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm transition shadow-md hover:shadow-lg"
+                            title="تعديل"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(receipt.id)}
+                            className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm transition shadow-md hover:shadow-lg"
+                            title="حذف"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -372,13 +716,174 @@ export default function ReceiptsPage() {
           </table>
         </div>
 
-        {filteredReceipts.length === 0 && (
+        {filteredReceipts.length === 0 && !loading && (
           <div className="text-center py-20 text-gray-500">
             <div className="text-6xl mb-4">🧾</div>
-            <p className="text-xl font-medium">لا توجد إيصالات</p>
+            <p className="text-xl font-medium mb-2">
+              {searchTerm || filterType !== 'all' || filterPayment !== 'all' 
+                ? 'لا توجد نتائج للبحث' 
+                : 'لا توجد إيصالات'}
+            </p>
+            {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchTerm('')
+                  setFilterType('all')
+                  setFilterPayment('all')
+                }}
+                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              >
+                مسح الفلاتر
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedReceipt && (
+        <ReceiptDetailModal
+          receipt={selectedReceipt}
+          onClose={() => setSelectedReceipt(null)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingReceipt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">✏️ تعديل الإيصال</h2>
+                <p className="text-sm text-gray-600">إيصال رقم #{editingReceipt.receiptNumber}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditingReceipt(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* معلومات الإيصال الأساسية */}
+            <div className="bg-blue-50 border-r-4 border-blue-500 rounded-lg p-4 mb-6">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-600">النوع:</span>
+                  <span className="font-bold mr-2">{getTypeLabel(editingReceipt.type)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">التاريخ:</span>
+                  <span className="font-bold mr-2">
+                    {new Date(editingReceipt.createdAt).toLocaleDateString('ar-EG')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* رقم الإيصال */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  رقم الإيصال <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.receiptNumber}
+                  onChange={(e) => setEditFormData({ ...editFormData, receiptNumber: parseInt(e.target.value) })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="1000"
+                />
+                <p className="text-xs text-amber-600 mt-1">
+                  ⚠️ تأكد من عدم تكرار رقم الإيصال
+                </p>
+              </div>
+
+              {/* المبلغ */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  المبلغ (ج.م) <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editFormData.amount}
+                  onChange={(e) => setEditFormData({ ...editFormData, amount: parseFloat(e.target.value) })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* طريقة الدفع */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  طريقة الدفع <span className="text-red-600">*</span>
+                </label>
+                <select
+                  value={editFormData.paymentMethod}
+                  onChange={(e) => setEditFormData({ ...editFormData, paymentMethod: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="cash">💵 كاش</option>
+                  <option value="visa">💳 فيزا</option>
+                  <option value="vodafone_cash">📱 فودافون كاش</option>
+                  <option value="instapay">💸 إنستاباي</option>
+                </select>
+              </div>
+
+              {/* اسم الموظف */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  اسم الموظف (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.staffName}
+                  onChange={(e) => setEditFormData({ ...editFormData, staffName: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="اسم الموظف المسؤول"
+                />
+              </div>
+
+              {/* ملاحظة تحذيرية */}
+              <div className="bg-yellow-50 border-r-4 border-yellow-500 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">⚠️</div>
+                  <div>
+                    <p className="font-bold text-yellow-800 mb-1">تنبيه هام</p>
+                    <p className="text-sm text-yellow-700">
+                      تعديل الإيصال سيؤثر فقط على البيانات المعروضة في النظام. 
+                      لن يتم تعديل التفاصيل المرتبطة بالعضوية أو جلسات PT.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* الأزرار */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSaveEdit}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-bold shadow-lg hover:shadow-xl"
+              >
+                ✅ حفظ التعديلات
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditingReceipt(null)
+                }}
+                className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-bold"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,16 +1,35 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
+import { requirePermission } from '../../../lib/auth'
 
 // GET - جلب كل جلسات PT
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // ✅ التحقق من صلاحية عرض PT
+    await requirePermission(request, 'canViewPT')
+    
     const ptSessions = await prisma.pT.findMany({
       orderBy: { createdAt: 'desc' },
       include: { receipts: true }
     })
     return NextResponse.json(ptSessions)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching PT sessions:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'يجب تسجيل الدخول أولاً' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'ليس لديك صلاحية عرض جلسات PT' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json({ error: 'فشل جلب جلسات PT' }, { status: 500 })
   }
 }
@@ -18,6 +37,9 @@ export async function GET() {
 // POST - إضافة جلسة PT جديدة
 export async function POST(request: Request) {
   try {
+    // ✅ التحقق من صلاحية إنشاء PT
+    await requirePermission(request, 'canCreatePT')
+    
     const body = await request.json()
     const { 
       ptNumber, 
@@ -119,9 +141,8 @@ export async function POST(request: Request) {
             startDate: startDate,
             expiryDate: expiryDate,
             subscriptionDays: subscriptionDays,
+            phone: phone
           }),
-          // إزالة السطر الذي يسبب الخطأ
-          // ptNumber: pt.ptNumber, ❌
         },
       })
 
@@ -137,8 +158,23 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(pt, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ خطأ في إضافة جلسة PT:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'يجب تسجيل الدخول أولاً' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'ليس لديك صلاحية إضافة جلسات PT' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json({ error: 'فشل إضافة جلسة PT' }, { status: 500 })
   }
 }
@@ -146,6 +182,9 @@ export async function POST(request: Request) {
 // PUT - تحديث جلسة PT
 export async function PUT(request: Request) {
   try {
+    // ✅ التحقق من صلاحية تعديل PT
+    await requirePermission(request, 'canEditPT')
+    
     const body = await request.json()
     const { ptNumber, action, ...data } = body
 
@@ -183,8 +222,23 @@ export async function PUT(request: Request) {
 
       return NextResponse.json(pt)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating PT:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'يجب تسجيل الدخول أولاً' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'ليس لديك صلاحية تعديل جلسات PT' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json({ error: 'فشل تحديث جلسة PT' }, { status: 500 })
   }
 }
@@ -192,6 +246,9 @@ export async function PUT(request: Request) {
 // DELETE - حذف جلسة PT
 export async function DELETE(request: Request) {
   try {
+    // ✅ التحقق من صلاحية حذف PT
+    await requirePermission(request, 'canDeletePT')
+    
     const { searchParams } = new URL(request.url)
     const ptNumber = searchParams.get('ptNumber')
 
@@ -201,8 +258,23 @@ export async function DELETE(request: Request) {
 
     await prisma.pT.delete({ where: { ptNumber: parseInt(ptNumber) } })
     return NextResponse.json({ message: 'تم الحذف بنجاح' })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting PT:', error)
+    
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'يجب تسجيل الدخول أولاً' },
+        { status: 401 }
+      )
+    }
+    
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'ليس لديك صلاحية حذف جلسات PT' },
+        { status: 403 }
+      )
+    }
+    
     return NextResponse.json({ error: 'فشل حذف جلسة PT' }, { status: 500 })
   }
 }
