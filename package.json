@@ -1,16 +1,16 @@
 {
   "name": "gym-management",
   "version": "1.0.0",
-  "description": "xgym systam",
+  "description": "xgym system",
   "private": true,
   "main": "electron/main.js",
-  "author": " Amr Anter",
+  "author": "Amr Anter",
   "scripts": {
     "dev": "next dev -p 4001",
+    "dev:network": "next dev -p 4001 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 4001",
     "start:network": "next start -p 4001 -H 0.0.0.0",
-    "dev:network": "next dev -p 4001 -H 0.0.0.0",
     "build:standalone": "next build",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
@@ -31,8 +31,7 @@
     },
     "files": [
       "electron/**/*",
-      ".next/standalone/**/*",
-      ".next/static/**/*",
+      ".next/**/*",
       "public/**/*",
       "prisma/**/*",
       "package.json",
@@ -44,37 +43,29 @@
       "!dist/**/*",
       "!.next/cache/**/*"
     ],
-    "extraResources": [
-      {
-        "from": "node_modules/next",
-        "to": "app.asar.unpacked/node_modules/next"
-      },
-      {
-        "from": "node_modules/.prisma",
-        "to": "app.asar.unpacked/node_modules/.prisma"
-      },
-      {
-        "from": "node_modules/@prisma",
-        "to": "app.asar.unpacked/node_modules/@prisma"
-      },
-      {
-        "from": "prisma",
-        "to": "prisma"
-      },
-      {
-        "from": "public",
-        "to": "public"
-      },
-      {
-        "from": ".next/static",
-        "to": "static"
-      }
-    ],
+"extraResources": [
+  {
+    "from": ".next/standalone",
+    "to": "app"
+  },
+  {
+    "from": ".next/static",
+    "to": "app/.next/static"
+  },
+  {
+    "from": "public",
+    "to": "app/public"
+  },
+  {
+    "from": "prisma",
+    "to": "prisma"
+  }
+]
+,
     "asar": {
       "smartUnpack": true
     },
     "asarUnpack": [
-      ".next/standalone/**/*",
       "node_modules/sharp/**/*",
       "node_modules/@prisma/**/*",
       "node_modules/.prisma/**/*",
@@ -100,7 +91,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": " X Gym",
+      "shortcutName": "X Gym",
       "uninstallDisplayName": "Gym Management System",
       "artifactName": "GymSystem-Setup-${version}.exe",
       "deleteAppDataOnUninstall": false,
