@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start -p 4001",
     "start:network": "next start -p 4001 -H 0.0.0.0",
-      "dev:network": "next dev -p 4001 -H 0.0.0.0",
+    "dev:network": "next dev -p 4001 -H 0.0.0.0",
+    "build:standalone": "next build",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
@@ -112,7 +113,7 @@
     }
   },
   "dependencies": {
-    "@next/env": "^16.0.1",
+    "@next/env": "^16.0.3",
     "@prisma/client": "^5.22.0",
     "@swc/helpers": "^0.5.17",
     "autoprefixer": "^10.4.21",
