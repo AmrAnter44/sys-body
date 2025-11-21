@@ -69,23 +69,58 @@ async function startProductionServer() {
       await killProcessOnPort(4001);
     }
 
-    // مسار ملفات Next Production
-    const nextPaths = [
-      path.join(process.resourcesPath, 'app.asar.unpacked'),
-      path.join(process.resourcesPath),
+    // البحث عن مسار Next.js standalone
+    const possiblePaths = [
+      // في حالة extraResources (Production)
+      path.join(process.resourcesPath, 'app'),
+      // في حالة development
+      path.join(process.cwd(), '.next', 'standalone'),
+      // fallback
       process.cwd()
     ];
 
-    let appPath = nextPaths.find(p => fs.existsSync(path.join(p, 'package.json')));
-    if (!appPath) throw new Error('Next.js files not found');
+    let appPath = null;
+    let serverFile = null;
 
-    // تشغيل السيرفر
-    serverProcess = spawn('npx', ['next', 'start', '-p', '4001', '-H', '0.0.0.0'], {
-      cwd: appPath,
-      env: { ...process.env, NODE_ENV: 'production', PORT: '4001' },
-      shell: true,
-      stdio: 'pipe'
-    });
+    // البحث عن server.js
+    for (const testPath of possiblePaths) {
+      const serverPath = path.join(testPath, 'server.js');
+      console.log('Checking path:', serverPath);
+      if (fs.existsSync(serverPath)) {
+        appPath = testPath;
+        serverFile = serverPath;
+        console.log('✓ Found server at:', serverPath);
+        break;
+      }
+    }
+
+    // إذا مش لاقيين standalone، نستخدم npx next start
+    if (!serverFile) {
+      console.log('Standalone not found, using npx next start');
+      appPath = possiblePaths.find(p => fs.existsSync(path.join(p, 'package.json')));
+      if (!appPath) throw new Error('Next.js files not found');
+
+      serverProcess = spawn('npx', ['next', 'start', '-p', '4001', '-H', '0.0.0.0'], {
+        cwd: appPath,
+        env: { ...process.env, NODE_ENV: 'production', PORT: '4001', HOSTNAME: '0.0.0.0' },
+        shell: true,
+        stdio: 'pipe'
+      });
+    } else {
+      // تشغيل standalone server.js
+      console.log('Starting standalone server');
+      serverProcess = spawn('node', [serverFile], {
+        cwd: appPath,
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '4001',
+          HOSTNAME: '0.0.0.0'
+        },
+        shell: false,
+        stdio: 'pipe'
+      });
+    }
 
     serverProcess.stdout.on('data', data => console.log(`Next: ${data}`));
     serverProcess.stderr.on('data', data => console.error(`Next ERR: ${data}`));

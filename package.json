@@ -11,87 +11,10 @@
     "start": "next start -p 4001 -H 0.0.0.0",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
-  },
-  "build": {
-    "appId": "com.gym.management",
-    "productName": "X Gym Management System",
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "files": [
-      "electron/**/*",
-      ".next/**/*",
-      "public/**/*",
-      "prisma/**/*",
-      "package.json",
-      "next.config.js",
-      "node_modules/electron-is-dev/**/*",
-      "node_modules/next/**/*",
-      "node_modules/@next/**/*",
-      "!node_modules/electron/**/*",
-      "!dist/**/*",
-      "!.next/cache/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": ".next/standalone",
-        "to": "app"
-      },
-      {
-        "from": ".next/static",
-        "to": "app/.next/static"
-      },
-      {
-        "from": "public",
-        "to": "app/public"
-      },
-      {
-        "from": "prisma",
-        "to": "prisma"
-      }
-    ],
-    "asar": {
-      "smartUnpack": true
-    },
-    "asarUnpack": [
-      "node_modules/sharp/**/*",
-      "node_modules/@prisma/**/*",
-      "node_modules/.prisma/**/*",
-      "prisma/**/*"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "publisherName": "X Gym System",
-      "requestedExecutionLevel": "requireAdministrator"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": true,
-      "allowElevation": true,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "X Gym",
-      "uninstallDisplayName": "Gym Management System",
-      "artifactName": "GymSystem-Setup-${version}.exe",
-      "deleteAppDataOnUninstall": false,
-      "language": "1025",
-      "multiLanguageInstaller": false,
-      "menuCategory": true,
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "runAfterFinish": true
-    }
+    "db:studio": "prisma studio",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:4001 && electron .\"",
+    "electron:build": "electron-builder",
+    "electron:build:win": "electron-builder --win --x64"
   },
   "dependencies": {
     "@next/env": "^16.0.3",

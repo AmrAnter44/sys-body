@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ شيل output: 'standalone' تماماً
+  output: 'standalone',
   distDir: '.next',
   poweredByHeader: false,
   compress: true,
