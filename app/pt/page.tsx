@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePermissions } from '../../hooks/usePermissions'
+import PermissionDenied from '../../components/PermissionDenied'
 import { formatDateYMD } from '../../lib/dateFormatter'
 
 interface Staff {
@@ -27,6 +29,8 @@ interface PTSession {
 
 export default function PTPage() {
   const router = useRouter()
+  const { hasPermission, loading: permissionsLoading } = usePermissions()
+
   const [sessions, setSessions] = useState<PTSession[]>([])
   const [coaches, setCoaches] = useState<Staff[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -43,7 +47,7 @@ export default function PTPage() {
     sessionsPurchased: 8,
     coachName: '',
     pricePerSession: 0,
-startDate: formatDateYMD(new Date()),
+    startDate: formatDateYMD(new Date()),
     expiryDate: '',
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay',
   })
@@ -56,6 +60,16 @@ startDate: formatDateYMD(new Date()),
   const fetchSessions = async () => {
     try {
       const response = await fetch('/api/pt')
+
+      if (response.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      if (response.status === 403) {
+        return
+      }
+
       const data = await response.json()
       setSessions(data)
     } catch (error) {
@@ -191,6 +205,19 @@ startDate: formatDateYMD(new Date()),
   const totalSessions = sessions.reduce((sum, s) => sum + s.sessionsPurchased, 0)
   const remainingSessions = sessions.reduce((sum, s) => sum + s.sessionsRemaining, 0)
   const activePTs = sessions.filter((s) => s.sessionsRemaining > 0).length
+
+  // ✅ التحقق من الصلاحيات
+  if (permissionsLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-xl">جاري التحميل...</div>
+      </div>
+    )
+  }
+
+  if (!hasPermission('canViewPT')) {
+    return <PermissionDenied message="ليس لديك صلاحية عرض جلسات PT" />
+  }
 
   return (
     <div className="container mx-auto p-6" dir="rtl">

@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { usePermissions } from '../../hooks/usePermissions'
+import PermissionDenied from '../../components/PermissionDenied'
 
 interface Staff {
   id: string
@@ -19,6 +22,9 @@ interface Expense {
 }
 
 export default function ExpensesPage() {
+  const router = useRouter()
+  const { hasPermission, loading: permissionsLoading } = usePermissions()
+
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -134,9 +140,22 @@ export default function ExpensesPage() {
   }
 
   const getTypeColor = (type: string) => {
-    return type === 'gym_expense' 
-      ? 'bg-orange-100 text-orange-800' 
+    return type === 'gym_expense'
+      ? 'bg-orange-100 text-orange-800'
       : 'bg-purple-100 text-purple-800'
+  }
+
+  // ✅ التحقق من الصلاحيات
+  if (permissionsLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-xl">جاري التحميل...</div>
+      </div>
+    )
+  }
+
+  if (!hasPermission('canViewFinancials')) {
+    return <PermissionDenied message="ليس لديك صلاحية عرض المصروفات" />
   }
 
   return (

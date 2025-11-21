@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { usePermissions } from '../../hooks/usePermissions'
+import PermissionDenied from '../../components/PermissionDenied'
 
 interface Staff {
   id: string
@@ -37,6 +40,9 @@ const POSITIONS = [
 ]
 
 export default function StaffPage() {
+  const router = useRouter()
+  const { hasPermission, loading: permissionsLoading } = usePermissions()
+
   const [staff, setStaff] = useState<Staff[]>([])
   const [todayAttendance, setTodayAttendance] = useState<Attendance[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -340,6 +346,19 @@ const handleScan = async (staffCode: string) => {
   const staffByPosition = getStaffByPosition()
   const presentStaff = todayAttendance.filter((att) => !att.checkOut).length
   const totalCheckedIn = todayAttendance.length
+
+  // ✅ التحقق من الصلاحيات
+  if (permissionsLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-xl">جاري التحميل...</div>
+      </div>
+    )
+  }
+
+  if (!hasPermission('canViewStaff')) {
+    return <PermissionDenied message="ليس لديك صلاحية عرض الموظفين" />
+  }
 
   return (
     <div className="container mx-auto p-6" dir="rtl">

@@ -64,11 +64,12 @@ export async function POST(request: Request) {
       }
     })
     
-    // حفظ التوكن في الكوكيز
+    // حفظ التوكن في الكوكيز (متوافق مع port forwarding)
     response.cookies.set('auth-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: false, // ✅ false عشان HTTP يشتغل (مش HTTPS فقط)
+      sameSite: 'lax', // ✅ lax يسمح بالإرسال في نفس الـ site
+      path: '/', // ✅ متاح في كل الـ paths
       maxAge: 60 * 60 * 24 * 7 // 7 days
     })
     

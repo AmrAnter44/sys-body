@@ -3,6 +3,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePermissions } from '../../hooks/usePermissions'
+import PermissionDenied from '../../components/PermissionDenied'
 import MemberForm from '../../components/MemberForm'
 import { formatDateYMD, calculateRemainingDays } from '../../lib/dateFormatter'
 
@@ -25,23 +27,35 @@ interface Member {
 
 export default function MembersPage() {
   const router = useRouter()
+  const { hasPermission, loading: permissionsLoading } = usePermissions()
+
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
-  
+
   const [searchId, setSearchId] = useState('')
   const [searchName, setSearchName] = useState('')
   const [searchPhone, setSearchPhone] = useState('')
-  
+
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired' | 'expiring-soon' | 'has-remaining'>('all')
   const [specificDate, setSpecificDate] = useState('')
 
   const fetchMembers = async () => {
     try {
       const response = await fetch('/api/members')
+
+      if (response.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      if (response.status === 403) {
+        return
+      }
+
       const data = await response.json()
-      
+
       if (Array.isArray(data)) {
         // ✅ تحويل كل الأرقام لـ integers
         const cleanedMembers = data.map(member => ({
@@ -162,6 +176,19 @@ export default function MembersPage() {
       return daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 7
     }).length,
     hasRemaining: members.filter(m => m.remainingAmount > 0).length
+  }
+
+  // ✅ التحقق من الصلاحيات
+  if (permissionsLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-xl">جاري التحميل...</div>
+      </div>
+    )
+  }
+
+  if (!hasPermission('canViewMembers')) {
+    return <PermissionDenied message="ليس لديك صلاحية عرض الأعضاء" />
   }
 
   return (
