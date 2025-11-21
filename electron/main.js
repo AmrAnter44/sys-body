@@ -109,13 +109,21 @@ async function startProductionServer() {
     } else {
       // تشغيل standalone server.js
       console.log('Starting standalone server');
+
+      // تحديد مسار قاعدة البيانات (relative من appPath)
+      const DATABASE_URL = 'file:./prisma/gym.db';
+
+      console.log('App path:', appPath);
+      console.log('Database URL:', DATABASE_URL);
+
       serverProcess = spawn('node', [serverFile], {
         cwd: appPath,
         env: {
           ...process.env,
           NODE_ENV: 'production',
           PORT: '4001',
-          HOSTNAME: '0.0.0.0'
+          HOSTNAME: '0.0.0.0',
+          DATABASE_URL: DATABASE_URL
         },
         shell: false,
         stdio: 'pipe'
