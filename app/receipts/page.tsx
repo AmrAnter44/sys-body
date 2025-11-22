@@ -42,6 +42,8 @@ export default function ReceiptsPage() {
     paymentMethod: 'cash',
     staffName: ''
   })
+  const [nextReceiptNumber, setNextReceiptNumber] = useState(1000)
+  const [showReceiptNumberEdit, setShowReceiptNumberEdit] = useState(false)
 
   // ✅ جميع الـ hooks يجب أن تكون قبل أي return
   const canEdit = hasPermission('canEditReceipts')
@@ -143,6 +145,22 @@ export default function ReceiptsPage() {
   useEffect(() => {
     applyFilters()
   }, [receipts, searchTerm, filterType, filterPayment])
+
+  // جلب رقم الإيصال التالي
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      try {
+        const response = await fetch('/api/receipts/next-number')
+        const data = await response.json()
+        setNextReceiptNumber(data.nextNumber)
+      } catch (error) {
+        console.error('Error fetching next receipt number:', error)
+      }
+    }
+    if (!permissionsLoading && hasPermission('canViewReceipts')) {
+      fetchNextNumber()
+    }
+  }, [permissionsLoading])
 
   // ✅ التحقق من الصلاحيات بعد كل الـ hooks
   if (permissionsLoading) {
@@ -284,7 +302,7 @@ export default function ReceiptsPage() {
   const handlePrint = (receipt: Receipt) => {
     try {
       const details = JSON.parse(receipt.itemDetails)
-      
+
       // استخدام نظام الطباعة القديم من printSystem.ts
       printReceiptFromData(
         receipt.receiptNumber,
@@ -298,6 +316,33 @@ export default function ReceiptsPage() {
       console.error('Error printing receipt:', error)
       alert('❌ حدث خطأ في الطباعة')
     }
+  }
+
+  const handleUpdateNextReceiptNumber = async () => {
+    if (nextReceiptNumber < 1) {
+      alert('رقم الإيصال يجب أن يكون أكبر من 0')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/receipts/next-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startNumber: nextReceiptNumber })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage(`✅ ${data.message}`)
+        setShowReceiptNumberEdit(false)
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      setMessage('❌ حدث خطأ في التحديث')
+    }
+    setTimeout(() => setMessage(''), 3000)
   }
 
   if (loading) {
@@ -374,6 +419,48 @@ export default function ReceiptsPage() {
         </div>
       </div>
 
+      {/* تعديل رقم الإيصال التالي - قسم صغير */}
+      <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🔢</span>
+            <div>
+              <p className="font-bold text-sm">رقم الإيصال التالي</p>
+              <p className="text-xs text-gray-600">#{nextReceiptNumber}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowReceiptNumberEdit(!showReceiptNumberEdit)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition"
+          >
+            {showReceiptNumberEdit ? '✕ إلغاء' : '✏️ تعديل'}
+          </button>
+        </div>
+
+        {showReceiptNumberEdit && (
+          <div className="mt-4 pt-4 border-t flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-medium mb-1 text-gray-700">
+                الرقم الجديد
+              </label>
+              <input
+                type="number"
+                value={nextReceiptNumber}
+                onChange={(e) => setNextReceiptNumber(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                placeholder="1000"
+              />
+            </div>
+            <button
+              onClick={handleUpdateNextReceiptNumber}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition"
+            >
+              ✓ حفظ
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
         <h3 className="text-lg font-bold mb-4">🔍 البحث والفلاتر</h3>
@@ -385,7 +472,7 @@ export default function ReceiptsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="رقم الإيصال، اسم العميل، الهاتف، الموظف..."
-              className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 md:px-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -394,7 +481,7 @@ export default function ReceiptsPage() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 md:px-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">الكل</option>
               <option value="Member">عضو جديد</option>
@@ -412,7 +499,7 @@ export default function ReceiptsPage() {
             <select
               value={filterPayment}
               onChange={(e) => setFilterPayment(e.target.value)}
-              className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 md:px-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">الكل</option>
               <option value="cash">كاش</option>

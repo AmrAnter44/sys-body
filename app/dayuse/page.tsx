@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ReceiptToPrint } from '../../components/ReceiptToPrint'
 import PaymentMethodSelector from '../../components/Paymentmethodselector'
+import { usePermissions } from '../../hooks/usePermissions'
 
 interface DayUseEntry {
   id: string
@@ -15,6 +16,7 @@ interface DayUseEntry {
 }
 
 export default function DayUsePage() {
+  const { user } = usePermissions()
   const [entries, setEntries] = useState<DayUseEntry[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -24,7 +26,7 @@ export default function DayUsePage() {
     phone: '',
     serviceType: 'DayUse',
     price: 0,
-    staffName: '',
+    staffName: user?.name || '',
     paymentMethod: 'cash',
   })
   const [showReceipt, setShowReceipt] = useState(false)
@@ -46,6 +48,12 @@ export default function DayUsePage() {
     fetchEntries()
   }, [])
 
+  useEffect(() => {
+    if (user && !formData.staffName) {
+      setFormData(prev => ({ ...prev, staffName: user.name }))
+    }
+  }, [user])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -55,7 +63,10 @@ export default function DayUsePage() {
       const response = await fetch('/api/dayuse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          staffName: user?.name || ''
+        }),
       })
 
       if (response.ok) {
@@ -86,7 +97,7 @@ export default function DayUsePage() {
           phone: '',
           serviceType: 'DayUse',
           price: 0,
-          staffName: '',
+          staffName: user?.name || '',
           paymentMethod: 'cash',
         })
         
@@ -184,8 +195,8 @@ export default function DayUsePage() {
                   type="text"
                   required
                   value={formData.staffName}
-                  onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  readOnly
+                  className="w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed"
                   placeholder="اسم الموظف"
                 />
               </div>

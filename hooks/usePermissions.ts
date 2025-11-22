@@ -4,7 +4,8 @@
 import { useState, useEffect } from 'react'
 
 export interface User {
-  id: string
+  userId?: string
+  id?: string
   name: string
   email: string
   role: 'ADMIN' | 'MANAGER' | 'STAFF'

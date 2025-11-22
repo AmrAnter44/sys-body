@@ -422,7 +422,7 @@ export default function SearchPage() {
               setSearched(false)
               setResults([])
             }}
-            className={`flex-1 px-6 py-4 rounded-xl font-bold text-lg transition-all ${
+            className={`flex-1 px-3 py-3 md:px-6 md:py-4 rounded-xl font-bold text-sm md:text-base lg:text-lg transition-all ${
               searchMode === 'id'
                 ? 'bg-blue-600 text-white shadow-lg scale-105'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -436,7 +436,7 @@ export default function SearchPage() {
               setSearched(false)
               setResults([])
             }}
-            className={`flex-1 px-6 py-4 rounded-xl font-bold text-lg transition-all ${
+            className={`flex-1 px-3 py-3 md:px-6 md:py-4 rounded-xl font-bold text-sm md:text-base lg:text-lg transition-all ${
               searchMode === 'name'
                 ? 'bg-green-600 text-white shadow-lg scale-105'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -510,14 +510,14 @@ export default function SearchPage() {
                 value={memberId}
                 onChange={(e) => setMemberId(e.target.value)}
                 onKeyPress={handleIdKeyPress}
-                className="flex-1 px-6 py-6 border-4 border-green-300 rounded-xl text-4xl font-bold text-center focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
+                className="flex-1 px-4 py-3 md:px-6 md:py-4 lg:px-6 lg:py-6 border-4 border-green-300 rounded-xl text-xl md:text-2xl lg:text-4xl font-bold text-center focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
                 placeholder="1001 أو s22"
                 autoFocus
               />
               <button
                 onClick={handleSearchById}
                 disabled={loading || !memberId.trim()}
-                className="px-8 py-6 bg-green-600 text-white text-xl font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
+                className="px-4 py-3 md:px-6 md:py-4 lg:px-8 lg:py-6 bg-green-600 text-white text-base md:text-lg lg:text-xl font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
               >
                 {loading ? '⏳' : '🔍'} بحث
               </button>
@@ -554,11 +554,11 @@ export default function SearchPage() {
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
                 onKeyPress={handleNameKeyPress}
-                className="w-full px-4 py-4 border-2 border-green-300 rounded-lg text-xl focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
+                className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-base md:text-lg focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
                 placeholder="اكتب اسم العضو أو جزء منه..."
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">رقم الهاتف</label>
               <input
@@ -566,7 +566,7 @@ export default function SearchPage() {
                 value={searchPhone}
                 onChange={(e) => setSearchPhone(e.target.value)}
                 onKeyPress={handleNameKeyPress}
-                className="w-full px-4 py-4 border-2 border-green-300 rounded-lg text-xl focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
+                className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-base md:text-lg focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
                 placeholder="اكتب رقم الهاتف أو جزء منه..."
               />
             </div>
@@ -575,7 +575,7 @@ export default function SearchPage() {
           <button
             onClick={handleSearchByName}
             disabled={loading || (!searchName.trim() && !searchPhone.trim())}
-            className="w-full px-6 py-4 bg-green-600 text-white text-xl font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
+            className="w-full px-4 py-3 md:px-6 md:py-4 bg-green-600 text-white text-base md:text-lg lg:text-xl font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
           >
             🔍 بحث
           </button>

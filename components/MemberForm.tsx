@@ -4,12 +4,14 @@ import { useState, useRef, useEffect } from 'react'
 import PaymentMethodSelector from '../components/Paymentmethodselector'
 import { calculateDaysBetween, formatDateYMD } from '../lib/dateFormatter'
 import { printReceiptFromData } from '../lib/printSystem'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface MemberFormProps {
   onSuccess: () => void
 }
 
 export default function MemberForm({ onSuccess }: MemberFormProps) {
+  const { user } = usePermissions()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [nextMemberNumber, setNextMemberNumber] = useState<number | null>(null)
@@ -30,7 +32,7 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
     startDate: formatDateYMD(new Date()),
     expiryDate: '',
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay' | 'wallet',
-    staffName: '',
+    staffName: user?.name || '',
     isOther: false
   })
 
@@ -39,9 +41,9 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
       try {
         const response = await fetch('/api/members/next-number')
         const data = await response.json()
-        
+
         console.log('📊 استجابة API:', data)
-        
+
         if (data.nextNumber !== undefined && data.nextNumber !== null) {
           setNextMemberNumber(data.nextNumber)
           setFormData(prev => ({ ...prev, memberNumber: data.nextNumber.toString() }))
@@ -58,9 +60,15 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
         setTimeout(() => setMessage(''), 3000)
       }
     }
-    
+
     fetchNextNumber()
   }, [])
+
+  useEffect(() => {
+    if (user && !formData.staffName) {
+      setFormData(prev => ({ ...prev, staffName: user.name }))
+    }
+  }, [user])
 
   const handleOtherChange = (checked: boolean) => {
     console.log('🔄 تغيير Other:', checked)
@@ -125,16 +133,10 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
     setLoading(true)
     setMessage('')
 
-    if (!formData.staffName.trim()) {
-      setMessage('❌ يرجى إدخال اسم الموظف')
-      setLoading(false)
-      return
-    }
-
     if (formData.startDate && formData.expiryDate) {
       const start = new Date(formData.startDate)
       const end = new Date(formData.expiryDate)
-      
+
       if (end <= start) {
         setMessage('❌ تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية')
         setLoading(false)
@@ -145,15 +147,15 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
     const cleanedData = {
       ...formData,
       isOther: formData.isOther,
-      memberNumber: formData.isOther 
-        ? null 
+      memberNumber: formData.isOther
+        ? null
         : (formData.memberNumber ? parseInt(formData.memberNumber) : nextMemberNumber),
       inBodyScans: parseInt(formData.inBodyScans.toString()),
       invitations: parseInt(formData.invitations.toString()),
       freePTSessions: parseInt(formData.freePTSessions.toString()),
       subscriptionPrice: parseInt(formData.subscriptionPrice.toString()),
       remainingAmount: parseInt(formData.remainingAmount.toString()),
-      staffName: formData.staffName.trim()
+      staffName: user?.name || ''
     }
 
     console.log('📤 إرسال البيانات:', {
@@ -315,8 +317,8 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
             type="text"
             required
             value={formData.staffName}
-            onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
-            className="w-full px-3 py-2 border-2 rounded-lg"
+            readOnly
+            className="w-full px-3 py-2 border-2 rounded-lg bg-gray-100 cursor-not-allowed"
             placeholder="محمد علي"
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -391,7 +393,7 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
               type="text"
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-sm md:text-base"
               placeholder="2025-11-18"
               pattern="\d{4}-\d{2}-\d{2}"
             />
@@ -405,7 +407,7 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
               type="text"
               value={formData.expiryDate}
               onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-sm md:text-base"
               placeholder="2025-12-18"
               pattern="\d{4}-\d{2}-\d{2}"
             />

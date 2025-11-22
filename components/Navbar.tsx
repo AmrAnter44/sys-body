@@ -25,7 +25,6 @@ export default function Navbar() {
     { href: '/visitors', label: 'الزوار', icon: '🚶' },
     { href: '/search', label: 'البحث', icon: '🔍' },
     { href: '/closing', label: 'التقفيل', icon: '💰' },
-    { href: '/settings', label: 'الإعدادات', icon: '⚙️' },
     { href: '/attendance-report', label: 'حضور', icon: '📊' },
   ]
 
@@ -370,14 +369,14 @@ export default function Navbar() {
                     onChange={(e) => setQuickSearchId(e.target.value)}
                     onKeyPress={handleSearchKeyPress}
                     placeholder="1001 أو s22"
-                    className="flex-1 px-6 py-4 border-4 border-blue-300 rounded-xl text-3xl font-bold text-center focus:border-blue-600 focus:ring-4 focus:ring-blue-200 transition text-gray-800"
+                    className="flex-1 px-4 py-3 md:px-6 md:py-4 border-4 border-blue-300 rounded-xl text-xl md:text-2xl lg:text-3xl font-bold text-center focus:border-blue-600 focus:ring-4 focus:ring-blue-200 transition text-gray-800"
                     disabled={isSearching}
                     autoFocus
                   />
                   <button
                     onClick={handleQuickSearch}
                     disabled={isSearching || !quickSearchId.trim()}
-                    className="px-8 py-4 bg-blue-600 text-white text-xl font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-400 transition"
+                    className="px-4 py-3 md:px-8 md:py-4 bg-blue-600 text-white text-base md:text-xl font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-400 transition"
                   >
                     {isSearching ? '⏳' : '🔍'}
                   </button>

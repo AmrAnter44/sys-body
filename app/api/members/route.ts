@@ -100,21 +100,13 @@ export async function POST(request: Request) {
       isOther
     } = body
 
-    console.log('📝 إضافة عضو جديد:', { 
-      memberNumber, 
-      name, 
-      profileImage, 
-      isOther, 
-      staffName 
+    console.log('📝 إضافة عضو جديد:', {
+      memberNumber,
+      name,
+      profileImage,
+      isOther,
+      staffName: staffName || '(غير محدد)'
     })
-
-    // التحقق من اسم الموظف
-    if (!staffName || !staffName.trim()) {
-      return NextResponse.json(
-        { error: 'اسم الموظف مطلوب' },
-        { status: 400 }
-      )
-    }
 
     // تحويل كل الأرقام لـ integers
     let cleanMemberNumber = null
@@ -250,6 +242,7 @@ export async function POST(request: Request) {
           itemDetails: JSON.stringify({
             memberNumber: cleanMemberNumber,
             memberName: name,
+            phone: phone,
             subscriptionPrice: cleanSubscriptionPrice,
             paidAmount: paidAmount,
             remainingAmount: cleanRemainingAmount,

@@ -4,15 +4,16 @@ import { prisma } from '../../../../lib/prisma'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { 
+    const {
       ptNumber,
       phone,
-      sessionsPurchased, 
-      coachName, 
+      sessionsPurchased,
+      coachName,
       pricePerSession,
       startDate,
       expiryDate,
-      paymentMethod
+      paymentMethod,
+      staffName
     } = body
 
     console.log('🔄 تجديد جلسات PT:', { ptNumber, sessionsPurchased })
@@ -83,9 +84,11 @@ export async function POST(request: Request) {
           type: 'تجديد برايفت',
           amount: totalAmount,
           paymentMethod: paymentMethod || 'cash',
+          staffName: staffName || '',
           itemDetails: JSON.stringify({
             ptNumber: updatedPT.ptNumber,
             clientName: existingPT.clientName,
+            phone: phone,
             sessionsPurchased,
             pricePerSession,
             totalAmount,

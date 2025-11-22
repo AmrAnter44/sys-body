@@ -106,13 +106,6 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
             📲
           </button>
         )}
-
-        <button
-          onClick={() => setShowSendModal(true)}
-          className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 flex items-center gap-1"
-        >
-          📱
-        </button>
       </div>
 
       {showSendModal && (

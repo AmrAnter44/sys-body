@@ -60,11 +60,6 @@ export async function POST(request: Request) {
       staffName
     })
 
-    // ✅ التحقق من اسم الموظف
-    if (!staffName || !staffName.trim()) {
-      return NextResponse.json({ error: 'اسم الموظف مطلوب' }, { status: 400 })
-    }
-
     // جلب بيانات العضو
     const member = await prisma.member.findUnique({
       where: { id: memberId }
@@ -148,6 +143,7 @@ export async function POST(request: Request) {
           itemDetails: JSON.stringify({
             memberNumber: member.memberNumber,
             memberName: member.name,
+            phone: member.phone,
             subscriptionPrice,
             paidAmount,
             remainingAmount: remainingAmount || 0,

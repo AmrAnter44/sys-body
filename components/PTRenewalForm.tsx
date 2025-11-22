@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { calculateDaysBetween, formatDateYMD, formatDurationInMonths } from '../lib/dateFormatter'
 import PaymentMethodSelector from './Paymentmethodselector'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface Staff {
   id: string
@@ -31,6 +32,7 @@ interface PTRenewalFormProps {
 }
 
 export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewalFormProps) {
+  const { user } = usePermissions()
   const [coaches, setCoaches] = useState<Staff[]>([])
   const [coachesLoading, setCoachesLoading] = useState(true)
 
@@ -54,6 +56,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
     startDate: getDefaultStartDate(),
     expiryDate: '',
     paymentMethod: 'cash',
+    staffName: user?.name || '',
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -61,6 +64,12 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
   useEffect(() => {
     fetchCoaches()
   }, [])
+
+  useEffect(() => {
+    if (user && !formData.staffName) {
+      setFormData(prev => ({ ...prev, staffName: user.name }))
+    }
+  }, [user])
 
   const fetchCoaches = async () => {
     try {
@@ -117,7 +126,8 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ptNumber: session.ptNumber,
-          ...formData
+          ...formData,
+          staffName: user?.name || ''
         }),
       })
 
@@ -179,7 +189,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
 
         <div className="p-6">
           <div className="bg-green-50 border-r-4 border-green-500 p-4 rounded-lg mb-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-600">رقم PT</p>
                 <p className="text-2xl font-bold text-green-600">#{session.ptNumber}</p>
@@ -219,7 +229,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                 <span>بيانات التجديد</span>
               </h3>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     رقم الهاتف
@@ -228,7 +238,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-3 border-2 rounded-lg"
+                    className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg"
                     placeholder="01xxxxxxxxx"
                   />
                 </div>
@@ -243,7 +253,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                     min="1"
                     value={formData.sessionsPurchased}
                     onChange={(e) => setFormData({ ...formData, sessionsPurchased: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 border-2 rounded-lg text-lg"
+                    className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg text-base md:text-lg"
                     placeholder="عدد الجلسات"
                   />
                 </div>
@@ -253,7 +263,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                     اسم المدرب <span className="text-red-600">*</span>
                   </label>
                   {coachesLoading ? (
-                    <div className="w-full px-4 py-3 border-2 rounded-lg bg-gray-50 text-gray-500">
+                    <div className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg bg-gray-50 text-gray-500">
                       جاري تحميل الكوتشات...
                     </div>
                   ) : coaches.length === 0 ? (
@@ -263,7 +273,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                         required
                         value={formData.coachName}
                         onChange={(e) => setFormData({ ...formData, coachName: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg"
+                        className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-gray-300 rounded-lg"
                         placeholder="اسم المدرب"
                       />
                       <p className="text-xs text-amber-600">
@@ -275,7 +285,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                       required
                       value={formData.coachName}
                       onChange={(e) => setFormData({ ...formData, coachName: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white"
+                      className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-gray-300 rounded-lg bg-white"
                     >
                       <option value="">-- اختر المدرب --</option>
                       {coaches.map((coach) => (
@@ -297,7 +307,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                     min="0"
                     value={formData.pricePerSession}
                     onChange={(e) => setFormData({ ...formData, pricePerSession: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 border-2 rounded-lg text-lg"
+                    className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg text-base md:text-lg"
                     placeholder="0.00"
                   />
                 </div>
@@ -331,7 +341,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                     required
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-4 py-3 border-2 rounded-lg font-mono text-lg"
+                    className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg font-mono text-sm md:text-base"
                     placeholder="2025-11-18"
                     pattern="\d{4}-\d{2}-\d{2}"
                   />
@@ -346,7 +356,7 @@ export default function PTRenewalForm({ session, onSuccess, onClose }: PTRenewal
                     required
                     value={formData.expiryDate}
                     onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                    className="w-full px-4 py-3 border-2 rounded-lg font-mono text-lg"
+                    className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg font-mono text-sm md:text-base"
                     placeholder="2025-12-18"
                     pattern="\d{4}-\d{2}-\d{2}"
                   />

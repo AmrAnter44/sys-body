@@ -213,7 +213,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-xl shadow-lg">
           <div className="text-3xl font-bold">{stats.total}</div>
           <div className="text-sm opacity-90">إجمالي الأعضاء</div>
@@ -259,7 +259,7 @@ export default function MembersPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
           <button
             onClick={() => setFilterStatus('all')}
             className={`px-4 py-3 rounded-lg font-medium transition ${
@@ -325,7 +325,7 @@ export default function MembersPage() {
               type="date"
               value={specificDate}
               onChange={(e) => setSpecificDate(e.target.value)}
-              className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none transition"
+              className="flex-1 px-3 py-2 md:px-4 md:py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none transition"
             />
             {specificDate && (
               <button
@@ -367,7 +367,7 @@ export default function MembersPage() {
               type="text"
               value={searchId}
               onChange={(e) => setSearchId(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+              className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
               placeholder="ابحث برقم العضوية..."
             />
           </div>
@@ -378,7 +378,7 @@ export default function MembersPage() {
               type="text"
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+              className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
               placeholder="ابحث بالاسم..."
             />
           </div>
@@ -389,7 +389,7 @@ export default function MembersPage() {
               type="text"
               value={searchPhone}
               onChange={(e) => setSearchPhone(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+              className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
               placeholder="ابحث برقم الهاتف..."
             />
           </div>

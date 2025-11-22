@@ -29,7 +29,7 @@ interface PTSession {
 
 export default function PTPage() {
   const router = useRouter()
-  const { hasPermission, loading: permissionsLoading } = usePermissions()
+  const { hasPermission, loading: permissionsLoading, user } = usePermissions()
 
   const [sessions, setSessions] = useState<PTSession[]>([])
   const [coaches, setCoaches] = useState<Staff[]>([])
@@ -50,12 +50,19 @@ export default function PTPage() {
     startDate: formatDateYMD(new Date()),
     expiryDate: '',
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay',
+    staffName: user?.name || '',
   })
 
   useEffect(() => {
     fetchSessions()
     fetchCoaches()
   }, [])
+
+  useEffect(() => {
+    if (user && !formData.staffName) {
+      setFormData(prev => ({ ...prev, staffName: user.name }))
+    }
+  }, [user])
 
   const fetchSessions = async () => {
     try {
@@ -102,9 +109,10 @@ export default function PTPage() {
       sessionsPurchased: 8,
       coachName: '',
       pricePerSession: 0,
-startDate: formatDateYMD(new Date()),
+      startDate: formatDateYMD(new Date()),
       expiryDate: '',
       paymentMethod: 'cash',
+      staffName: user?.name || '',
     })
     setEditingSession(null)
     setShowForm(false)
@@ -148,8 +156,8 @@ startDate: formatDateYMD(new Date()),
       const url = '/api/pt'
       const method = editingSession ? 'PUT' : 'POST'
       const body = editingSession
-        ? { ptNumber: editingSession.ptNumber, ...formData }
-        : formData
+        ? { ptNumber: editingSession.ptNumber, ...formData, staffName: user?.name || '' }
+        : { ...formData, staffName: user?.name || '' }
 
       const response = await fetch(url, {
         method,

@@ -5,6 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 
 export interface UserPayload {
   userId: string
+  name: string
   email: string
   role: 'ADMIN' | 'MANAGER' | 'STAFF'
   permissions?: {

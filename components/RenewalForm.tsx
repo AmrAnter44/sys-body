@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PaymentMethodSelector from './Paymentmethodselector'
 import { calculateDaysBetween, formatDateYMD } from '../lib/dateFormatter'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface Member {
   id: string
@@ -50,6 +51,7 @@ interface RenewalFormProps {
 }
 
 export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormProps) {
+  const { user } = usePermissions()
   const [subscriptionPrice, setSubscriptionPrice] = useState('')
   const [remainingAmount, setRemainingAmount] = useState('0')
   const [freePTSessions, setFreePTSessions] = useState('0')
@@ -59,9 +61,15 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
   const [expiryDate, setExpiryDate] = useState('')
   const [notes, setNotes] = useState(member.notes || '')
   const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [staffName, setStaffName] = useState('')
+  const [staffName, setStaffName] = useState(user?.name || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (user && !staffName) {
+      setStaffName(user.name)
+    }
+  }, [user])
 
   const calculateDays = (start: string, end: string) => {
     if (!start || !end) return 0
@@ -90,11 +98,6 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
       return
     }
 
-    if (!staffName.trim()) {
-      setError('⚠️ يرجى إدخال اسم الموظف')
-      return
-    }
-
     if (!startDate || !expiryDate) {
       setError('⚠️ يرجى تحديد تاريخ البداية والانتهاء')
       return
@@ -110,7 +113,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
 
     try {
       console.log('📄 إرسال طلب التجديد...')
-      
+
       const response = await fetch('/api/members/renew', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,7 +128,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
           expiryDate,
           notes,
           paymentMethod,
-          staffName: staffName.trim()
+          staffName: user?.name || ''
         })
       })
 
@@ -183,7 +186,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
 
         <div className="bg-blue-50 border-r-4 border-blue-500 p-4 rounded-lg mb-6">
           <h4 className="font-bold text-blue-900 mb-2">معلومات العضو</h4>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             <p className="text-blue-800">
               <strong>الاسم:</strong> {member.name}
             </p>
@@ -230,7 +233,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="number"
                   value={subscriptionPrice}
                   onChange={(e) => setSubscriptionPrice(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
                   placeholder="مثال: 1000"
                   min="0"
                   required
@@ -245,7 +248,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="number"
                   value={remainingAmount}
                   onChange={(e) => setRemainingAmount(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
                   placeholder="0"
                   min="0"
                 />
@@ -259,8 +262,8 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="text"
                   required
                   value={staffName}
-                  onChange={(e) => setStaffName(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
+                  readOnly
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg bg-gray-100 cursor-not-allowed"
                   placeholder="اسم الموظف المجدد"
                 />
               </div>
@@ -290,7 +293,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="number"
                   value={freePTSessions}
                   onChange={(e) => setFreePTSessions(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
                   placeholder="0"
                   min="0"
                 />
@@ -309,7 +312,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="number"
                   value={inBodyScans}
                   onChange={(e) => setInBodyScans(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
                   placeholder="0"
                   min="0"
                 />
@@ -328,7 +331,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="number"
                   value={invitations}
                   onChange={(e) => setInvitations(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
                   placeholder="0"
                   min="0"
                 />
@@ -356,7 +359,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="text"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-lg"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-sm md:text-base"
                   placeholder="2025-11-18"
                   pattern="\d{4}-\d{2}-\d{2}"
                   required
@@ -371,7 +374,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
                   type="text"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-lg"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-sm md:text-base"
                   placeholder="2025-12-18"
                   pattern="\d{4}-\d{2}-\d{2}"
                   required
@@ -425,7 +428,7 @@ export default function RenewalForm({ member, onSuccess, onClose }: RenewalFormP
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 md:px-4 md:py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
               rows={3}
               placeholder="أي ملاحظات إضافية..."
             />

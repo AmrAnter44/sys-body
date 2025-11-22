@@ -41,16 +41,17 @@ export async function POST(request: Request) {
     await requirePermission(request, 'canCreatePT')
     
     const body = await request.json()
-    const { 
-      ptNumber, 
-      clientName, 
-      phone, 
-      sessionsPurchased, 
-      coachName, 
+    const {
+      ptNumber,
+      clientName,
+      phone,
+      sessionsPurchased,
+      coachName,
       pricePerSession,
       startDate,
       expiryDate,
-      paymentMethod
+      paymentMethod,
+      staffName
     } = body
 
     console.log('📝 إضافة جلسة PT جديدة:', { ptNumber, clientName, sessionsPurchased })
@@ -131,17 +132,18 @@ export async function POST(request: Request) {
           type: 'اشتراك برايفت',
           amount: totalAmount,
           paymentMethod: paymentMethod || 'cash',
+          staffName: staffName || '',
           itemDetails: JSON.stringify({
             ptNumber: pt.ptNumber,
             clientName,
+            phone: phone,
             sessionsPurchased,
             pricePerSession,
             totalAmount,
             coachName,
             startDate: startDate,
             expiryDate: expiryDate,
-            subscriptionDays: subscriptionDays,
-            phone: phone
+            subscriptionDays: subscriptionDays
           }),
         },
       })
