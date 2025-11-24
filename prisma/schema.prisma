@@ -207,34 +207,55 @@ model Permission {
   id       String  @id @default(cuid())
   userId   String  @unique
   user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   // صلاحيات الأعضاء
   canViewMembers    Boolean @default(false)
   canCreateMembers  Boolean @default(false)
   canEditMembers    Boolean @default(false)
   canDeleteMembers  Boolean @default(false)
-  
+
   // صلاحيات PT
   canViewPT         Boolean @default(false)
   canCreatePT       Boolean @default(false)
   canEditPT         Boolean @default(false)
   canDeletePT       Boolean @default(false)
-  
+
   // صلاحيات الموظفين
   canViewStaff      Boolean @default(false)
   canCreateStaff    Boolean @default(false)
   canEditStaff      Boolean @default(false)
   canDeleteStaff    Boolean @default(false)
-  
+
   // صلاحيات الإيصالات
   canViewReceipts   Boolean @default(false)
   canEditReceipts   Boolean @default(false)
   canDeleteReceipts Boolean @default(false)
-  
+
+  // صلاحيات المصروفات
+  canViewExpenses   Boolean @default(false)
+  canCreateExpense  Boolean @default(false)
+  canEditExpense    Boolean @default(false)
+  canDeleteExpense  Boolean @default(false)
+
+  // صلاحيات الزوار
+  canViewVisitors   Boolean @default(false)
+  canCreateVisitor  Boolean @default(false)
+  canEditVisitor    Boolean @default(false)
+  canDeleteVisitor  Boolean @default(false)
+
+  // صلاحيات يوم الاستخدام
+  canViewDayUse     Boolean @default(false)
+  canCreateDayUse   Boolean @default(false)
+  canEditDayUse     Boolean @default(false)
+  canDeleteDayUse   Boolean @default(false)
+
   // صلاحيات التقارير والإعدادات
   canViewReports    Boolean @default(false)
   canViewFinancials Boolean @default(false)
+  canViewAttendance Boolean @default(false)
+  canAccessClosing  Boolean @default(false)
   canAccessSettings Boolean @default(false)
+  canAccessAdmin    Boolean @default(false)
 }
 
 model ActivityLog {

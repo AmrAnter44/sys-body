@@ -2,25 +2,25 @@
 
 import { useState } from 'react'
 
-interface BarcodeWhatsAppProps {
-  memberNumber: number
-  memberName: string
-  memberPhone: string
+interface StaffBarcodeWhatsAppProps {
+  staffCode: number
+  staffName: string
+  staffPhone: string
 }
 
-export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone }: BarcodeWhatsAppProps) {
+export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone }: StaffBarcodeWhatsAppProps) {
   const [showBarcodeModal, setShowBarcodeModal] = useState(false)
   const [barcodeImage, setBarcodeImage] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
-  // توليد الباركود عن طريق API
+  // توليد الباركود عن طريق API مع إضافة S قبل الرقم
   const handleGenerateBarcode = async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/barcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: memberNumber.toString() }),
+        body: JSON.stringify({ text: `S${staffCode}` }), // ✅ إضافة S قبل الرقم
       })
 
       const data = await res.json()
@@ -42,7 +42,7 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
     if (!barcodeImage) return
     const a = document.createElement('a')
     a.href = barcodeImage
-    a.download = `barcode-${memberNumber}.png`
+    a.download = `barcode-staff-${staffCode}.png`
     a.click()
   }
 
@@ -52,8 +52,8 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
     handleDownloadBarcode()
 
     setTimeout(() => {
-      const message = `Barcode العضوية #${memberNumber} للعضو ${memberName}`
-      const phone = memberPhone.replace(/\D/g, '') // تنظيف رقم الهاتف
+      const message = `Barcode الموظف #${staffCode} (${staffName})`
+      const phone = staffPhone.replace(/\D/g, '') // تنظيف رقم الهاتف
       const url = `https://wa.me/2${phone}?text=${encodeURIComponent(message)}`
       window.open(url, '_blank')
 
@@ -63,49 +63,37 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
 
   return (
     <>
-      {/* زر عرض/إرسال الباركود */}
-      <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-blue-100 p-3 rounded-full">
-            <span className="text-3xl">📱</span>
-          </div>
-          <div>
-            <h3 className="text-xl font-bold">Barcode العضوية</h3>
-            <p className="text-sm text-gray-600">عرض أو إرسال باركود رقم العضوية</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={handleGenerateBarcode}
-            disabled={loading}
-            className="bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2"
-          >
-            <span>🔢</span>
-            <span>عرض Barcode</span>
-          </button>
-          
-          <button
-            onClick={handleSendBarcode}
-            disabled={loading}
-            className="bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2"
-          >
-            <span>📲</span>
-            <span>تحميل وإرسال واتساب</span>
-          </button>
-        </div>
+      {/* أزرار مدمجة صغيرة */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleGenerateBarcode}
+          disabled={loading}
+          className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm flex items-center gap-1"
+          title="عرض Barcode"
+        >
+          🔢
+        </button>
+
+        <button
+          onClick={handleSendBarcode}
+          disabled={loading}
+          className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 text-sm flex items-center gap-1"
+          title="إرسال Barcode عبر واتساب"
+        >
+          📲
+        </button>
       </div>
 
       {/* Modal عرض الباركود */}
       {showBarcodeModal && barcodeImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
           style={{ zIndex: 9999 }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowBarcodeModal(false) }}
         >
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold">🔢 Barcode العضوية</h3>
+              <h3 className="text-2xl font-bold">🔢 Barcode الموظف</h3>
               <button
                 onClick={() => setShowBarcodeModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
@@ -115,25 +103,25 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
               </button>
             </div>
 
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6 text-center">
-              <p className="text-sm text-blue-600 mb-2">العضو</p>
-              <p className="text-xl font-bold text-blue-800">{memberName}</p>
-              <p className="text-3xl font-bold text-blue-600 mt-2">#{memberNumber}</p>
+            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 mb-6 text-center">
+              <p className="text-sm text-purple-600 mb-2">الموظف</p>
+              <p className="text-xl font-bold text-purple-800">{staffName}</p>
+              <p className="text-3xl font-bold text-purple-600 mt-2">#S{staffCode}</p>
             </div>
 
-            <div className="bg-white border-2 border-blue-200 rounded-lg p-6 mb-6 flex justify-center">
+            <div className="bg-white border-2 border-purple-200 rounded-lg p-6 mb-6 flex justify-center">
               <div className="relative inline-block">
                 {/* Barcode */}
                 <img
                   src={barcodeImage}
-                  alt={`Barcode ${memberNumber}`}
+                  alt={`Barcode S${staffCode}`}
                   className="max-w-full h-auto"
                   style={{ minWidth: '300px' }}
                 />
 
                 {/* Logo في نص الباركود */}
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                  <div className="bg-white rounded-lg shadow-lg p-3 border-2 border-blue-400">
+                  <div className="bg-white rounded-lg shadow-lg p-3 border-2 border-purple-400">
                     <img
                       src="/icon.png"
                       alt="Gym Logo"

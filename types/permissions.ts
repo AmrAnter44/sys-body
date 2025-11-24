@@ -14,30 +14,57 @@ export interface Permissions {
   canCreateMembers: boolean
   canEditMembers: boolean
   canDeleteMembers: boolean
-  
+
   // صلاحيات التدريب الشخصي
   canViewPT: boolean
   canCreatePT: boolean
   canEditPT: boolean
   canDeletePT: boolean
-  
+
   // صلاحيات الموظفين
   canViewStaff: boolean
   canCreateStaff: boolean
   canEditStaff: boolean
   canDeleteStaff: boolean
-  
+
   // صلاحيات الإيصالات
   canViewReceipts: boolean
   canEditReceipts: boolean
   canDeleteReceipts: boolean
-  
+
+  // صلاحيات المصروفات
+  canViewExpenses: boolean
+  canCreateExpense: boolean
+  canEditExpense: boolean
+  canDeleteExpense: boolean
+
+  // صلاحيات الزوار
+  canViewVisitors: boolean
+  canCreateVisitor: boolean
+  canEditVisitor: boolean
+  canDeleteVisitor: boolean
+
+  // صلاحيات المتابعات
+  canViewFollowUps: boolean
+  canCreateFollowUp: boolean
+  canEditFollowUp: boolean
+  canDeleteFollowUp: boolean
+
+  // صلاحيات يوم الاستخدام
+  canViewDayUse: boolean
+  canCreateDayUse: boolean
+  canEditDayUse: boolean
+  canDeleteDayUse: boolean
+
   // صلاحيات التقارير والماليات
   canViewReports: boolean
   canViewFinancials: boolean
-  
-  // صلاحيات الإعدادات
+  canViewAttendance: boolean
+  canAccessClosing: boolean
+
+  // صلاحيات الإعدادات والإدارة
   canAccessSettings: boolean
+  canAccessAdmin: boolean
 }
 
 /**
@@ -114,9 +141,28 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canViewReceipts: true,
     canEditReceipts: true,
     canDeleteReceipts: true,
+    canViewExpenses: true,
+    canCreateExpense: true,
+    canEditExpense: true,
+    canDeleteExpense: true,
+    canViewVisitors: true,
+    canCreateVisitor: true,
+    canEditVisitor: true,
+    canDeleteVisitor: true,
+    canViewFollowUps: true,
+    canCreateFollowUp: true,
+    canEditFollowUp: true,
+    canDeleteFollowUp: true,
+    canViewDayUse: true,
+    canCreateDayUse: true,
+    canEditDayUse: true,
+    canDeleteDayUse: true,
     canViewReports: true,
     canViewFinancials: true,
+    canViewAttendance: true,
+    canAccessClosing: true,
     canAccessSettings: true,
+    canAccessAdmin: true,
   },
   MANAGER: {
     canViewMembers: true,
@@ -134,9 +180,28 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canViewReceipts: true,
     canEditReceipts: true,
     canDeleteReceipts: false,
+    canViewExpenses: true,
+    canCreateExpense: true,
+    canEditExpense: true,
+    canDeleteExpense: false,
+    canViewVisitors: true,
+    canCreateVisitor: true,
+    canEditVisitor: true,
+    canDeleteVisitor: false,
+    canViewFollowUps: true,
+    canCreateFollowUp: true,
+    canEditFollowUp: true,
+    canDeleteFollowUp: false,
+    canViewDayUse: true,
+    canCreateDayUse: true,
+    canEditDayUse: true,
+    canDeleteDayUse: false,
     canViewReports: true,
     canViewFinancials: true,
+    canViewAttendance: true,
+    canAccessClosing: true,
     canAccessSettings: false,
+    canAccessAdmin: false,
   },
   STAFF: {
     canViewMembers: true,
@@ -154,9 +219,28 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canViewReceipts: true,
     canEditReceipts: false,
     canDeleteReceipts: false,
+    canViewExpenses: false,
+    canCreateExpense: false,
+    canEditExpense: false,
+    canDeleteExpense: false,
+    canViewVisitors: true,
+    canCreateVisitor: true,
+    canEditVisitor: false,
+    canDeleteVisitor: false,
+    canViewFollowUps: false,
+    canCreateFollowUp: false,
+    canEditFollowUp: false,
+    canDeleteFollowUp: false,
+    canViewDayUse: true,
+    canCreateDayUse: true,
+    canEditDayUse: false,
+    canDeleteDayUse: false,
     canViewReports: false,
     canViewFinancials: false,
+    canViewAttendance: false,
+    canAccessClosing: false,
     canAccessSettings: false,
+    canAccessAdmin: false,
   },
 }
 
@@ -179,9 +263,28 @@ export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
   canViewReceipts: 'عرض الإيصالات',
   canEditReceipts: 'تعديل إيصال',
   canDeleteReceipts: 'حذف إيصال',
+  canViewExpenses: 'عرض المصروفات',
+  canCreateExpense: 'إضافة مصروف',
+  canEditExpense: 'تعديل مصروف',
+  canDeleteExpense: 'حذف مصروف',
+  canViewVisitors: 'عرض الزوار',
+  canCreateVisitor: 'إضافة زائر',
+  canEditVisitor: 'تعديل زائر',
+  canDeleteVisitor: 'حذف زائر',
+  canViewFollowUps: 'عرض المتابعات',
+  canCreateFollowUp: 'إضافة متابعة',
+  canEditFollowUp: 'تعديل متابعة',
+  canDeleteFollowUp: 'حذف متابعة',
+  canViewDayUse: 'عرض يوم الاستخدام',
+  canCreateDayUse: 'إضافة يوم استخدام',
+  canEditDayUse: 'تعديل يوم استخدام',
+  canDeleteDayUse: 'حذف يوم استخدام',
   canViewReports: 'عرض التقارير',
   canViewFinancials: 'عرض الماليات',
+  canViewAttendance: 'عرض الحضور',
+  canAccessClosing: 'الوصول للتقفيل',
   canAccessSettings: 'الوصول للإعدادات',
+  canAccessAdmin: 'الوصول للوحة الإدارة',
 }
 
 /**
@@ -223,17 +326,56 @@ export const PERMISSION_GROUPS = {
       'canDeleteReceipts',
     ] as Array<keyof Permissions>,
   },
+  expenses: {
+    label: '💸 المصروفات',
+    permissions: [
+      'canViewExpenses',
+      'canCreateExpense',
+      'canEditExpense',
+      'canDeleteExpense',
+    ] as Array<keyof Permissions>,
+  },
+  visitors: {
+    label: '🚶 الزوار',
+    permissions: [
+      'canViewVisitors',
+      'canCreateVisitor',
+      'canEditVisitor',
+      'canDeleteVisitor',
+    ] as Array<keyof Permissions>,
+  },
+  followups: {
+    label: '📝 المتابعات',
+    permissions: [
+      'canViewFollowUps',
+      'canCreateFollowUp',
+      'canEditFollowUp',
+      'canDeleteFollowUp',
+    ] as Array<keyof Permissions>,
+  },
+  dayuse: {
+    label: '📅 يوم الاستخدام',
+    permissions: [
+      'canViewDayUse',
+      'canCreateDayUse',
+      'canEditDayUse',
+      'canDeleteDayUse',
+    ] as Array<keyof Permissions>,
+  },
   reports: {
     label: '📊 التقارير والماليات',
     permissions: [
       'canViewReports',
       'canViewFinancials',
+      'canViewAttendance',
+      'canAccessClosing',
     ] as Array<keyof Permissions>,
   },
   settings: {
-    label: '⚙️ الإعدادات',
+    label: '⚙️ الإعدادات والإدارة',
     permissions: [
       'canAccessSettings',
+      'canAccessAdmin',
     ] as Array<keyof Permissions>,
   },
 }
@@ -257,9 +399,28 @@ export const PERMISSION_ICONS: Record<keyof Permissions, string> = {
   canViewReceipts: '👁️',
   canEditReceipts: '✏️',
   canDeleteReceipts: '🗑️',
+  canViewExpenses: '👁️',
+  canCreateExpense: '➕',
+  canEditExpense: '✏️',
+  canDeleteExpense: '🗑️',
+  canViewVisitors: '👁️',
+  canCreateVisitor: '➕',
+  canEditVisitor: '✏️',
+  canDeleteVisitor: '🗑️',
+  canViewFollowUps: '👁️',
+  canCreateFollowUp: '➕',
+  canEditFollowUp: '✏️',
+  canDeleteFollowUp: '🗑️',
+  canViewDayUse: '👁️',
+  canCreateDayUse: '➕',
+  canEditDayUse: '✏️',
+  canDeleteDayUse: '🗑️',
   canViewReports: '📊',
   canViewFinancials: '💰',
+  canViewAttendance: '📋',
+  canAccessClosing: '🔒',
   canAccessSettings: '⚙️',
+  canAccessAdmin: '👨‍💼',
 }
 
 /**

@@ -298,15 +298,15 @@ export default function MemberDetailPage() {
   const daysRemaining = calculateRemainingDays(member.expiryDate)
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6" dir="rtl">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-3xl font-bold">👤 تفاصيل العضو</h1>
-          <p className="text-gray-600">إدارة حساب العضو والعمليات المختلفة</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">👤 تفاصيل العضو</h1>
+          <p className="text-sm sm:text-base text-gray-600">إدارة حساب العضو والعمليات المختلفة</p>
         </div>
         <button
           onClick={() => router.push('/members')}
-          className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300"
+          className="bg-gray-200 text-gray-700 px-4 sm:px-6 py-2 rounded-lg hover:bg-gray-300 text-sm sm:text-base w-full sm:w-auto"
         >
           ← العودة
         </button>
@@ -318,60 +318,60 @@ export default function MemberDetailPage() {
         </div>
       )}
 
-      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-2xl p-8 mb-6">
-        <div className="flex items-center gap-6 mb-6 pb-6 border-b border-white border-opacity-20">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white bg-opacity-20 flex-shrink-0">
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 mb-6">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6 pb-6 border-b border-white border-opacity-20">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white bg-opacity-20 flex-shrink-0">
             {member.profileImage ? (
-              <img 
-                src={member.profileImage} 
+              <img
+                src={member.profileImage}
                 alt={member.name}
                 className="w-full h-full object-cover"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-white">
-                <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-12 h-12 sm:w-16 sm:h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
             )}
           </div>
 
-          <div className="flex-1">
-            <p className="text-sm opacity-90 mb-2">رقم العضوية</p>
-            <p className="text-5xl font-bold mb-4">#{member.memberNumber}</p>
-            <p className="text-sm opacity-90 mb-2">الاسم</p>
-            <p className="text-3xl font-bold">{member.name}</p>
+          <div className="flex-1 text-center sm:text-right">
+            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">رقم العضوية</p>
+            <p className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-4">#{member.memberNumber}</p>
+            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">الاسم</p>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold">{member.name}</p>
           </div>
 
-          <div className="text-left">
-            <p className="text-sm opacity-90 mb-2">رقم الهاتف</p>
-            <p className="text-2xl font-mono">{member.phone}</p>
+          <div className="text-center sm:text-left">
+            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">رقم الهاتف</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-mono">{member.phone}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white bg-opacity-20 rounded-lg p-4">
-            <p className="text-sm opacity-90">الحالة</p>
-            <p className="text-lg font-bold">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm opacity-90">الحالة</p>
+            <p className="text-base sm:text-lg font-bold">
               {member.isActive && !isExpired ? '✅ نشط' : '❌ منتهي'}
             </p>
           </div>
-          <div className="bg-white bg-opacity-20 rounded-lg p-4">
-            <p className="text-sm opacity-90">تاريخ الانتهاء</p>
-            <p className="text-lg font-mono">
+          <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm opacity-90">تاريخ الانتهاء</p>
+            <p className="text-sm sm:text-base md:text-lg font-mono">
               {formatDateYMD(member.expiryDate)}
             </p>
             {daysRemaining !== null && daysRemaining > 0 && (
               <p className="text-xs opacity-75 mt-1">باقي {daysRemaining} يوم</p>
             )}
           </div>
-          <div className="bg-white bg-opacity-20 rounded-lg p-4">
-            <p className="text-sm opacity-90">سعر الاشتراك</p>
-            <p className="text-2xl font-bold">{member.subscriptionPrice} ج.م</p>
+          <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm opacity-90">سعر الاشتراك</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold">{member.subscriptionPrice} ج.م</p>
           </div>
-          <div className="bg-white bg-opacity-20 rounded-lg p-4">
-            <p className="text-sm opacity-90">المبلغ المتبقي</p>
-            <p className="text-2xl font-bold text-yellow-300">{member.remainingAmount} ج.م</p>
+          <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm opacity-90">المبلغ المتبقي</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-yellow-300">{member.remainingAmount} ج.م</p>
           </div>
         </div>
       </div>
@@ -385,20 +385,20 @@ export default function MemberDetailPage() {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-purple-100 p-3 rounded-full">
-            <span className="text-3xl">📷</span>
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div className="bg-purple-100 p-2 sm:p-3 rounded-full">
+            <span className="text-2xl sm:text-3xl">📷</span>
           </div>
           <div>
-            <h3 className="text-xl font-bold">تعديل الصورة</h3>
-            <p className="text-sm text-gray-600">تغيير صورة العضو</p>
+            <h3 className="text-lg sm:text-xl font-bold">تعديل الصورة</h3>
+            <p className="text-xs sm:text-sm text-gray-600">تغيير صورة العضو</p>
           </div>
         </div>
         <button
           onClick={() => setActiveModal('edit-image')}
           disabled={loading}
-          className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
+          className="w-full bg-purple-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
         >
           📷 تعديل الصورة
         </button>
@@ -461,93 +461,93 @@ export default function MemberDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-lg p-6 border-r-4 border-green-500">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-r-4 border-green-500">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
-              <p className="text-gray-600 text-sm">InBody</p>
-              <p className="text-4xl font-bold text-green-600">{member.inBodyScans}</p>
+              <p className="text-gray-600 text-xs sm:text-sm">InBody</p>
+              <p className="text-3xl sm:text-4xl font-bold text-green-600">{member.inBodyScans}</p>
             </div>
-            <div className="text-5xl">⚖️</div>
+            <div className="text-4xl sm:text-5xl">⚖️</div>
           </div>
           <button
             onClick={handleUseInBody}
             disabled={member.inBodyScans <= 0 || loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-green-600 text-white py-2 sm:py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base"
           >
             استخدام حصة
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-r-4 border-purple-500">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-r-4 border-purple-500">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
-              <p className="text-gray-600 text-sm">الدعوات</p>
-              <p className="text-4xl font-bold text-purple-600">{member.invitations}</p>
+              <p className="text-gray-600 text-xs sm:text-sm">الدعوات</p>
+              <p className="text-3xl sm:text-4xl font-bold text-purple-600">{member.invitations}</p>
             </div>
-            <div className="text-5xl">🎟️</div>
+            <div className="text-4xl sm:text-5xl">🎟️</div>
           </div>
           <button
             onClick={handleUseInvitation}
             disabled={member.invitations <= 0 || loading}
-            className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-purple-600 text-white py-2 sm:py-2.5 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base"
           >
             استخدام دعوة
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-r-4 border-orange-500">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-r-4 border-orange-500">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
-              <p className="text-gray-600 text-sm">حصص PT مجانية</p>
-              <p className="text-4xl font-bold text-orange-600">{member.freePTSessions}</p>
+              <p className="text-gray-600 text-xs sm:text-sm">حصص PT مجانية</p>
+              <p className="text-3xl sm:text-4xl font-bold text-orange-600">{member.freePTSessions}</p>
             </div>
-            <div className="text-5xl">💪</div>
+            <div className="text-4xl sm:text-5xl">💪</div>
           </div>
           <button
             onClick={handleUseFreePT}
             disabled={member.freePTSessions <= 0 || loading}
-            className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-orange-600 text-white py-2 sm:py-2.5 rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base"
           >
             استخدام حصة
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-green-100 p-3 rounded-full">
-              <span className="text-3xl">💰</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <div className="bg-green-100 p-2 sm:p-3 rounded-full">
+              <span className="text-2xl sm:text-3xl">💰</span>
             </div>
             <div>
-              <h3 className="text-xl font-bold">دفع المبلغ المتبقي</h3>
-              <p className="text-sm text-gray-600">المتبقي: {member.remainingAmount} ج.م</p>
+              <h3 className="text-lg sm:text-xl font-bold">دفع المبلغ المتبقي</h3>
+              <p className="text-xs sm:text-sm text-gray-600">المتبقي: {member.remainingAmount} ج.م</p>
             </div>
           </div>
           <button
             onClick={() => setActiveModal('payment')}
             disabled={member.remainingAmount <= 0 || loading}
-            className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
+            className="w-full bg-green-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
           >
             دفع مبلغ
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <span className="text-3xl">❄️</span>
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <div className="bg-blue-100 p-2 sm:p-3 rounded-full">
+              <span className="text-2xl sm:text-3xl">❄️</span>
             </div>
             <div>
-              <h3 className="text-xl font-bold">تجميد الاشتراك (Freeze)</h3>
-              <p className="text-sm text-gray-600">إضافة أيام للاشتراك</p>
+              <h3 className="text-lg sm:text-xl font-bold">تجميد الاشتراك (Freeze)</h3>
+              <p className="text-xs sm:text-sm text-gray-600">إضافة أيام للاشتراك</p>
             </div>
           </div>
           <button
             onClick={() => setActiveModal('freeze')}
             disabled={!member.expiryDate || loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
+            className="w-full bg-blue-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
           >
             تجميد الاشتراك
           </button>

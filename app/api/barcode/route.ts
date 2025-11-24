@@ -9,8 +9,8 @@ export async function POST(req: Request) {
     const png = await bwipjs.toBuffer({
       bcid: "code128",
       text,
-      scale: 3,
-      height: 10,
+      scale: 5,
+      height: 15,
       includetext: true,
     });
 

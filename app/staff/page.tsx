@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
+import StaffBarcodeWhatsApp from '../../components/StaffBarcodeWhatsApp'
 
 interface Staff {
   id: string
@@ -794,7 +795,7 @@ const handleScan = async (staffCode: string) => {
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <button
                           onClick={() => handleEdit(staffMember)}
                           className="text-blue-600 hover:text-blue-800 font-semibold transition hover:underline"
@@ -802,6 +803,13 @@ const handleScan = async (staffCode: string) => {
                           ✏️ تعديل
                         </button>
 
+                        {staffMember.phone && (
+                          <StaffBarcodeWhatsApp
+                            staffCode={staffMember.staffCode}
+                            staffName={staffMember.name}
+                            staffPhone={staffMember.phone}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>

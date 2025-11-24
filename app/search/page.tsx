@@ -397,38 +397,39 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 min-h-screen" dir="rtl">
-      <div className="mb-6">
-        <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 min-h-screen" dir="rtl">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
           <span>🔍</span>
           <span>البحث السريع</span>
         </h1>
-        <p className="text-gray-600">سكان سريع أو بحث بالاسم - الصوت يؤكد النتيجة تلقائياً</p>
-        <p className="text-sm text-orange-600 mt-2">
-          🔊 <strong>صوت أخضر ✅:</strong> اشتراك نشط | 
-          <strong className="text-yellow-600"> صوت أصفر ⚠️:</strong> قريب من الانتهاء | 
+        <p className="text-sm sm:text-base text-gray-600">سكان سريع أو بحث بالاسم - الصوت يؤكد النتيجة تلقائياً</p>
+        <p className="text-xs sm:text-sm text-orange-600 mt-2">
+          🔊 <strong>صوت أخضر ✅:</strong> اشتراك نشط |
+          <strong className="text-yellow-600"> صوت أصفر ⚠️:</strong> قريب من الانتهاء |
           <strong className="text-red-600"> صوت أحمر 🚨:</strong> منتهي أو غير موجود
         </p>
-        <p className="text-sm text-blue-600 mt-2 font-bold">
-          👷 <strong>تسجيل حضور موظف:</strong> اكتب <code className="bg-blue-100 px-2 py-1 rounded">s22</code> (حرف s + الرقم) للتسجيل التلقائي
+        <p className="text-xs sm:text-sm text-blue-600 mt-2 font-bold">
+          👷 <strong>تسجيل حضور موظف:</strong> اكتب <code className="bg-blue-100 px-1 sm:px-2 py-1 rounded text-xs sm:text-sm">s22</code> (حرف s + الرقم) للتسجيل التلقائي
         </p>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-lg mb-6 border-4 border-blue-200">
-        <div className="flex gap-3">
+      <div className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-lg mb-4 sm:mb-6 border-2 sm:border-4 border-blue-200">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
             onClick={() => {
               setSearchMode('id')
               setSearched(false)
               setResults([])
             }}
-            className={`flex-1 px-3 py-3 md:px-6 md:py-4 rounded-xl font-bold text-sm md:text-base lg:text-lg transition-all ${
+            className={`flex-1 px-3 py-2.5 sm:py-3 md:px-6 md:py-4 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm md:text-base lg:text-lg transition-all ${
               searchMode === 'id'
                 ? 'bg-blue-600 text-white shadow-lg scale-105'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            🎯 البحث برقم العضوية (ID) أو تسجيل حضور (s22)
+            <span className="hidden sm:inline">🎯 البحث برقم العضوية (ID) أو تسجيل حضور (s22)</span>
+            <span className="sm:hidden">🎯 رقم العضوية / حضور</span>
           </button>
           <button
             onClick={() => {
@@ -436,64 +437,66 @@ export default function SearchPage() {
               setSearched(false)
               setResults([])
             }}
-            className={`flex-1 px-3 py-3 md:px-6 md:py-4 rounded-xl font-bold text-sm md:text-base lg:text-lg transition-all ${
+            className={`flex-1 px-3 py-2.5 sm:py-3 md:px-6 md:py-4 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm md:text-base lg:text-lg transition-all ${
               searchMode === 'name'
                 ? 'bg-green-600 text-white shadow-lg scale-105'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            👤 البحث بالاسم والرقم
+            <span className="hidden sm:inline">👤 البحث بالاسم والرقم</span>
+            <span className="sm:hidden">👤 الاسم والرقم</span>
           </button>
         </div>
       </div>
 
       {searchMode === 'id' && (
-        <div className="bg-white p-8 rounded-2xl shadow-lg mb-6 border-4 border-blue-200">
-          <div className="mb-6">
-            <label className=" text-2xl font-bold mb-4 text-blue-800 flex items-center gap-2">
+        <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg mb-4 sm:mb-6 border-2 sm:border-4 border-blue-200">
+          <div className="mb-4 sm:mb-6">
+            <label className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 text-blue-800 flex items-center gap-2">
               <span>🎯</span>
-              <span>البحث برقم العضوية أو تسجيل حضور موظف</span>
+              <span className="hidden sm:inline">البحث برقم العضوية أو تسجيل حضور موظف</span>
+              <span className="sm:hidden">رقم العضوية / حضور</span>
             </label>
-            <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 mb-4">
-              <p className="text-blue-800 font-bold mb-2">📝 كيفية الاستخدام:</p>
-              <ul className="text-blue-700 space-y-1 text-sm">
-                <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم مباشرة (مثال: <code className="bg-white px-2 py-1 rounded">1001</code>)</li>
-                <li>• <strong>لتسجيل حضور موظف:</strong> اكتب حرف s ثم الرقم (مثال: <code className="bg-white px-2 py-1 rounded">s22</code>)</li>
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
+              <p className="text-blue-800 font-bold mb-2 text-sm sm:text-base">📝 كيفية الاستخدام:</p>
+              <ul className="text-blue-700 space-y-1 text-xs sm:text-sm">
+                <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم مباشرة (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">1001</code>)</li>
+                <li>• <strong>لتسجيل حضور موظف:</strong> اكتب حرف s ثم الرقم (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">s22</code>)</li>
               </ul>
             </div>
             
             {/* 🆕 رسالة تسجيل الحضور */}
             {attendanceMessage && (
-              <div className={`mb-4 p-6 rounded-2xl border-4 animate-slideDown ${
-                attendanceMessage.type === 'success' 
-                  ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-500' 
+              <div className={`mb-3 sm:mb-4 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 sm:border-4 animate-slideDown ${
+                attendanceMessage.type === 'success'
+                  ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-500'
                   : 'bg-gradient-to-r from-red-50 to-red-100 border-red-500'
               }`}>
-                <div className="flex items-start gap-4">
-                  <div className="text-6xl">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="text-4xl sm:text-5xl md:text-6xl">
                     {attendanceMessage.type === 'success' ? '✅' : '🚨'}
                   </div>
                   <div className="flex-1">
-                    <h3 className={`text-2xl font-bold mb-2 ${
+                    <h3 className={`text-lg sm:text-xl md:text-2xl font-bold mb-1 sm:mb-2 ${
                       attendanceMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
                     }`}>
                       {attendanceMessage.type === 'success' ? 'تم التسجيل بنجاح!' : 'خطأ في التسجيل'}
                     </h3>
-                    <p className={`text-xl font-bold ${
+                    <p className={`text-base sm:text-lg md:text-xl font-bold ${
                       attendanceMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
                     }`}>
                       {attendanceMessage.text}
                     </p>
                     {attendanceMessage.staff && (
-                      <div className="mt-4 bg-white/50 rounded-xl p-4">
-                        <div className="grid grid-cols-2 gap-3">
+                      <div className="mt-3 sm:mt-4 bg-white/50 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
                           <div>
-                            <p className="text-sm text-gray-600">الموظف</p>
-                            <p className="text-lg font-bold text-gray-800">{attendanceMessage.staff.name}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">الموظف</p>
+                            <p className="text-sm sm:text-base md:text-lg font-bold text-gray-800">{attendanceMessage.staff.name}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-600">الوظيفة</p>
-                            <p className="text-lg font-bold text-gray-800">{attendanceMessage.staff.position || '-'}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">الوظيفة</p>
+                            <p className="text-sm sm:text-base md:text-lg font-bold text-gray-800">{attendanceMessage.staff.position || '-'}</p>
                           </div>
                         </div>
                       </div>
@@ -503,26 +506,27 @@ export default function SearchPage() {
               </div>
             )}
             
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <input
                 ref={memberIdRef}
                 type="text"
                 value={memberId}
                 onChange={(e) => setMemberId(e.target.value)}
                 onKeyPress={handleIdKeyPress}
-                className="flex-1 px-4 py-3 md:px-6 md:py-4 lg:px-6 lg:py-6 border-4 border-green-300 rounded-xl text-xl md:text-2xl lg:text-4xl font-bold text-center focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
+                className="flex-1 px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 lg:px-6 lg:py-6 border-2 sm:border-4 border-green-300 rounded-lg sm:rounded-xl text-lg sm:text-xl md:text-2xl lg:text-4xl font-bold text-center focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
                 placeholder="1001 أو s22"
                 autoFocus
               />
               <button
                 onClick={handleSearchById}
                 disabled={loading || !memberId.trim()}
-                className="px-4 py-3 md:px-6 md:py-4 lg:px-8 lg:py-6 bg-green-600 text-white text-base md:text-lg lg:text-xl font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
+                className="px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 lg:px-8 lg:py-6 bg-green-600 text-white text-sm sm:text-base md:text-lg lg:text-xl font-bold rounded-lg sm:rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition whitespace-nowrap"
               >
-                {loading ? '⏳' : '🔍'} بحث
+                <span className="hidden sm:inline">{loading ? '⏳' : '🔍'} بحث</span>
+                <span className="sm:hidden">{loading ? '⏳' : '🔍'}</span>
               </button>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-xs sm:text-sm text-gray-500 mt-2">
               💡 اضغط Enter للبحث السريع
             </p>
           </div>
@@ -530,102 +534,102 @@ export default function SearchPage() {
       )}
 
       {searchMode === 'name' && (
-        <div className="bg-white p-8 rounded-2xl shadow-lg mb-6 border-4 border-green-200">
-          <label className=" text-2xl font-bold mb-4 text-green-800 flex items-center gap-2">
+        <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg mb-4 sm:mb-6 border-2 sm:border-4 border-green-200">
+          <label className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 text-green-800 flex items-center gap-2">
             <span>👤</span>
             <span>البحث بالاسم والرقم</span>
           </label>
-          
+
           {/* 🆕 رسالة الخطأ */}
           {attendanceMessage && (
-            <div className="mb-4 p-4 rounded-xl border-2 bg-red-50 border-red-500 animate-slideDown">
-              <p className="text-lg font-bold text-red-700">
+            <div className="mb-3 sm:mb-4 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 bg-red-50 border-red-500 animate-slideDown">
+              <p className="text-base sm:text-lg font-bold text-red-700">
                 {attendanceMessage.text}
               </p>
             </div>
           )}
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
             <div>
-              <label className="block text-sm font-medium mb-2">الاسم</label>
+              <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">الاسم</label>
               <input
                 ref={nameRef}
                 type="text"
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
                 onKeyPress={handleNameKeyPress}
-                className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-base md:text-lg focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
+                className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-sm sm:text-base md:text-lg focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
                 placeholder="اكتب اسم العضو أو جزء منه..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">رقم الهاتف</label>
+              <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">رقم الهاتف</label>
               <input
                 type="tel"
                 value={searchPhone}
                 onChange={(e) => setSearchPhone(e.target.value)}
                 onKeyPress={handleNameKeyPress}
-                className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-base md:text-lg focus:border-green-600 focus:ring-4 focus:ring-green-200 transition"
+                className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-sm sm:text-base md:text-lg focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
                 placeholder="اكتب رقم الهاتف أو جزء منه..."
               />
             </div>
           </div>
-          
+
           <button
             onClick={handleSearchByName}
             disabled={loading || (!searchName.trim() && !searchPhone.trim())}
-            className="w-full px-4 py-3 md:px-6 md:py-4 bg-green-600 text-white text-base md:text-lg lg:text-xl font-bold rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
+            className="w-full px-4 py-2.5 sm:py-3 md:px-6 md:py-4 bg-green-600 text-white text-sm sm:text-base md:text-lg lg:text-xl font-bold rounded-lg sm:rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
           >
             🔍 بحث
           </button>
-          
-          <p className="text-sm text-gray-500 mt-2">
+
+          <p className="text-xs sm:text-sm text-gray-500 mt-2">
             💡 يمكنك البحث بالاسم فقط، أو رقم الهاتف فقط، أو كليهما معاً
           </p>
         </div>
       )}
 
       {lastSearchTime && (
-        <div className="bg-gray-100 p-3 rounded-lg text-center text-sm text-gray-600 mb-4">
+        <div className="bg-gray-100 p-2 sm:p-3 rounded-lg text-center text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
           آخر بحث: {lastSearchTime.toLocaleTimeString('ar-EG')}
         </div>
       )}
 
       {searched && (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border-4 border-green-200 animate-fadeIn">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden border-2 sm:border-4 border-green-200 animate-fadeIn">
           {loading ? (
-            <div className="text-center py-20">
-              <div className="inline-block animate-spin text-6xl mb-4">⏳</div>
-              <p className="text-2xl text-gray-600 font-bold">جاري البحث...</p>
+            <div className="text-center py-12 sm:py-16 md:py-20">
+              <div className="inline-block animate-spin text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">⏳</div>
+              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 font-bold">جاري البحث...</p>
             </div>
           ) : results.length === 0 ? (
-            <div className="text-center py-20 bg-red-50 animate-pulse">
-              <div className="text-8xl mb-6 animate-bounce">🚨</div>
-              <p className="text-3xl font-bold text-red-600 mb-3">لم يتم العثور على نتائج</p>
-              <p className="text-xl text-red-500">
-                {searchMode === 'id' 
+            <div className="text-center py-12 sm:py-16 md:py-20 bg-red-50 animate-pulse">
+              <div className="text-5xl sm:text-6xl md:text-8xl mb-4 sm:mb-6 animate-bounce">🚨</div>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mb-2 sm:mb-3 px-4">لم يتم العثور على نتائج</p>
+              <p className="text-base sm:text-lg md:text-xl text-red-500 px-4">
+                {searchMode === 'id'
                   ? `للبحث عن "${memberId}"`
                   : `للبحث عن "${searchName || searchPhone}"`
                 }
               </p>
             </div>
           ) : (
-            <div className="p-6">
-              <div className="mb-4 text-center">
-                <span className="bg-green-100 text-green-800 px-6 py-3 rounded-xl text-xl font-bold">
+            <div className="p-4 sm:p-6">
+              <div className="mb-3 sm:mb-4 text-center">
+                <span className="bg-green-100 text-green-800 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl text-base sm:text-lg md:text-xl font-bold">
                   ✅ تم العثور على {results.length} {results.length === 1 ? 'نتيجة' : 'نتائج'}
                 </span>
               </div>
               
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {results.map((result, index) => (
-                  <div key={index} className="border-4 border-blue-200 rounded-2xl p-6 hover:bg-blue-50 transition">
+                  <div key={index} className="border-2 sm:border-4 border-blue-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:bg-blue-50 transition">
                     {result.type === 'member' && (
                       <div>
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-blue-300 bg-gray-100 flex-shrink-0">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0 mb-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 sm:border-4 border-blue-300 bg-gray-100 flex-shrink-0">
                               {result.data.profileImage ? (
                                 <img 
                                   src={result.data.profileImage} 
@@ -634,51 +638,51 @@ export default function SearchPage() {
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-8 h-8 sm:w-10 sm:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                   </svg>
                                 </div>
                               )}
                             </div>
-                            
+
                             <div>
-                              <span className="bg-blue-500 text-white px-4 py-2 rounded-lg text-lg font-bold">
+                              <span className="bg-blue-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base md:text-lg font-bold">
                                 👤 عضو
                               </span>
-                              <h3 className="text-3xl font-bold mt-3">{result.data.name}</h3>
+                              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mt-2 sm:mt-3">{result.data.name}</h3>
                             </div>
                           </div>
                           {/* ✅ عرض رقم العضوية فقط إذا كان موجود (ليس Other) */}
                           {result.data.memberNumber !== null && (
-                            <span className="text-5xl font-bold text-blue-600">
+                            <span className="text-3xl sm:text-4xl md:text-5xl font-bold text-blue-600">
                               #{result.data.memberNumber}
                             </span>
                           )}
                           {result.data.memberNumber === null && (
-                            <span className="text-2xl font-bold text-gray-500 bg-gray-100 px-4 py-2 rounded-lg">
+                            <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-500 bg-gray-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg">
                               Other
                             </span>
                           )}
                         </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">الهاتف</p>
-                            <p className="text-xl font-bold">{result.data.phone}</p>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">الهاتف</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.phone}</p>
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">السعر</p>
-                            <p className="text-xl font-bold">{result.data.subscriptionPrice} ج.م</p>
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">السعر</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.subscriptionPrice} ج.م</p>
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">المتبقي</p>
-                            <p className="text-xl font-bold text-red-600">{result.data.remainingAmount} ج.م</p>
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">المتبقي</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold text-red-600">{result.data.remainingAmount} ج.م</p>
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">الحالة</p>
-                            <span className={`inline-block px-3 py-1 rounded-lg text-lg font-bold ${
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">الحالة</p>
+                            <span className={`inline-block px-2 sm:px-3 py-1 rounded-lg text-sm sm:text-base md:text-lg font-bold ${
                               result.data.isActive && (!result.data.expiryDate || new Date(result.data.expiryDate) >= new Date())
-                                ? 'bg-green-500 text-white' 
+                                ? 'bg-green-500 text-white'
                                 : 'bg-red-500 text-white animate-pulse'
                             }`}>
                               {result.data.isActive && (!result.data.expiryDate || new Date(result.data.expiryDate) >= new Date()) ? '✅ نشط' : '🚨 منتهي'}
@@ -687,22 +691,22 @@ export default function SearchPage() {
                         </div>
 
                         {result.data.expiryDate && (
-                          <div className="mb-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
+                          <div className="mb-3 sm:mb-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 sm:p-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                               <div>
-                                <p className="text-sm text-gray-600">تاريخ الانتهاء</p>
-                                <p className="text-xl font-bold text-gray-800">
+                                <p className="text-xs sm:text-sm text-gray-600">تاريخ الانتهاء</p>
+                                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-800">
                                   {new Date(result.data.expiryDate).toLocaleDateString('ar-EG')}
                                 </p>
                               </div>
                               {(() => {
                                 const days = calculateRemainingDays(result.data.expiryDate)
                                 if (days === null) return null
-                                
+
                                 if (days < 0) {
                                   return (
                                     <div className="text-right">
-                                      <p className="text-red-600 font-bold text-2xl animate-pulse">
+                                      <p className="text-red-600 font-bold text-base sm:text-lg md:text-2xl animate-pulse">
                                         🚨 منتهي منذ {Math.abs(days)} يوم
                                       </p>
                                     </div>
@@ -710,7 +714,7 @@ export default function SearchPage() {
                                 } else if (days <= 7) {
                                   return (
                                     <div className="text-right">
-                                      <p className="text-orange-600 font-bold text-2xl">
+                                      <p className="text-orange-600 font-bold text-base sm:text-lg md:text-2xl">
                                         ⚠️ باقي {days} يوم فقط
                                       </p>
                                     </div>
@@ -718,7 +722,7 @@ export default function SearchPage() {
                                 } else {
                                   return (
                                     <div className="text-right">
-                                      <p className="text-green-600 font-bold text-2xl">
+                                      <p className="text-green-600 font-bold text-base sm:text-lg md:text-2xl">
                                         ✅ باقي {days} يوم
                                       </p>
                                     </div>
@@ -729,10 +733,10 @@ export default function SearchPage() {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 gap-2 sm:gap-3">
                           <button
                             onClick={() => handleViewMemberDetails(result.data.id)}
-                            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl font-bold text-lg flex items-center justify-center gap-3"
+                            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl font-bold text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 sm:gap-3"
                           >
                             <span>👁️</span>
                             <span>عرض التفاصيل الكاملة</span>
@@ -746,35 +750,35 @@ export default function SearchPage() {
                       <div>
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <span className="bg-green-500 text-white px-4 py-2 rounded-lg text-lg font-bold">
+                            <span className="bg-green-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base md:text-lg font-bold">
                               💪 PT
                             </span>
-                            <h3 className="text-3xl font-bold mt-3">{result.data.clientName}</h3>
+                            <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mt-2 sm:mt-3">{result.data.clientName}</h3>
                           </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">الهاتف</p>
-                            <p className="text-xl font-bold">{result.data.phone}</p>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">الهاتف</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.phone}</p>
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">المدرب</p>
-                            <p className="text-xl font-bold">{result.data.coachName}</p>
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">المدرب</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.coachName}</p>
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">الجلسات المتبقية</p>
-                            <p className="text-xl font-bold text-green-600">{result.data.sessionsRemaining}</p>
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">الجلسات المتبقية</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold text-green-600">{result.data.sessionsRemaining}</p>
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <p className="text-sm text-gray-600">سعر الجلسة</p>
-                            <p className="text-xl font-bold">{result.data.pricePerSession} ج.م</p>
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <p className="text-xs sm:text-sm text-gray-600">سعر الجلسة</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.pricePerSession} ج.م</p>
                           </div>
                         </div>
 
                         <button
                           onClick={() => handleViewPTDetails(result.data.id)}
-                          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl font-bold text-lg flex items-center justify-center gap-3"
+                          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl font-bold text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 sm:gap-3"
                         >
                           <span>👁️</span>
                           <span>عرض التفاصيل الكاملة</span>

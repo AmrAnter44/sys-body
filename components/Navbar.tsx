@@ -3,30 +3,41 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
+import { usePermissions } from '../hooks/usePermissions'
+import type { Permissions } from '../types/permissions'
 
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { hasPermission, user } = usePermissions()
   const [quickSearchId, setQuickSearchId] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchMessage, setSearchMessage] = useState<{type: 'success' | 'error' | 'warning', text: string, staff?: any} | null>(null)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
-  const links = [
-    { href: '/', label: 'الرئيسية', icon: '🏠' },
-    { href: '/members', label: 'الأعضاء', icon: '👥' },
-    { href: '/pt', label: 'PT', icon: '💪' },
-    { href: '/dayuse', label: 'يوم استخدام', icon: '📊' },
-    { href: '/staff', label: 'الموظفين', icon: '👷' },
-    { href: '/receipts', label: 'الإيصالات', icon: '🧾' },
-    { href: '/expenses', label: 'المصروفات', icon: '💸' },
-    { href: '/visitors', label: 'الزوار', icon: '🚶' },
-    { href: '/search', label: 'البحث', icon: '🔍' },
-    { href: '/closing', label: 'التقفيل', icon: '💰' },
-    { href: '/attendance-report', label: 'حضور', icon: '📊' },
+  const allLinks = [
+    { href: '/', label: 'الرئيسية', icon: '🏠', permission: null },
+    { href: '/members', label: 'الأعضاء', icon: '👥', permission: 'canViewMembers' as keyof Permissions },
+    { href: '/pt', label: 'PT', icon: '💪', permission: 'canViewPT' as keyof Permissions },
+    { href: '/dayuse', label: 'يوم استخدام', icon: '📊', permission: 'canViewDayUse' as keyof Permissions },
+    { href: '/invitations', label: 'الدعوات', icon: '🎟️', permission: 'canViewVisitors' as keyof Permissions },
+    { href: '/staff', label: 'الموظفين', icon: '👷', permission: 'canViewStaff' as keyof Permissions },
+    { href: '/receipts', label: 'الإيصالات', icon: '🧾', permission: 'canViewReceipts' as keyof Permissions },
+    { href: '/expenses', label: 'المصروفات', icon: '💸', permission: 'canViewExpenses' as keyof Permissions },
+    { href: '/visitors', label: 'الزوار', icon: '🚶', permission: 'canViewVisitors' as keyof Permissions },
+    { href: '/followups', label: 'المتابعات', icon: '📝', permission: 'canViewFollowUps' as keyof Permissions },
+    { href: '/search', label: 'البحث', icon: '🔍', permission: 'canViewMembers' as keyof Permissions },
+    { href: '/closing', label: 'التقفيل', icon: '💰', permission: 'canAccessClosing' as keyof Permissions },
+    { href: '/attendance-report', label: 'حضور', icon: '📊', permission: 'canViewAttendance' as keyof Permissions },
   ]
+
+  // Filter links based on permissions
+  const links = allLinks.filter(link =>
+    !link.permission || hasPermission(link.permission)
+  )
 
   // Open search modal with Ctrl+K
   useEffect(() => {
@@ -270,32 +281,118 @@ export default function Navbar() {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
+  const getRoleLabel = (role: string) => {
+    const labels = {
+      'ADMIN': '👑 مدير',
+      'MANAGER': '📊 مشرف',
+      'STAFF': '👷 موظف'
+    }
+    return labels[role as keyof typeof labels] || role
+  }
+
   return (
     <>
       {/* ✅ Navbar بتصميم صفين */}
       <nav className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg sticky top-0 z-40">
         <div className="container mx-auto px-2 sm:px-4">
-          {/* الصف الأول: اللوجو + البحث السريع */}
+          {/* الصف الأول: اللوجو + البحث السريع + اسم المستخدم */}
           <div className="flex items-center justify-between h-14 sm:h-16 gap-2 border-b border-white/20 lg:border-0">
             {/* Logo */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <img src='/icon.png' alt="logo" className='w-6 h-6 sm:w-8 sm:h-8'/>
               <span className="font-bold text-base sm:text-xl">X GYM</span>
             </div>
-            
-            {/* Quick Search Button */}
-            <button
-              onClick={() => {
-                setShowSearchModal(true)
-                setSearchMessage(null)
-                setTimeout(() => searchInputRef.current?.focus(), 100)
-              }}
-              className="px-3 sm:px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition flex items-center gap-1 sm:gap-2 font-bold flex-shrink-0"
-            >
-              <span>🔍</span>
-              <span className="text-sm sm:text-base">بحث</span>
-              <kbd className="hidden lg:inline-block px-2 py-1 bg-white/20 rounded text-xs">Ctrl+K</kbd>
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* User Icon with Name - Dropdown */}
+              {user && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 bg-white/20 px-3 py-2 rounded-lg hover:bg-white/30 transition"
+                  >
+                    <div className="w-8 h-8 bg-white/30 rounded-full flex items-center justify-center font-bold text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="hidden sm:block text-sm font-medium">{user.name}</span>
+                    <span className="text-xs">▼</span>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showUserMenu && (
+                    <>
+                      {/* Backdrop to close menu */}
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setShowUserMenu(false)}
+                      />
+
+                      {/* Menu */}
+                      <div className="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden z-40 border-2 border-blue-500">
+                        {/* User Info */}
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center font-bold text-lg">
+                              {user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold">{user.name}</p>
+                              <p className="text-xs text-white/80">{user.email}</p>
+                              <p className="text-xs mt-1">{getRoleLabel(user.role)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Menu Items */}
+                        <div className="py-2">
+                          {user.role === 'ADMIN' && (
+                            <Link
+                              href="/admin/users"
+                              onClick={() => setShowUserMenu(false)}
+                              className="px-4 py-3 text-gray-700 hover:bg-blue-50 transition flex items-center gap-2"
+                            >
+                              <span>👥</span>
+                              <span>إدارة المستخدمين</span>
+                            </Link>
+                          )}
+
+                          <button
+                            onClick={handleLogout}
+                            className="w-full text-right px-4 py-3 text-red-600 hover:bg-red-50 transition flex items-center gap-2 font-bold"
+                          >
+                            <span>🚪</span>
+                            <span>تسجيل الخروج</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Search Button */}
+              <button
+                onClick={() => {
+                  setShowSearchModal(true)
+                  setSearchMessage(null)
+                  setTimeout(() => searchInputRef.current?.focus(), 100)
+                }}
+                className="px-3 sm:px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition flex items-center gap-1 sm:gap-2 font-bold flex-shrink-0"
+              >
+                <span>🔍</span>
+                <span className="text-sm sm:text-base">بحث</span>
+                <kbd className="hidden lg:inline-block px-2 py-1 bg-white/20 rounded text-xs">Ctrl+K</kbd>
+              </button>
+            </div>
           </div>
 
           {/* الصف الثاني: روابط التنقل - بدون سكرول في الموبايل */}

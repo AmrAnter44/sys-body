@@ -83,6 +83,45 @@ export async function POST(request: Request) {
       }),
     ])
 
+    // ✅ إضافة الضيف في الزوار تلقائياً (إذا لم يكن موجوداً)
+    try {
+      const existingVisitor = await prisma.visitor.findUnique({
+        where: { phone: guestPhone },
+      })
+
+      if (!existingVisitor) {
+        // إنشاء زائر جديد من دعوة العضو
+        await prisma.visitor.create({
+          data: {
+            name: guestName.trim(),
+            phone: guestPhone.trim(),
+            source: "member-invitation", // مصدر الزائر: دعوة من عضو
+            interestedIn: "دعوة من عضو",
+            notes: `دعوة من العضو: ${member.name} (#${member.memberNumber})${notes ? ' - ' + notes : ''}`,
+            status: "pending",
+          },
+        })
+
+        // إنشاء أول متابعة تلقائياً
+        const newVisitor = await prisma.visitor.findUnique({
+          where: { phone: guestPhone },
+        })
+
+        if (newVisitor) {
+          await prisma.followUp.create({
+            data: {
+              visitorId: newVisitor.id,
+              notes: `دعوة من العضو ${member.name} - في انتظار المتابعة من فريق المبيعات`,
+              nextFollowUpDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // بعد 24 ساعة
+            },
+          })
+        }
+      }
+    } catch (visitorError) {
+      // في حالة فشل إنشاء الزائر، نستمر (لأن Invitation تم إنشاؤه بنجاح)
+      console.error("⚠️ تحذير: فشل إنشاء الزائر من الدعوة:", visitorError)
+    }
+
     return NextResponse.json({ invitation, updatedMember })
   } catch (error) {
     console.error('Error creating invitation:', error)

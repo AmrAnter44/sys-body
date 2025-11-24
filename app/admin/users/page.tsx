@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Permissions, PERMISSION_GROUPS, PERMISSION_LABELS, PERMISSION_ICONS } from '../../../types/permissions'
 
 interface User {
   id: string
@@ -11,30 +12,7 @@ interface User {
   role: 'ADMIN' | 'MANAGER' | 'STAFF'
   isActive: boolean
   createdAt: string
-  permissions?: Permission
-}
-
-interface Permission {
-  id: string
-  userId: string
-  canViewMembers: boolean
-  canCreateMembers: boolean
-  canEditMembers: boolean
-  canDeleteMembers: boolean
-  canViewPT: boolean
-  canCreatePT: boolean
-  canEditPT: boolean
-  canDeletePT: boolean
-  canViewStaff: boolean
-  canCreateStaff: boolean
-  canEditStaff: boolean
-  canDeleteStaff: boolean
-  canViewReceipts: boolean
-  canEditReceipts: boolean
-  canDeleteReceipts: boolean
-  canViewReports: boolean
-  canViewFinancials: boolean
-  canAccessSettings: boolean
+  permissions?: Permissions
 }
 
 export default function AdminUsersPage() {
@@ -55,7 +33,7 @@ export default function AdminUsersPage() {
   // State للـ Modal تعديل الصلاحيات
   const [showPermissionsModal, setShowPermissionsModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [permissions, setPermissions] = useState<Partial<Permission>>({})
+  const [permissions, setPermissions] = useState<Partial<Permissions>>({})
   
   // State للـ Modal التأكيد
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -542,236 +520,45 @@ export default function AdminUsersPage() {
               </div>
             )}
 
-            <div className="space-y-6">
-              {/* صلاحيات الأعضاء */}
-              <div className="border-2 border-blue-200 rounded-lg p-5 bg-blue-50">
-                <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2">
-                  <span>👥</span>
-                  <span>صلاحيات الأعضاء</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canViewMembers || false}
-                      onChange={(e) => setPermissions({ ...permissions, canViewMembers: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>👁️ عرض الأعضاء</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canCreateMembers || false}
-                      onChange={(e) => setPermissions({ ...permissions, canCreateMembers: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>➕ إضافة أعضاء</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canEditMembers || false}
-                      onChange={(e) => setPermissions({ ...permissions, canEditMembers: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>✏️ تعديل الأعضاء</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canDeleteMembers || false}
-                      onChange={(e) => setPermissions({ ...permissions, canDeleteMembers: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>🗑️ حذف الأعضاء</span>
-                  </label>
-                </div>
-              </div>
+            <div className="space-y-4">
+              {Object.entries(PERMISSION_GROUPS).map(([groupKey, group], index) => {
+                const colors = [
+                  'border-blue-200 bg-blue-50 text-blue-800',
+                  'border-green-200 bg-green-50 text-green-800',
+                  'border-purple-200 bg-purple-50 text-purple-800',
+                  'border-orange-200 bg-orange-50 text-orange-800',
+                  'border-pink-200 bg-pink-50 text-pink-800',
+                  'border-yellow-200 bg-yellow-50 text-yellow-800',
+                  'border-indigo-200 bg-indigo-50 text-indigo-800',
+                  'border-teal-200 bg-teal-50 text-teal-800',
+                  'border-red-200 bg-red-50 text-red-800'
+                ]
+                const colorClass = colors[index % colors.length]
 
-              {/* صلاحيات PT */}
-              <div className="border-2 border-green-200 rounded-lg p-5 bg-green-50">
-                <h3 className="font-bold text-green-800 mb-4 flex items-center gap-2">
-                  <span>💪</span>
-                  <span>صلاحيات التدريب الشخصي (PT)</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canViewPT || false}
-                      onChange={(e) => setPermissions({ ...permissions, canViewPT: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>👁️ عرض PT</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canCreatePT || false}
-                      onChange={(e) => setPermissions({ ...permissions, canCreatePT: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>➕ إضافة PT</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canEditPT || false}
-                      onChange={(e) => setPermissions({ ...permissions, canEditPT: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>✏️ تعديل PT</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canDeletePT || false}
-                      onChange={(e) => setPermissions({ ...permissions, canDeletePT: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>🗑️ حذف PT</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* صلاحيات الموظفين */}
-              <div className="border-2 border-purple-200 rounded-lg p-5 bg-purple-50">
-                <h3 className="font-bold text-purple-800 mb-4 flex items-center gap-2">
-                  <span>👷</span>
-                  <span>صلاحيات الموظفين</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canViewStaff || false}
-                      onChange={(e) => setPermissions({ ...permissions, canViewStaff: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>👁️ عرض الموظفين</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canCreateStaff || false}
-                      onChange={(e) => setPermissions({ ...permissions, canCreateStaff: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>➕ إضافة موظفين</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canEditStaff || false}
-                      onChange={(e) => setPermissions({ ...permissions, canEditStaff: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>✏️ تعديل الموظفين</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canDeleteStaff || false}
-                      onChange={(e) => setPermissions({ ...permissions, canDeleteStaff: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>🗑️ حذف الموظفين</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* صلاحيات الإيصالات */}
-              <div className="border-2 border-orange-200 rounded-lg p-5 bg-orange-50">
-                <h3 className="font-bold text-orange-800 mb-4 flex items-center gap-2">
-                  <span>🧾</span>
-                  <span>صلاحيات الإيصالات</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canViewReceipts || false}
-                      onChange={(e) => setPermissions({ ...permissions, canViewReceipts: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>👁️ عرض الإيصالات</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canEditReceipts || false}
-                      onChange={(e) => setPermissions({ ...permissions, canEditReceipts: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>✏️ تعديل الإيصالات</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canDeleteReceipts || false}
-                      onChange={(e) => setPermissions({ ...permissions, canDeleteReceipts: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>🗑️ حذف الإيصالات</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* صلاحيات التقارير والإعدادات */}
-              <div className="border-2 border-red-200 rounded-lg p-5 bg-red-50">
-                <h3 className="font-bold text-red-800 mb-4 flex items-center gap-2">
-                  <span>📊</span>
-                  <span>صلاحيات أخرى</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canViewReports || false}
-                      onChange={(e) => setPermissions({ ...permissions, canViewReports: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>📈 عرض التقارير</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canViewFinancials || false}
-                      onChange={(e) => setPermissions({ ...permissions, canViewFinancials: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>💰 عرض المالية</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={permissions.canAccessSettings || false}
-                      onChange={(e) => setPermissions({ ...permissions, canAccessSettings: e.target.checked })}
-                      disabled={editingUser.role === 'ADMIN'}
-                      className="w-5 h-5"
-                    />
-                    <span>⚙️ الوصول للإعدادات</span>
-                  </label>
-                </div>
-              </div>
+                return (
+                  <div key={groupKey} className={`border-2 rounded-lg p-4 ${colorClass}`}>
+                    <h3 className="font-bold mb-3 flex items-center gap-2">
+                      <span>{group.label}</span>
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {group.permissions.map((permission) => (
+                        <label key={permission} className="flex items-center gap-2 cursor-pointer hover:bg-white/50 p-2 rounded transition">
+                          <input
+                            type="checkbox"
+                            checked={permissions[permission] || false}
+                            onChange={(e) => setPermissions({ ...permissions, [permission]: e.target.checked })}
+                            disabled={editingUser.role === 'ADMIN'}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">
+                            {PERMISSION_ICONS[permission]} {PERMISSION_LABELS[permission]}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
 
             <div className="flex gap-3 mt-6">

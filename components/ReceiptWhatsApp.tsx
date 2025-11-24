@@ -31,7 +31,7 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
     return `إيصال #${data.receiptNumber}\nالعميل: ${data.memberName}\nالمبلغ: ${data.amount} ج.م\nطريقة الدفع: ${data.paymentMethod}\nتاريخ: ${data.date}`;
   };
 
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = () => {
     if (!phone || phone.trim().length < 10) {
       alert('⚠️ يرجى إدخال رقم هاتف صحيح');
       return;
@@ -51,21 +51,15 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
     });
 
     try {
-      const res = await fetch('/api/send-receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, message: receiptMessage }),
-      });
+      // تنظيف رقم الهاتف من أي أحرف غير رقمية
+      const cleanPhone = phone.replace(/\D/g, '');
+      // فتح واتساب مباشرة
+      const url = `https://wa.me/2${cleanPhone}?text=${encodeURIComponent(receiptMessage)}`;
+      window.open(url, '_blank');
 
-      const data = await res.json();
-
-      if (data.success) {
-        alert('✅ تم إرسال الرسالة عبر واتساب');
-        setShowSendModal(false);
-        setPhone('');
-      } else {
-        alert('❌ فشل الإرسال');
-      }
+      alert('✅ سيتم فتح واتساب الآن');
+      setShowSendModal(false);
+      setPhone('');
     } catch (err) {
       console.error(err);
       alert('❌ حدث خطأ أثناء الإرسال');

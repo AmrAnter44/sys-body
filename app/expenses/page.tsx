@@ -73,10 +73,19 @@ export default function ExpensesPage() {
     setMessage('')
 
     try {
+      // إذا كانت سلفة موظف، ضع اسم الموظف في الوصف تلقائياً
+      const dataToSend = { ...formData }
+      if (formData.type === 'staff_loan' && formData.staffId) {
+        const selectedStaff = staffList.find(s => s.id === formData.staffId)
+        if (selectedStaff) {
+          dataToSend.description = selectedStaff.name
+        }
+      }
+
       const response = await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       })
 
       if (response.ok) {
@@ -87,7 +96,7 @@ export default function ExpensesPage() {
           notes: '',
           staffId: '',
         })
-        
+
         setMessage('✅ تم إضافة المصروف بنجاح!')
         setTimeout(() => setMessage(''), 3000)
         fetchExpenses()
@@ -269,17 +278,19 @@ export default function ExpensesPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">الوصف *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="وصف المصروف"
-                />
-              </div>
+              {formData.type === 'gym_expense' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">الوصف *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="وصف المصروف"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

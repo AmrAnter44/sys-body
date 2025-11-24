@@ -11,17 +11,6 @@ interface Visitor {
   interestedIn?: string
   status: string
   createdAt: string
-  followUps?: FollowUp[]
-}
-
-interface FollowUp {
-  id: string
-  notes: string
-  contacted: boolean
-  nextFollowUpDate?: string
-  result?: string
-  salesName?: string // 🆕
-  createdAt: string
 }
 
 interface Stats {
@@ -33,15 +22,14 @@ export default function VisitorsPage() {
   const [visitors, setVisitors] = useState<Visitor[]>([])
   const [stats, setStats] = useState<Stats[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [showFollowUpForm, setShowFollowUpForm] = useState(false)
-  const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  
+  const [sourceFilter, setSourceFilter] = useState('all')
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -50,19 +38,12 @@ export default function VisitorsPage() {
     interestedIn: '',
   })
 
-  const [followUpData, setFollowUpData] = useState({
-    notes: '',
-    contacted: false,
-    nextFollowUpDate: '',
-    result: '',
-    salesName: '', // 🆕
-  })
-
   const fetchVisitors = async () => {
     try {
       const params = new URLSearchParams()
       if (searchTerm) params.append('search', searchTerm)
       if (statusFilter !== 'all') params.append('status', statusFilter)
+      if (sourceFilter !== 'all') params.append('source', sourceFilter)
 
       const response = await fetch(`/api/visitors?${params}`)
       const data = await response.json()
@@ -77,7 +58,7 @@ export default function VisitorsPage() {
 
   useEffect(() => {
     fetchVisitors()
-  }, [searchTerm, statusFilter])
+  }, [searchTerm, statusFilter, sourceFilter])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -111,41 +92,35 @@ export default function VisitorsPage() {
     }
   }
 
-  const handleFollowUpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedVisitor) return
-
-    setLoading(true)
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const response = await fetch('/api/visitors/followups', {
-        method: 'POST',
+      await fetch('/api/visitors', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitorId: selectedVisitor.id,
-          ...followUpData,
-        }),
+        body: JSON.stringify({ id, status: newStatus }),
       })
-
-      if (response.ok) {
-        setFollowUpData({ notes: '', contacted: false, nextFollowUpDate: '', result: '', salesName: '' })
-        setMessage('✅ تم إضافة المتابعة بنجاح!')
-        setTimeout(() => setMessage(''), 3000)
-        fetchVisitors()
-        setShowFollowUpForm(false)
-        setSelectedVisitor(null)
-      } else {
-        const data = await response.json()
-        setMessage(`❌ ${data.error || 'فشل إضافة المتابعة'}`)
-      }
+      fetchVisitors()
+      setMessage('✅ تم تحديث الحالة بنجاح!')
+      setTimeout(() => setMessage(''), 3000)
     } catch (error) {
-      console.error(error)
-      setMessage('❌ حدث خطأ')
-    } finally {
-      setLoading(false)
+      console.error('Error updating status:', error)
+      setMessage('❌ فشل تحديث الحالة')
     }
   }
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الزائر؟')) return
 
+    try {
+      await fetch(`/api/visitors?id=${id}`, { method: 'DELETE' })
+      fetchVisitors()
+      setMessage('✅ تم حذف الزائر بنجاح!')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error) {
+      console.error('Error deleting visitor:', error)
+      setMessage('❌ فشل حذف الزائر')
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -170,6 +145,8 @@ export default function VisitorsPage() {
   const getSourceLabel = (source: string) => {
     const labels = {
       'walk-in': 'زيارة مباشرة',
+      'invitation': '🎁 دعوة (يوم استخدام)',
+      'member-invitation': '👥 دعوة من عضو',
       'facebook': 'فيسبوك',
       'instagram': 'إنستجرام',
       'friend': 'صديق',
@@ -183,7 +160,10 @@ export default function VisitorsPage() {
       {/* Header with Stats */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold">إدارة الزوار</h1>
+          <div>
+            <h1 className="text-3xl font-bold">إدارة الزوار</h1>
+            <p className="text-gray-600 mt-2">قاعدة بيانات الزوار والعملاء المحتملين</p>
+          </div>
           <button
             onClick={() => setShowForm(!showForm)}
             className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700"
@@ -194,19 +174,19 @@ export default function VisitorsPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-gray-500 text-sm">إجمالي الزوار</div>
-            <div className="text-2xl font-bold">{visitors.length}</div>
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
+            <div className="text-sm opacity-90 mb-1">إجمالي الزوار</div>
+            <div className="text-4xl font-bold">{visitors.length}</div>
           </div>
           {stats.map((stat) => (
-            <div key={stat.status} className="bg-white p-4 rounded-lg shadow">
-              <div className="text-gray-500 text-sm">
-                {stat.status === 'pending' && 'معلق'}
-                {stat.status === 'contacted' && 'تم التواصل'}
-                {stat.status === 'subscribed' && 'مشترك'}
-                {stat.status === 'rejected' && 'مرفوض'}
+            <div key={stat.status} className="bg-white p-5 rounded-xl shadow-lg border-2">
+              <div className="text-gray-500 text-sm font-medium mb-1">
+                {stat.status === 'pending' && '⏳ معلق'}
+                {stat.status === 'contacted' && '📞 تم التواصل'}
+                {stat.status === 'subscribed' && '✅ مشترك'}
+                {stat.status === 'rejected' && '❌ مرفوض'}
               </div>
-              <div className="text-2xl font-bold">{stat._count}</div>
+              <div className="text-3xl font-bold">{stat._count}</div>
             </div>
           ))}
         </div>
@@ -223,7 +203,7 @@ export default function VisitorsPage() {
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h2 className="text-xl font-semibold mb-4">إضافة زائر جديد</h2>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -260,6 +240,8 @@ export default function VisitorsPage() {
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="walk-in">زيارة مباشرة</option>
+                  <option value="invitation">دعوة (يوم استخدام/InBody)</option>
+                  <option value="member-invitation">دعوة من عضو</option>
                   <option value="facebook">فيسبوك</option>
                   <option value="instagram">إنستجرام</option>
                   <option value="friend">صديق</option>
@@ -301,105 +283,9 @@ export default function VisitorsPage() {
         </div>
       )}
 
-      {/* Follow-Up Form */}
-      {showFollowUpForm && selectedVisitor && (
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6 border-2 border-blue-500">
-          <h2 className="text-xl font-semibold mb-4">
-            إضافة متابعة لـ {selectedVisitor.name}
-          </h2>
-          
-          <form onSubmit={handleFollowUpSubmit} className="space-y-4">
-            {/* 🆕 حقل اسم البائع */}
-            <div>
-              <label className="block text-sm font-medium mb-1">اسم البائع *</label>
-              <input
-                type="text"
-                required
-                value={followUpData.salesName}
-                onChange={(e) => setFollowUpData({ ...followUpData, salesName: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="من الذي قام بالمتابعة؟"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">ملاحظات المتابعة *</label>
-              <textarea
-                required
-                value={followUpData.notes}
-                onChange={(e) => setFollowUpData({ ...followUpData, notes: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                placeholder="ماذا حدث في هذه المتابعة؟"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="flex items-center space-x-2 space-x-reverse">
-                  <input
-                    type="checkbox"
-                    checked={followUpData.contacted}
-                    onChange={(e) => setFollowUpData({ ...followUpData, contacted: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span className="text-sm font-medium">تم التواصل</span>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">النتيجة</label>
-                <select
-                  value={followUpData.result}
-                  onChange={(e) => setFollowUpData({ ...followUpData, result: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- اختر --</option>
-                  <option value="interested">مهتم</option>
-                  <option value="not-interested">غير مهتم</option>
-                  <option value="postponed">مؤجل</option>
-                  <option value="subscribed">اشترك</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">متابعة قادمة</label>
-                <input
-                  type="date"
-                  value={followUpData.nextFollowUpDate}
-                  onChange={(e) => setFollowUpData({ ...followUpData, nextFollowUpDate: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {loading ? 'جاري الحفظ...' : 'حفظ المتابعة'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFollowUpForm(false)
-                  setSelectedVisitor(null)
-                  setFollowUpData({ notes: '', contacted: false, nextFollowUpDate: '', result: '', salesName: '' })
-                }}
-                className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
-              >
-                إلغاء
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">بحث</label>
             <input
@@ -409,6 +295,24 @@ export default function VisitorsPage() {
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="ابحث بالاسم أو رقم الهاتف..."
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">فلتر حسب المصدر</label>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="all">الكل</option>
+              <option value="invitation">🎁 دعوات (يوم استخدام)</option>
+              <option value="member-invitation">👥 دعوات من أعضاء</option>
+              <option value="walk-in">زيارة مباشرة</option>
+              <option value="facebook">فيسبوك</option>
+              <option value="instagram">إنستجرام</option>
+              <option value="friend">صديق</option>
+              <option value="other">أخرى</option>
+            </select>
           </div>
 
           <div>
@@ -430,7 +334,10 @@ export default function VisitorsPage() {
 
       {/* Visitors Table */}
       {loading ? (
-        <div className="text-center py-12">جاري التحميل...</div>
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">⏳</div>
+          <p className="text-xl">جاري التحميل...</p>
+        </div>
       ) : (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <table className="w-full">
@@ -441,8 +348,8 @@ export default function VisitorsPage() {
                 <th className="px-4 py-3 text-right">المصدر</th>
                 <th className="px-4 py-3 text-right">مهتم بـ</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
-                <th className="px-4 py-3 text-right">آخر متابعة</th>
                 <th className="px-4 py-3 text-right">تاريخ الزيارة</th>
+                <th className="px-4 py-3 text-right">ملاحظات</th>
                 <th className="px-4 py-3 text-right">إجراءات</th>
               </tr>
             </thead>
@@ -451,50 +358,51 @@ export default function VisitorsPage() {
                 <tr key={visitor.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{visitor.name}</td>
                   <td className="px-4 py-3 font-mono text-sm">{visitor.phone}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {getSourceLabel(visitor.source)}
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`${
+                      visitor.source === 'invitation'
+                        ? 'bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-medium'
+                        : visitor.source === 'member-invitation'
+                        ? 'bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium'
+                        : 'text-gray-600'
+                    }`}>
+                      {getSourceLabel(visitor.source)}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {visitor.interestedIn || '-'}
                   </td>
-                  <td className="px-4 py-3">{getStatusBadge(visitor.status)}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {visitor.followUps && visitor.followUps.length > 0 ? (
-                      <div className="max-w-xs">
-                        {/* 🆕 عرض اسم البائع */}
-                        {visitor.followUps[0].salesName && (
-                          <div className="text-orange-600 font-medium text-xs mb-1">
-                            👤 {visitor.followUps[0].salesName}
-                          </div>
-                        )}
-                        <div className="text-gray-600 truncate">
-                          {visitor.followUps[0].notes}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {new Date(visitor.followUps[0].createdAt).toLocaleDateString('ar-EG')}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">لا توجد متابعات</span>
-                    )}
+                  <td className="px-4 py-3">
+                    <select
+                      value={visitor.status}
+                      onChange={(e) => handleUpdateStatus(visitor.id, e.target.value)}
+                      className="text-xs px-2 py-1 rounded border"
+                    >
+                      <option value="pending">معلق</option>
+                      <option value="contacted">تم التواصل</option>
+                      <option value="subscribed">مشترك</option>
+                      <option value="rejected">مرفوض</option>
+                    </select>
                   </td>
                   <td className="px-4 py-3 text-sm">
                     {new Date(visitor.createdAt).toLocaleDateString('ar-EG')}
                   </td>
+                  <td className="px-4 py-3 text-sm">
+                    {visitor.notes ? (
+                      <p className="text-gray-600 max-w-xs truncate" title={visitor.notes}>
+                        {visitor.notes}
+                      </p>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedVisitor(visitor)
-                          setShowFollowUpForm(true)
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-l px-4"
-                        title="إضافة متابعة"
-                      >
-                        📝متابعه
-                      </button>
-
-                    </div>
+                    <button
+                      onClick={() => handleDelete(visitor.id)}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      حذف
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -503,7 +411,8 @@ export default function VisitorsPage() {
 
           {visitors.length === 0 && (
             <div className="text-center py-12 text-gray-500">
-              لا يوجد زوار حالياً
+              <div className="text-5xl mb-3">🚶</div>
+              <p>لا يوجد زوار حالياً</p>
             </div>
           )}
         </div>

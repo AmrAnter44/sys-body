@@ -74,6 +74,45 @@ export async function POST(request: Request) {
       data: { current: receiptNumber + 1 },
     });
 
+    // ✅ إنشاء visitor تلقائياً من الدعوة (إذا لم يكن موجوداً)
+    try {
+      const existingVisitor = await prisma.visitor.findUnique({
+        where: { phone },
+      });
+
+      if (!existingVisitor) {
+        // إنشاء زائر جديد من الدعوة
+        await prisma.visitor.create({
+          data: {
+            name: name.trim(),
+            phone: phone.trim(),
+            source: "invitation", // مصدر الزائر: دعوة
+            interestedIn: serviceType === "DayUse" ? "يوم استخدام" : "InBody",
+            notes: `دعوة ${typeArabic} - موظف: ${staffName}`,
+            status: "pending",
+          },
+        });
+
+        // إنشاء أول متابعة تلقائياً
+        const newVisitor = await prisma.visitor.findUnique({
+          where: { phone },
+        });
+
+        if (newVisitor) {
+          await prisma.followUp.create({
+            data: {
+              visitorId: newVisitor.id,
+              notes: `دعوة ${typeArabic} - في انتظار المتابعة من فريق المبيعات`,
+              nextFollowUpDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // بعد 24 ساعة
+            },
+          });
+        }
+      }
+    } catch (visitorError) {
+      // في حالة فشل إنشاء الزائر، نستمر (لأن DayUse تم إنشاؤه بنجاح)
+      console.error("⚠️ تحذير: فشل إنشاء الزائر من الدعوة:", visitorError);
+    }
+
     return NextResponse.json(entry, { status: 201 });
   } catch (error: any) {
     console.error("❌ خطأ أثناء إنشاء DayUse أو الإيصال:", error);

@@ -1,27 +1,25 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma'
 
-// GET - جلب متابعات زائر معين
+// GET - جلب متابعات زائر معين أو جميع المتابعات
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const visitorId = searchParams.get('visitorId')
 
-    if (!visitorId) {
-      return NextResponse.json(
-        { error: 'معرف الزائر مطلوب' },
-        { status: 400 }
-      )
-    }
-
+    // إذا تم تحديد visitorId، جلب متابعات زائر معين فقط
+    // إذا لم يتم تحديد visitorId، جلب جميع المتابعات
     const followUps = await prisma.followUp.findMany({
-      where: { visitorId },
+      where: visitorId ? { visitorId } : undefined,
       orderBy: { createdAt: 'desc' },
       include: {
         visitor: {
           select: {
+            id: true,
             name: true,
             phone: true,
+            source: true,
+            status: true,
           },
         },
       },
@@ -38,7 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { visitorId, notes, contacted, nextFollowUpDate, result } = body
+    const { visitorId, notes, contacted, nextFollowUpDate, result, salesName } = body
 
     if (!visitorId || !notes) {
       return NextResponse.json(
@@ -64,6 +62,7 @@ export async function POST(request: Request) {
         contacted: contacted || false,
         nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null,
         result: result?.trim(), // 'interested', 'not-interested', 'postponed', 'subscribed'
+        salesName: salesName?.trim(), // اسم البائع الذي قام بالمتابعة
       },
     })
 

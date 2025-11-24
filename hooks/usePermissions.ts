@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { Permissions as PermissionsType } from '../types/permissions'
 
 export interface User {
   userId?: string
@@ -11,26 +12,8 @@ export interface User {
   role: 'ADMIN' | 'MANAGER' | 'STAFF'
 }
 
-export interface Permissions {
-  canViewMembers: boolean
-  canCreateMembers: boolean
-  canEditMembers: boolean
-  canDeleteMembers: boolean
-  canViewPT: boolean
-  canCreatePT: boolean
-  canEditPT: boolean
-  canDeletePT: boolean
-  canViewStaff: boolean
-  canCreateStaff: boolean
-  canEditStaff: boolean
-  canDeleteStaff: boolean
-  canViewReceipts: boolean
-  canEditReceipts: boolean
-  canDeleteReceipts: boolean
-  canViewReports: boolean
-  canViewFinancials: boolean
-  canAccessSettings: boolean
-}
+// استخدام نفس interface الـ Permissions من types/permissions.ts
+export type Permissions = PermissionsType
 
 export interface AuthState {
   user: User | null

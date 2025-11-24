@@ -7,6 +7,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const status = searchParams.get('status') // 'pending', 'contacted', 'subscribed', 'rejected'
+    const source = searchParams.get('source') // 'walk-in', 'invitation', 'facebook', etc.
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
 
@@ -23,6 +24,11 @@ export async function GET(request: Request) {
     // فلترة حسب الحالة
     if (status && status !== 'all') {
       where.status = status
+    }
+
+    // فلترة حسب المصدر
+    if (source && source !== 'all') {
+      where.source = source
     }
 
     // فلترة حسب التاريخ

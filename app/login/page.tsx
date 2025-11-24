@@ -26,8 +26,9 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        router.push('/members')
-        router.refresh()
+        // استخدام window.location بدلاً من router.push عشان يعمل full reload
+        // وبالتالي يعيد جلب الصلاحيات في الـ Navbar
+        window.location.href = '/members'
       } else {
         setError(data.error || 'فشل تسجيل الدخول')
       }
