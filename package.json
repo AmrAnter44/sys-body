@@ -2,6 +2,7 @@
   "name": "gym-management",
   "version": "1.0.0",
   "description": "xgym system",
+  
   "private": true,
   "main": "electron/main.js",
   "author": "Amr Anter",
@@ -25,6 +26,7 @@
     "bcryptjs": "^3.0.3",
     "bwip-js": "^4.8.0",
     "client-only": "^0.0.1",
+    "csv-parse": "^6.1.0",
     "electron-is-dev": "^2.0.0",
     "exceljs": "^4.4.0",
     "jsonwebtoken": "^9.0.2",
@@ -33,7 +35,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.33.4",
-    "styled-jsx": "^5.1.7"
+    "styled-jsx": "^5.1.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
