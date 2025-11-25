@@ -142,6 +142,7 @@ export default function PTPage() {
       startDate: session.startDate ? formatDateYMD(session.startDate) : '',
       expiryDate: session.expiryDate ? formatDateYMD(session.expiryDate) : '',
       paymentMethod: 'cash',
+      staffName: user?.name || '',
     })
     setEditingSession(session)
     setShowForm(true)

@@ -154,7 +154,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false
+      webSecurity: false,
+      partition: 'persist:gym', // حفظ الـ cookies والـ session
+      enableRemoteModule: false
     },
     autoHideMenuBar: !isDev,
     title: 'نظام إدارة الصالة الرياضية',
