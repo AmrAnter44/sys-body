@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
-import xlsx from "xlsx";
+import ExcelJS from "exceljs";
 
 const prisma = new PrismaClient();
 
@@ -83,22 +83,53 @@ async function importExcel() {
   }
 
   console.log("📖 Reading Excel file...");
-  
-  const workbook = xlsx.readFile(
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(
     "C:\\Users\\amran\\Desktop\\gym\\gym-management\\prisma\\2.xlsx"
   );
 
-  const sheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[sheetName];
+  const worksheet = workbook.worksheets[0];
+  const sheetName = worksheet.name;
 
   console.log(`📊 Reading sheet: ${sheetName}`);
 
-  const rawData = xlsx.utils.sheet_to_json(worksheet);
+  // Convert worksheet to JSON format similar to xlsx.utils.sheet_to_json
+  const rawData = [];
+  const headers = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) {
+      // First row contains headers
+      row.eachCell((cell, colNumber) => {
+        headers[colNumber] = cell.value;
+      });
+    } else {
+      // Data rows
+      const rowData = {};
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber];
+        if (header) {
+          rowData[header] = cell.value;
+        }
+      });
+      if (Object.keys(rowData).length > 0) {
+        rawData.push(rowData);
+      }
+    }
+  });
 
   console.log(`📊 Found ${rawData.length} rows in Excel file`);
 
-  const records = [];
-  const phoneSet = new Set();
+  // 🔍 Debug: Show actual column names
+  if (rawData.length > 0) {
+    console.log("\n🔍 DEBUG: Column names in Excel file:");
+    console.log(Object.keys(rawData[0]));
+    console.log("\n🔍 DEBUG: First row data:");
+    console.log(rawData[0]);
+  }
+
+  const recordsMap = new Map(); // استخدام Map بدل array لتخزين آخر سجل لكل رقم
   const skippedRecords = [];
 
   for (const row of rawData) {
@@ -114,25 +145,35 @@ async function importExcel() {
       skippedRecords.push({ reason: "Invalid phone", row });
       continue;
     }
-    if (phoneSet.has(cleanedPhone)) {
-      skippedRecords.push({ reason: "Duplicate phone in file", row });
-      continue;
-    }
-    phoneSet.add(cleanedPhone);
+    // لا نعمل skip للمكررات - بدلاً من ذلك سيتم استبدال السجل القديم بالجديد في Map
 
     // Parse dates
     const createdAt = parseExcelDate(row["createdAt"]);
-    const startDate = parseExcelDate(row["startDate"]);
-    const expiryDate = parseExcelDate(row["expiryDate"]);
+    const startDate = parseExcelDate(row["Start Date"]);
+    const expiryDate = parseExcelDate(row["End Date"]);
 
     // Skip records with invalid required dates
     if (!createdAt || !startDate || !expiryDate) {
       skippedRecords.push({
         reason: "Invalid dates",
-        row: { name, phone: cleanedPhone, createdAt, startDate, expiryDate }
+        row: {
+          name,
+          phone: cleanedPhone,
+          rawCreatedAt: row["createdAt"],
+          rawStartDate: row["Start Date"],
+          rawExpiryDate: row["End Date"],
+          createdAt,
+          startDate,
+          expiryDate
+        }
       });
       continue;
     }
+
+    // ✅ تحديد isActive بناءً على تاريخ الانتهاء
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isActive = expiryDate >= today; // نشط إذا لم ينته بعد
 
     const data = {
       createdAt,
@@ -143,11 +184,16 @@ async function importExcel() {
       phone: cleanedPhone,
       subscriptionPrice: parseFloat(row["subscriptionPrice"]) || 0,
       remainingAmount: parseFloat(row["remainingAmount"]) || 0,
-      notes: row["Reception Name"] ? `Reception: ${row["Reception Name"]}` : null
+      notes: row["Reception Name"] ? `Reception: ${row["Reception Name"]}` : null,
+      isActive // ✅ إضافة isActive
     };
 
-    records.push(data);
+    // حفظ السجل في Map - لو الرقم مكرر هيستبدل القديم بالجديد تلقائياً
+    recordsMap.set(cleanedPhone, data);
   }
+
+  // تحويل Map إلى array
+  const records = Array.from(recordsMap.values());
 
   console.log(`\n📦 After cleaning: ${records.length} members ready to process`);
   console.log(`⚠️  Skipped: ${skippedRecords.length} records`);
@@ -155,7 +201,7 @@ async function importExcel() {
   if (skippedRecords.length > 0) {
     console.log("\n⚠️  First 10 skipped records:");
     skippedRecords.slice(0, 10).forEach((s, i) => {
-      console.log(`${i + 1}. ${s.reason}`);
+      console.log(`${i + 1}. ${s.reason}:`, JSON.stringify(s.row, null, 2));
     });
   }
 

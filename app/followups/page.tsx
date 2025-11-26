@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
+import FollowUpForm from './FollowUpForm'
 
 interface Visitor {
   id: string
@@ -39,6 +40,8 @@ export default function FollowUpsPage() {
   const [visitors, setVisitors] = useState<Visitor[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [allMembers, setAllMembers] = useState<Member[]>([]) // كل الأعضاء (نشطين ومنتهيين)
+  const [dayUseRecords, setDayUseRecords] = useState<any[]>([])
+  const [invitations, setInvitations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
@@ -51,15 +54,6 @@ export default function FollowUpsPage() {
   const [resultFilter, setResultFilter] = useState('all')
   const [contactedFilter, setContactedFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
-
-  const [formData, setFormData] = useState({
-    visitorId: '',
-    notes: '',
-    contacted: false,
-    nextFollowUpDate: '',
-    result: '',
-    salesName: '',
-  })
 
   // ✅ حساب الأعضاء المنتهيين
   const expiredMembers = useMemo(() => {
@@ -79,8 +73,9 @@ export default function FollowUpsPage() {
       }))
   }, [allMembers])
 
-  // ✅ دمج المتابعات الحقيقية مع الأعضاء المنتهيين
+  // ✅ دمج المتابعات الحقيقية مع الأعضاء المنتهيين + Day Use + Invitations
   const allFollowUps = useMemo(() => {
+    // 1. الأعضاء المنتهيين
     const expiredFollowUps: FollowUp[] = expiredMembers.map(member => ({
       id: member.id,
       notes: 'عضو منتهي - يحتاج تجديد اشتراك',
@@ -92,8 +87,44 @@ export default function FollowUpsPage() {
       visitor: member
     }))
 
-    return [...followUps, ...expiredFollowUps]
-  }, [followUps, expiredMembers])
+    // 2. Day Use (استخدام InBody يوم واحد)
+    const dayUseFollowUps: FollowUp[] = dayUseRecords.map(record => ({
+      id: `dayuse-${record.id}`,
+      notes: `استخدام ${record.serviceType} - فرصة للاشتراك`,
+      contacted: false,
+      nextFollowUpDate: new Date().toISOString(),
+      result: undefined,
+      salesName: record.staffName || 'نظام',
+      createdAt: record.createdAt,
+      visitor: {
+        id: `dayuse-${record.id}`,
+        name: record.name,
+        phone: record.phone,
+        source: 'invitation', // 🎁 استخدام يوم
+        status: 'pending'
+      }
+    }))
+
+    // 3. Invitations (دعوات من أعضاء)
+    const invitationFollowUps: FollowUp[] = invitations.map(inv => ({
+      id: `invitation-${inv.id}`,
+      notes: `دعوة من عضو - ${inv.member?.name || 'عضو'}`,
+      contacted: false,
+      nextFollowUpDate: new Date().toISOString(),
+      result: undefined,
+      salesName: 'نظام',
+      createdAt: inv.createdAt,
+      visitor: {
+        id: `invitation-${inv.id}`,
+        name: inv.guestName,
+        phone: inv.guestPhone,
+        source: 'member-invitation', // 👥 دعوة من عضو
+        status: 'pending'
+      }
+    }))
+
+    return [...followUps, ...expiredFollowUps, ...dayUseFollowUps, ...invitationFollowUps]
+  }, [followUps, expiredMembers, dayUseRecords, invitations])
 
   const fetchFollowUps = async () => {
     try {
@@ -146,20 +177,49 @@ export default function FollowUpsPage() {
     }
   }
 
+  const fetchDayUse = async () => {
+    try {
+      const response = await fetch('/api/dayuse')
+      const data = await response.json()
+      setDayUseRecords(data || [])
+      console.log('🎯 عدد استخدامات InBody:', (data || []).length)
+    } catch (error) {
+      console.error('Error fetching day use:', error)
+    }
+  }
+
+  const fetchInvitations = async () => {
+    try {
+      const response = await fetch('/api/invitations')
+      const data = await response.json()
+      setInvitations(data || [])
+      console.log('🎁 عدد الدعوات:', (data || []).length)
+    } catch (error) {
+      console.error('Error fetching invitations:', error)
+    }
+  }
+
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
         fetchFollowUps(),
         fetchVisitors(),
-        fetchMembers()
+        fetchMembers(),
+        fetchDayUse(),
+        fetchInvitations()
       ])
     }
     loadData()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  const handleSubmit = async (formData: {
+    visitorId: string
+    salesName: string
+    notes: string
+    result: string
+    nextFollowUpDate: string
+    contacted: boolean
+  }) => {
     setMessage('')
 
     try {
@@ -170,10 +230,9 @@ export default function FollowUpsPage() {
       })
 
       if (response.ok) {
-        setFormData({ visitorId: '', notes: '', contacted: false, nextFollowUpDate: '', result: '', salesName: '' })
         setMessage('✅ تم إضافة المتابعة بنجاح!')
         setTimeout(() => setMessage(''), 3000)
-        fetchFollowUps()
+        await fetchFollowUps()
         setShowForm(false)
         setSelectedVisitorId('')
       } else {
@@ -183,21 +242,11 @@ export default function FollowUpsPage() {
     } catch (error) {
       console.error(error)
       setMessage('❌ حدث خطأ')
-    } finally {
-      setLoading(false)
     }
   }
 
   const openQuickFollowUp = (visitor: Visitor) => {
     setSelectedVisitorId(visitor.id)
-    setFormData({
-      visitorId: visitor.id,
-      notes: '',
-      contacted: false,
-      nextFollowUpDate: '',
-      result: '',
-      salesName: '',
-    })
     setShowForm(true)
     // لا نحتاج scroll - هيظهر كـ modal
   }
@@ -360,6 +409,9 @@ export default function FollowUpsPage() {
       return fu.contacted && new Date(fu.createdAt).toDateString() === today
     }).length,
     expiredMembers: expiredMembers.length,
+    dayUse: dayUseRecords.length,
+    invitations: invitations.length,
+    visitors: visitors.length,
     convertedToMembers: followUps.filter(fu => isVisitorAMember(fu.visitor.phone)).length
   }
 
@@ -400,32 +452,38 @@ export default function FollowUpsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 shadow-lg">
-            <p className="text-sm opacity-90 mb-1">إجمالي المتابعات</p>
-            <p className="text-4xl font-bold">{stats.total}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">إجمالي</p>
+            <p className="text-3xl font-bold">{stats.total}</p>
           </div>
-          <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl p-5 shadow-lg">
-            <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
-              🔥 متابعات متأخرة
-            </p>
-            <p className="text-4xl font-bold">{stats.overdue}</p>
+          <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">🔥 متأخر</p>
+            <p className="text-3xl font-bold">{stats.overdue}</p>
           </div>
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 shadow-lg">
-            <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
-              ⚡ متابعات اليوم
-            </p>
-            <p className="text-4xl font-bold">{stats.today}</p>
+          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">⚡ اليوم</p>
+            <p className="text-3xl font-bold">{stats.today}</p>
           </div>
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
-            <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
-              ❌ أعضاء منتهيين
-            </p>
-            <p className="text-4xl font-bold">{stats.expiredMembers}</p>
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">❌ منتهيين</p>
+            <p className="text-3xl font-bold">{stats.expiredMembers}</p>
           </div>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 shadow-lg">
-            <p className="text-sm opacity-90 mb-1">تم التواصل اليوم</p>
-            <p className="text-4xl font-bold">{stats.contactedToday}</p>
+          <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">🎁 Day Use</p>
+            <p className="text-3xl font-bold">{stats.dayUse}</p>
+          </div>
+          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">👥 دعوات</p>
+            <p className="text-3xl font-bold">{stats.invitations}</p>
+          </div>
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">👤 زوار</p>
+            <p className="text-3xl font-bold">{stats.visitors}</p>
+          </div>
+          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">✅ اتصال</p>
+            <p className="text-3xl font-bold">{stats.contactedToday}</p>
           </div>
         </div>
       </div>
@@ -437,215 +495,101 @@ export default function FollowUpsPage() {
         </div>
       )}
 
-      {/* Add Follow-Up Form - Modal Popup */}
+      {/* Add Follow-Up Form - Modal Popup (Lightweight) */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl flex justify-between items-center">
-              <h2 className="text-2xl font-bold flex items-center gap-3">
-                <span>📝</span>
-                <span>إضافة متابعة جديدة</span>
-                {selectedVisitorId && (
-                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                    ({[...visitors, ...expiredMembers].find(v => v.id === selectedVisitorId)?.name})
-                  </span>
-                )}
-              </h2>
-              <button
-                onClick={() => setShowForm(false)}
-                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
-              >
-                <span className="text-2xl">✕</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">الزائر *</label>
-                <select
-                  required
-                  value={formData.visitorId}
-                  onChange={(e) => setFormData({ ...formData, visitorId: e.target.value })}
-                  className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">اختر زائر</option>
-                  {[...visitors, ...expiredMembers].map(visitor => (
-                    <option key={visitor.id} value={visitor.id}>
-                      {visitor.name} - {visitor.phone} ({getSourceLabel(visitor.source)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">اسم البائع *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.salesName}
-                  onChange={(e) => setFormData({ ...formData, salesName: e.target.value })}
-                  className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="من الذي قام بالمتابعة؟"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">ملاحظات المتابعة *</label>
-              <textarea
-                required
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                placeholder="ماذا حدث في هذه المتابعة؟"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.contacted}
-                    onChange={(e) => setFormData({ ...formData, contacted: e.target.checked })}
-                    className="rounded w-4 h-4"
-                  />
-                  <span className="text-sm font-medium">تم التواصل</span>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">النتيجة</label>
-                <select
-                  value={formData.result}
-                  onChange={(e) => setFormData({ ...formData, result: e.target.value })}
-                  className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- اختر --</option>
-                  <option value="interested">✅ مهتم</option>
-                  <option value="not-interested">❌ غير مهتم</option>
-                  <option value="postponed">⏸️ مؤجل</option>
-                  <option value="subscribed">🎉 اشترك</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">متابعة قادمة</label>
-                <input
-                  type="date"
-                  value={formData.nextFollowUpDate}
-                  onChange={(e) => setFormData({ ...formData, nextFollowUpDate: e.target.value })}
-                  className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold text-lg"
-            >
-              {loading ? 'جاري الحفظ...' : '✅ حفظ المتابعة'}
-            </button>
-          </form>
-          </div>
-        </div>
+        <FollowUpForm
+          visitors={visitors}
+          expiredMembers={expiredMembers}
+          dayUseRecords={dayUseRecords}
+          invitations={invitations}
+          initialVisitorId={selectedVisitorId}
+          onSubmit={handleSubmit}
+          onClose={() => {
+            setShowForm(false)
+            setSelectedVisitorId('')
+          }}
+        />
       )}
 
-      {/* History Modal - سجل المتابعات */}
+      {/* History Modal - سجل المتابعات (Lightweight) */}
       {showHistoryModal && selectedVisitorForHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistoryModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-t-xl flex justify-between items-center">
-              <h2 className="text-2xl font-bold flex items-center gap-3">
-                <span>📋</span>
-                <span>سجل المتابعات</span>
-                <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowHistoryModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-purple-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  <span>📋</span>
+                  <span>سجل المتابعات</span>
+                </h2>
+                <p className="text-xs opacity-90 mt-0.5">
                   {selectedVisitorForHistory.name} - {selectedVisitorForHistory.phone}
-                </span>
-              </h2>
+                </p>
+              </div>
               <button
                 onClick={() => setShowHistoryModal(false)}
-                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                className="text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
               >
-                <span className="text-2xl">✕</span>
+                ✕
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4">
               {visitorHistory.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-5xl mb-3">📭</div>
-                  <p>لا توجد متابعات مسجلة لهذا الشخص</p>
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">📭</div>
+                  <p className="text-sm">لا توجد متابعات</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-                    <p className="text-lg font-bold text-purple-900">
-                      إجمالي المتابعات: <span className="text-3xl">{visitorHistory.length}</span>
+                <div className="space-y-3">
+                  <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                    <p className="text-sm font-bold text-purple-900">
+                      المجموع: <span className="text-2xl">{visitorHistory.length}</span>
                     </p>
                   </div>
 
                   {visitorHistory.map((fu, index) => (
-                      <div
-                        key={fu.id}
-                        className={`border-2 rounded-lg p-5 ${
-                          fu.contacted ? 'bg-green-50 border-green-300' : 'bg-orange-50 border-orange-300'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-3xl font-bold text-gray-400">#{history.length - index}</span>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">
-                                {new Date(fu.createdAt).toLocaleString('ar-EG', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </p>
-                              {fu.contacted ? (
-                                <span className="text-green-700 font-bold text-sm">✅ تم التواصل</span>
-                              ) : (
-                                <span className="text-orange-600 font-bold text-sm">⏳ لم يتم التواصل</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2">
-                            {fu.result && getResultBadge(fu.result)}
-                            {fu.salesName && (
-                              <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-medium">
-                                👤 {fu.salesName}
-                              </span>
+                    <div
+                      key={fu.id}
+                      className={`border rounded-lg p-3 ${
+                        fu.contacted ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl font-bold text-gray-400">#{visitorHistory.length - index}</span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(fu.createdAt).toLocaleDateString('ar-EG')}
+                            </span>
+                            {fu.contacted ? (
+                              <span className="text-green-700 font-bold text-xs">✅ تم</span>
+                            ) : (
+                              <span className="text-orange-600 font-bold text-xs">⏳ لم يتم</span>
                             )}
                           </div>
                         </div>
-
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 mb-3">
-                          <p className="text-sm font-medium text-gray-600 mb-1">📝 الملاحظات:</p>
-                          <p className="text-gray-800">{fu.notes}</p>
-                        </div>
-
-                        {fu.nextFollowUpDate && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="font-medium text-gray-600">📅 المتابعة القادمة:</span>
-                            <span className="font-bold text-purple-700">
-                              {new Date(fu.nextFollowUpDate).toLocaleDateString('ar-EG', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              })}
+                        <div className="flex gap-1 flex-wrap justify-end">
+                          {fu.result && getResultBadge(fu.result)}
+                          {fu.salesName && (
+                            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
+                              {fu.salesName}
                             </span>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="bg-white p-2 rounded border border-gray-200 mb-2">
+                        <p className="text-sm text-gray-800">{fu.notes}</p>
+                      </div>
+
+                      {fu.nextFollowUpDate && (
+                        <div className="text-xs text-gray-600">
+                          📅 القادمة: <span className="font-bold">{new Date(fu.nextFollowUpDate).toLocaleDateString('ar-EG')}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

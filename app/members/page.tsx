@@ -92,18 +92,19 @@ export default function MembersPage() {
 
     if (searchId || searchName || searchPhone) {
       filtered = filtered.filter((member) => {
-        const idMatch = searchId 
-          ? member.memberNumber.toString().includes(searchId)
+        // ✅ بحث دقيق برقم العضوية (exact match)
+        const idMatch = searchId
+          ? member.memberNumber === parseInt(searchId) || member.memberNumber.toString() === searchId
           : true
-        
+
         const nameMatch = searchName
           ? member.name.toLowerCase().includes(searchName.toLowerCase())
           : true
-        
+
         const phoneMatch = searchPhone
           ? member.phone.includes(searchPhone)
           : true
-        
+
         return idMatch && nameMatch && phoneMatch
       })
     }

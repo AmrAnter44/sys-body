@@ -1,0 +1,124 @@
+{
+  "summary": {
+    "totalRows": 2858,
+    "newVisitors": 2675,
+    "failed": 0,
+    "skipped": 16,
+    "timestamp": "2025-11-26T18:21:57.538Z"
+  },
+  "errors": [],
+  "skipped": [
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "Name",
+        "Number": "Number"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01140500926"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01096151885"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01157510173"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01020745583"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "عادل هاني",
+        "Number": null
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "هند صلاح سالم ",
+        "Number": null
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "يناير 2022"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "نهي عبد المنعم ",
+        "Number": null
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "فبراير 2022"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01021832128"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "احمد مدحت",
+        "Number": "الرقم ناقص"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01094152004"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "Name": null,
+        "Number": "01007793383"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "جيجى ناصر ",
+        "Number": null
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "Name": "احمد وائل",
+        "Number": null
+      }
+    }
+  ]
+}
