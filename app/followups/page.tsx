@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
@@ -28,7 +28,8 @@ interface Member {
   id: string
   phone: string
   name: string
-  membershipStatus: string
+  expiryDate?: string
+  isActive: boolean
 }
 
 export default function FollowUpsPage() {
@@ -37,8 +38,11 @@ export default function FollowUpsPage() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [visitors, setVisitors] = useState<Visitor[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [allMembers, setAllMembers] = useState<Member[]>([]) // كل الأعضاء (نشطين ومنتهيين)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [selectedVisitorForHistory, setSelectedVisitorForHistory] = useState<Visitor | null>(null)
   const [message, setMessage] = useState('')
   const [selectedVisitorId, setSelectedVisitorId] = useState<string>('')
 
@@ -46,7 +50,7 @@ export default function FollowUpsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [resultFilter, setResultFilter] = useState('all')
   const [contactedFilter, setContactedFilter] = useState('all')
-  const [priorityFilter, setPriorityFilter] = useState('all') // all, overdue, today, upcoming
+  const [priorityFilter, setPriorityFilter] = useState('all')
 
   const [formData, setFormData] = useState({
     visitorId: '',
@@ -56,6 +60,40 @@ export default function FollowUpsPage() {
     result: '',
     salesName: '',
   })
+
+  // ✅ حساب الأعضاء المنتهيين
+  const expiredMembers = useMemo(() => {
+    const today = new Date()
+    return allMembers
+      .filter(m => {
+        if (!m.expiryDate) return false
+        const expiryDate = new Date(m.expiryDate)
+        return expiryDate < today && m.isActive === false
+      })
+      .map(m => ({
+        id: `expired-${m.id}`,
+        name: `${m.name} (عضو منتهي)`,
+        phone: m.phone,
+        source: 'expired-member',
+        status: 'expired'
+      }))
+  }, [allMembers])
+
+  // ✅ دمج المتابعات الحقيقية مع الأعضاء المنتهيين
+  const allFollowUps = useMemo(() => {
+    const expiredFollowUps: FollowUp[] = expiredMembers.map(member => ({
+      id: member.id,
+      notes: 'عضو منتهي - يحتاج تجديد اشتراك',
+      contacted: false,
+      nextFollowUpDate: new Date().toISOString(),
+      result: undefined,
+      salesName: 'نظام',
+      createdAt: new Date().toISOString(),
+      visitor: member
+    }))
+
+    return [...followUps, ...expiredFollowUps]
+  }, [followUps, expiredMembers])
 
   const fetchFollowUps = async () => {
     try {
@@ -84,62 +122,39 @@ export default function FollowUpsPage() {
     try {
       const response = await fetch('/api/members')
       const data = await response.json()
-      // جلب الأعضاء النشطين فقط
-      const activeMembers = (data || []).filter((m: Member) => m.membershipStatus === 'active')
+
+      // حفظ كل الأعضاء
+      setAllMembers(data || [])
+
+      // حفظ الأعضاء النشطين فقط (isActive = true)
+      const activeMembers = (data || []).filter((m: Member) => m.isActive === true)
       setMembers(activeMembers)
-      console.log('📊 عدد الأعضاء النشطين:', activeMembers.length)
+
+      // حساب الأعضاء المنتهيين
+      const today = new Date()
+      const expired = (data || []).filter((m: Member) => {
+        if (!m.expiryDate) return false
+        const expiryDate = new Date(m.expiryDate)
+        return expiryDate < today && m.isActive === false
+      })
+
+      console.log('📊 إجمالي الأعضاء:', data?.length || 0)
+      console.log('✅ عدد الأعضاء النشطين:', activeMembers.length)
+      console.log('❌ عدد الأعضاء المنتهيين:', expired.length)
     } catch (error) {
       console.error('Error fetching members:', error)
     }
   }
 
-  // تنظيف رقم التليفون لتوحيد الصيغة
-  const normalizePhone = (phone: string) => {
-    if (!phone) return ''
-
-    // إزالة كل المسافات والرموز الخاصة
-    let normalized = phone.replace(/[\s\-\(\)\+]/g, '').trim()
-
-    // إزالة كود الدولة إذا موجود (2 أو 002 أو +2)
-    if (normalized.startsWith('2')) {
-      normalized = normalized.substring(1)
-    }
-
-    // إزالة الصفر البادئ
-    if (normalized.startsWith('0')) {
-      normalized = normalized.substring(1)
-    }
-
-    return normalized
-  }
-
-  // التحقق من أن الزائر أصبح عضو
-  const isVisitorAMember = (phone: string) => {
-    const normalizedVisitorPhone = normalizePhone(phone)
-
-    // البحث عن العضو
-    const matchedMember = members.find(member => {
-      const normalizedMemberPhone = normalizePhone(member.phone)
-      return normalizedMemberPhone === normalizedVisitorPhone
-    })
-
-    // للتأكد من المقارنة (فقط للـ debugging)
-    if (matchedMember) {
-      console.log('✅ تم العثور على عضو:', {
-        originalPhone: phone,
-        normalizedPhone: normalizedVisitorPhone,
-        memberName: matchedMember.name,
-        memberStatus: matchedMember.membershipStatus
-      })
-    }
-
-    return !!matchedMember
-  }
-
   useEffect(() => {
-    fetchFollowUps()
-    fetchVisitors()
-    fetchMembers()
+    const loadData = async () => {
+      await Promise.all([
+        fetchFollowUps(),
+        fetchVisitors(),
+        fetchMembers()
+      ])
+    }
+    loadData()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,7 +199,52 @@ export default function FollowUpsPage() {
       salesName: '',
     })
     setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // لا نحتاج scroll - هيظهر كـ modal
+  }
+
+  // تنظيف رقم التليفون
+  const normalizePhone = (phone: string) => {
+    if (!phone) return ''
+    let normalized = phone.replace(/[\s\-\(\)\+]/g, '').trim()
+    if (normalized.startsWith('2')) normalized = normalized.substring(1)
+    if (normalized.startsWith('0')) normalized = normalized.substring(1)
+    return normalized
+  }
+
+  const openHistoryModal = (visitor: Visitor) => {
+    setSelectedVisitorForHistory(visitor)
+    setShowHistoryModal(true)
+  }
+
+  // Memoize history to avoid recalculation on every render
+  const visitorHistory = useMemo(() => {
+    if (!selectedVisitorForHistory) return []
+    const normalizedPhone = normalizePhone(selectedVisitorForHistory.phone)
+    return followUps.filter(fu => {
+      const fuPhone = normalizePhone(fu.visitor.phone)
+      return fuPhone === normalizedPhone
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [selectedVisitorForHistory, followUps])
+
+  // التحقق من أن الزائر أصبح عضو
+  const isVisitorAMember = (phone: string) => {
+    const normalizedVisitorPhone = normalizePhone(phone)
+    const matchedMember = members.find(member => {
+      const normalizedMemberPhone = normalizePhone(member.phone)
+      return normalizedMemberPhone === normalizedVisitorPhone
+    })
+    return !!matchedMember
+  }
+
+  // التحقق من أن العضو المنتهي جدد اشتراكه (أصبح نشط)
+  const hasExpiredMemberRenewed = (phone: string) => {
+    const normalizedVisitorPhone = normalizePhone(phone)
+    // البحث في الأعضاء النشطين (members)
+    const matchedMember = members.find(member => {
+      const normalizedMemberPhone = normalizePhone(member.phone)
+      return normalizedMemberPhone === normalizedVisitorPhone
+    })
+    return !!matchedMember
   }
 
   // حساب أولوية المتابعة
@@ -196,13 +256,13 @@ export default function FollowUpsPage() {
     today.setHours(0, 0, 0, 0)
     nextDate.setHours(0, 0, 0, 0)
 
-    if (nextDate < today) return 'overdue' // متأخر
-    if (nextDate.getTime() === today.getTime()) return 'today' // اليوم
-    return 'upcoming' // قادم
+    if (nextDate < today) return 'overdue'
+    if (nextDate.getTime() === today.getTime()) return 'today'
+    return 'upcoming'
   }
 
   // فلترة النتائج
-  const filteredFollowUps = followUps
+  const filteredFollowUps = allFollowUps
     .filter(fu => {
       const matchesSearch =
         fu.visitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -221,13 +281,11 @@ export default function FollowUpsPage() {
       return matchesSearch && matchesResult && matchesContacted && matchesPriority
     })
     .sort((a, b) => {
-      // ترتيب: الأعضاء في الأسفل، غير الأعضاء في الأعلى
       const aIsMember = isVisitorAMember(a.visitor.phone)
       const bIsMember = isVisitorAMember(b.visitor.phone)
-
-      if (aIsMember && !bIsMember) return 1  // a عضو، يروح للأسفل
-      if (!aIsMember && bIsMember) return -1 // b عضو، يروح للأسفل
-      return 0 // نفس الترتيب
+      if (aIsMember && !bIsMember) return 1
+      if (!aIsMember && bIsMember) return -1
+      return 0
     })
 
   const getResultBadge = (result?: string) => {
@@ -256,6 +314,7 @@ export default function FollowUpsPage() {
       'walk-in': 'زيارة مباشرة',
       'invitation': '🎁 دعوة (يوم استخدام)',
       'member-invitation': '👥 دعوة من عضو',
+      'expired-member': '❌ عضو منتهي (تجديد)',
       'facebook': 'فيسبوك',
       'instagram': 'إنستجرام',
       'friend': 'صديق',
@@ -291,26 +350,20 @@ export default function FollowUpsPage() {
     return null
   }
 
-  const getTodayFollowUps = () => {
-    return followUps.filter(fu => getFollowUpPriority(fu) === 'today').length
+  // Stats
+  const stats = {
+    total: allFollowUps.length,
+    today: allFollowUps.filter(fu => getFollowUpPriority(fu) === 'today').length,
+    overdue: allFollowUps.filter(fu => getFollowUpPriority(fu) === 'overdue').length,
+    contactedToday: followUps.filter(fu => {
+      const today = new Date().toDateString()
+      return fu.contacted && new Date(fu.createdAt).toDateString() === today
+    }).length,
+    expiredMembers: expiredMembers.length,
+    convertedToMembers: followUps.filter(fu => isVisitorAMember(fu.visitor.phone)).length
   }
 
-  const getOverdueFollowUps = () => {
-    return followUps.filter(fu => getFollowUpPriority(fu) === 'overdue').length
-  }
-
-  const getContactedToday = () => {
-    const today = new Date().toDateString()
-    return followUps.filter(fu =>
-      fu.contacted && new Date(fu.createdAt).toDateString() === today
-    ).length
-  }
-
-  const getConvertedToMembers = () => {
-    return followUps.filter(fu => isVisitorAMember(fu.visitor.phone)).length
-  }
-
-  // ✅ التحقق من الصلاحيات
+  // التحقق من الصلاحيات
   if (permissionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -347,26 +400,32 @@ export default function FollowUpsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 shadow-lg">
             <p className="text-sm opacity-90 mb-1">إجمالي المتابعات</p>
-            <p className="text-4xl font-bold">{followUps.length}</p>
+            <p className="text-4xl font-bold">{stats.total}</p>
           </div>
           <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl p-5 shadow-lg">
             <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
               🔥 متابعات متأخرة
             </p>
-            <p className="text-4xl font-bold">{getOverdueFollowUps()}</p>
+            <p className="text-4xl font-bold">{stats.overdue}</p>
           </div>
           <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 shadow-lg">
             <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
               ⚡ متابعات اليوم
             </p>
-            <p className="text-4xl font-bold">{getTodayFollowUps()}</p>
+            <p className="text-4xl font-bold">{stats.today}</p>
+          </div>
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
+            <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
+              ❌ أعضاء منتهيين
+            </p>
+            <p className="text-4xl font-bold">{stats.expiredMembers}</p>
           </div>
           <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 shadow-lg">
             <p className="text-sm opacity-90 mb-1">تم التواصل اليوم</p>
-            <p className="text-4xl font-bold">{getContactedToday()}</p>
+            <p className="text-4xl font-bold">{stats.contactedToday}</p>
           </div>
         </div>
       </div>
@@ -378,20 +437,29 @@ export default function FollowUpsPage() {
         </div>
       )}
 
-      {/* Add Follow-Up Form */}
+      {/* Add Follow-Up Form - Modal Popup */}
       {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow-lg mb-6 border-2 border-blue-500">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <span>📝</span>
-            <span>إضافة متابعة جديدة</span>
-            {selectedVisitorId && (
-              <span className="text-sm text-blue-600">
-                ({visitors.find(v => v.id === selectedVisitorId)?.name})
-              </span>
-            )}
-          </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowForm(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl flex justify-between items-center">
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <span>📝</span>
+                <span>إضافة متابعة جديدة</span>
+                {selectedVisitorId && (
+                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                    ({[...visitors, ...expiredMembers].find(v => v.id === selectedVisitorId)?.name})
+                  </span>
+                )}
+              </h2>
+              <button
+                onClick={() => setShowForm(false)}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+              >
+                <span className="text-2xl">✕</span>
+              </button>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">الزائر *</label>
@@ -402,7 +470,7 @@ export default function FollowUpsPage() {
                   className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">اختر زائر</option>
-                  {visitors.map(visitor => (
+                  {[...visitors, ...expiredMembers].map(visitor => (
                     <option key={visitor.id} value={visitor.id}>
                       {visitor.name} - {visitor.phone} ({getSourceLabel(visitor.source)})
                     </option>
@@ -482,6 +550,105 @@ export default function FollowUpsPage() {
               {loading ? 'جاري الحفظ...' : '✅ حفظ المتابعة'}
             </button>
           </form>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal - سجل المتابعات */}
+      {showHistoryModal && selectedVisitorForHistory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowHistoryModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-t-xl flex justify-between items-center">
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <span>📋</span>
+                <span>سجل المتابعات</span>
+                <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                  {selectedVisitorForHistory.name} - {selectedVisitorForHistory.phone}
+                </span>
+              </h2>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+              >
+                <span className="text-2xl">✕</span>
+              </button>
+            </div>
+
+            <div className="p-6">
+              {visitorHistory.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-5xl mb-3">📭</div>
+                  <p>لا توجد متابعات مسجلة لهذا الشخص</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                    <p className="text-lg font-bold text-purple-900">
+                      إجمالي المتابعات: <span className="text-3xl">{visitorHistory.length}</span>
+                    </p>
+                  </div>
+
+                  {visitorHistory.map((fu, index) => (
+                      <div
+                        key={fu.id}
+                        className={`border-2 rounded-lg p-5 ${
+                          fu.contacted ? 'bg-green-50 border-green-300' : 'bg-orange-50 border-orange-300'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl font-bold text-gray-400">#{history.length - index}</span>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">
+                                {new Date(fu.createdAt).toLocaleString('ar-EG', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                              {fu.contacted ? (
+                                <span className="text-green-700 font-bold text-sm">✅ تم التواصل</span>
+                              ) : (
+                                <span className="text-orange-600 font-bold text-sm">⏳ لم يتم التواصل</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {fu.result && getResultBadge(fu.result)}
+                            {fu.salesName && (
+                              <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-medium">
+                                👤 {fu.salesName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 mb-3">
+                          <p className="text-sm font-medium text-gray-600 mb-1">📝 الملاحظات:</p>
+                          <p className="text-gray-800">{fu.notes}</p>
+                        </div>
+
+                        {fu.nextFollowUpDate && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="font-medium text-gray-600">📅 المتابعة القادمة:</span>
+                            <span className="font-bold text-purple-700">
+                              {new Date(fu.nextFollowUpDate).toLocaleDateString('ar-EG', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -569,11 +736,18 @@ export default function FollowUpsPage() {
               <tbody>
                 {filteredFollowUps.map((followUp) => {
                   const isMember = isVisitorAMember(followUp.visitor.phone)
+                  const isExpired = followUp.visitor.source === 'expired-member'
+                  const hasRenewed = isExpired && hasExpiredMemberRenewed(followUp.visitor.phone)
+
                   return (
                   <tr
                     key={followUp.id}
                     className={`border-t transition-colors ${
-                      isMember
+                      hasRenewed
+                        ? 'bg-green-50 hover:bg-green-100'
+                        : isExpired
+                        ? 'bg-red-50 hover:bg-red-100'
+                        : isMember
                         ? 'bg-green-50 hover:bg-green-100'
                         : 'hover:bg-blue-50'
                     }`}
@@ -584,10 +758,17 @@ export default function FollowUpsPage() {
                     <td className="px-4 py-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className={`font-semibold ${isMember ? 'text-green-700' : 'text-gray-900'}`}>
+                          <p className={`font-semibold ${
+                            hasRenewed ? 'text-green-700' : isExpired ? 'text-red-700' : isMember ? 'text-green-700' : 'text-gray-900'
+                          }`}>
                             {followUp.visitor.name}
                           </p>
-                          {isMember && (
+                          {hasRenewed && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
+                              ✓ تم التجديد
+                            </span>
+                          )}
+                          {isMember && !isExpired && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
                               ✓ عضو
                             </span>
@@ -608,7 +789,11 @@ export default function FollowUpsPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg font-medium text-sm transition-colors ${
-                          isMember
+                          hasRenewed
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : isExpired
+                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                            : isMember
                             ? 'bg-green-600 hover:bg-green-700 text-white'
                             : 'bg-green-500 hover:bg-green-600 text-white'
                         }`}
@@ -623,6 +808,8 @@ export default function FollowUpsPage() {
                           ? 'bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium'
                           : followUp.visitor.source === 'member-invitation'
                           ? 'bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium'
+                          : followUp.visitor.source === 'expired-member'
+                          ? 'bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-bold'
                           : 'text-gray-600'
                       }`}>
                         {getSourceLabel(followUp.visitor.source)}
@@ -661,8 +848,22 @@ export default function FollowUpsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {!isMember && (
+                      <div className="flex gap-2 flex-wrap">
+                        {hasRenewed && (
+                          <span className="text-green-700 text-sm font-bold px-3 py-1">
+                            ✅ تم التجديد
+                          </span>
+                        )}
+                        {!hasRenewed && !isMember && isExpired && (
+                          <button
+                            onClick={() => openQuickFollowUp(followUp.visitor)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
+                            title="إضافة متابعة للتجديد"
+                          >
+                            ➕ متابعة
+                          </button>
+                        )}
+                        {!isMember && !isExpired && (
                           <button
                             onClick={() => openQuickFollowUp(followUp.visitor)}
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
@@ -671,11 +872,20 @@ export default function FollowUpsPage() {
                             ➕ متابعة
                           </button>
                         )}
-                        {isMember && (
+                        {isMember && !isExpired && (
                           <span className="text-green-700 text-sm font-bold px-3 py-1">
                             ✅ تم الاشتراك
                           </span>
                         )}
+
+                        {/* زر سجل المتابعات */}
+                        <button
+                          onClick={() => openHistoryModal(followUp.visitor)}
+                          className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded bg-purple-50 hover:bg-purple-100"
+                          title="عرض سجل المتابعات"
+                        >
+                          📋 السجل
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -709,7 +919,7 @@ export default function FollowUpsPage() {
         </div>
       )}
 
-      {/* Success Rate - الزوار اللي اشتركوا */}
+      {/* Success Rate */}
       <div className="mt-6 bg-gradient-to-br from-green-500 to-green-600 border-r-4 border-green-700 p-6 rounded-xl shadow-lg">
         <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-xl">
           <span>🎯</span>
@@ -718,27 +928,25 @@ export default function FollowUpsPage() {
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white/90 backdrop-blur p-5 rounded-lg shadow-md">
             <p className="text-sm text-gray-600 font-medium mb-1">إجمالي المتابعات</p>
-            <p className="text-4xl font-bold text-gray-900">{followUps.length}</p>
+            <p className="text-4xl font-bold text-gray-900">{stats.total}</p>
           </div>
           <div className="bg-white/90 backdrop-blur p-5 rounded-lg shadow-md">
             <p className="text-sm text-gray-600 font-medium mb-1">تحولوا لأعضاء ✓</p>
-            <p className="text-4xl font-bold text-green-600">{getConvertedToMembers()}</p>
+            <p className="text-4xl font-bold text-green-600">{stats.convertedToMembers}</p>
           </div>
           <div className="bg-white/90 backdrop-blur p-5 rounded-lg shadow-md">
             <p className="text-sm text-gray-600 font-medium mb-1">نسبة التحويل</p>
             <p className="text-4xl font-bold text-blue-600">
-              {followUps.length > 0
-                ? ((getConvertedToMembers() / followUps.length) * 100).toFixed(1)
-                : '0'}%
+              {stats.total > 0 ? ((stats.convertedToMembers / stats.total) * 100).toFixed(1) : '0'}%
             </p>
           </div>
         </div>
         <p className="text-sm text-white mt-4 bg-green-700/30 p-3 rounded-lg">
-          💡 <strong>ملاحظة:</strong> السطور باللون الأخضر تشير إلى الزوار اللي اشتركوا وأصبحوا أعضاء نشطين في الجيم
+          💡 <strong>ملاحظة:</strong> السطور الخضراء = زوار أصبحوا أعضاء | السطور الحمراء = أعضاء منتهيين يحتاجون تجديد
         </p>
       </div>
 
-      {/* Quick Tips for Sales */}
+      {/* Quick Tips */}
       <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-r-4 border-blue-500 p-5 rounded-lg">
         <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
           <span>💡</span>
@@ -748,8 +956,8 @@ export default function FollowUpsPage() {
           <li>• 🔥 <strong>المتابعات المتأخرة:</strong> ابدأ بها أولاً - العميل قد يكون قرر بالفعل</li>
           <li>• ⚡ <strong>متابعات اليوم:</strong> تواصل الآن للحصول على أفضل نتائج</li>
           <li>• 💬 <strong>زر WhatsApp:</strong> اضغط على رقم الهاتف للتواصل السريع</li>
-          <li>• 🎁 <strong>الدعوات:</strong> العملاء من دعوات الأعضاء لديهم فرصة أعلى للاشتراك</li>
-          <li>• ✅ <strong>السطور الخضراء:</strong> زوار نجحت متابعتهم واشتركوا بالفعل - تعلم من أسلوب المتابعة معهم!</li>
+          <li>• ❌ <strong>السطور الحمراء:</strong> أعضاء منتهيين - فرصة ذهبية للتجديد!</li>
+          <li>• ✅ <strong>السطور الخضراء:</strong> زوار نجحت متابعتهم - تعلم من الأسلوب!</li>
         </ul>
       </div>
     </div>

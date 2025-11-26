@@ -47,7 +47,13 @@ export default function VisitorsPage() {
 
       const response = await fetch(`/api/visitors?${params}`)
       const data = await response.json()
-      setVisitors(data.visitors || [])
+
+      // ✅ فلترة الدعوات - الدعوات تظهر في صفحة /invitations فقط
+      const nonInvitationVisitors = (data.visitors || []).filter(
+        (v: Visitor) => v.source !== 'invitation' && v.source !== 'member-invitation'
+      )
+
+      setVisitors(nonInvitationVisitors)
       setStats(data.stats || [])
     } catch (error) {
       console.error('Error:', error)
@@ -145,8 +151,6 @@ export default function VisitorsPage() {
   const getSourceLabel = (source: string) => {
     const labels = {
       'walk-in': 'زيارة مباشرة',
-      'invitation': '🎁 دعوة (يوم استخدام)',
-      'member-invitation': '👥 دعوة من عضو',
       'facebook': 'فيسبوك',
       'instagram': 'إنستجرام',
       'friend': 'صديق',
@@ -240,8 +244,6 @@ export default function VisitorsPage() {
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="walk-in">زيارة مباشرة</option>
-                  <option value="invitation">دعوة (يوم استخدام/InBody)</option>
-                  <option value="member-invitation">دعوة من عضو</option>
                   <option value="facebook">فيسبوك</option>
                   <option value="instagram">إنستجرام</option>
                   <option value="friend">صديق</option>
@@ -305,8 +307,6 @@ export default function VisitorsPage() {
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
               <option value="all">الكل</option>
-              <option value="invitation">🎁 دعوات (يوم استخدام)</option>
-              <option value="member-invitation">👥 دعوات من أعضاء</option>
               <option value="walk-in">زيارة مباشرة</option>
               <option value="facebook">فيسبوك</option>
               <option value="instagram">إنستجرام</option>
@@ -358,16 +358,8 @@ export default function VisitorsPage() {
                 <tr key={visitor.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{visitor.name}</td>
                   <td className="px-4 py-3 font-mono text-sm">{visitor.phone}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`${
-                      visitor.source === 'invitation'
-                        ? 'bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-medium'
-                        : visitor.source === 'member-invitation'
-                        ? 'bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium'
-                        : 'text-gray-600'
-                    }`}>
-                      {getSourceLabel(visitor.source)}
-                    </span>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {getSourceLabel(visitor.source)}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {visitor.interestedIn || '-'}
