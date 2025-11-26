@@ -29,7 +29,6 @@ export default function FollowUpForm({
   onClose
 }: FollowUpFormProps) {
   const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
   const [formData, setFormData] = useState({
     visitorId: initialVisitorId,
     salesName: '',
@@ -46,15 +45,30 @@ export default function FollowUpForm({
     }
   }, [initialVisitorId])
 
-  // فلترة الأعضاء المنتهيين بناءً على البحث (نعرض أول 50 بس)
-  const filteredExpiredMembers = searchTerm
-    ? expiredMembers
-        .filter((m: any) =>
-          m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          m.phone.includes(searchTerm)
-        )
-        .slice(0, 50)
-    : expiredMembers.slice(0, 50) // أول 50 عضو بس لو مفيش بحث
+  // البحث عن بيانات الزائر/العضو المختار
+  const getSelectedVisitorInfo = () => {
+    if (!formData.visitorId) return null
+
+    // البحث في الزوار
+    const visitor = visitors.find(v => v.id === formData.visitorId)
+    if (visitor) return { name: visitor.name, phone: visitor.phone, type: 'زائر' }
+
+    // البحث في الأعضاء المنتهيين
+    const expMember = expiredMembers.find((m: any) => m.id === formData.visitorId)
+    if (expMember) return { name: expMember.name, phone: expMember.phone, type: 'عضو منتهي' }
+
+    // البحث في Day Use
+    const dayUse = dayUseRecords.find(r => `dayuse-${r.id}` === formData.visitorId)
+    if (dayUse) return { name: dayUse.name, phone: dayUse.phone, type: 'Day Use' }
+
+    // البحث في Invitations
+    const invitation = invitations.find(inv => `invitation-${inv.id}` === formData.visitorId)
+    if (invitation) return { name: invitation.guestName, phone: invitation.guestPhone, type: 'دعوة' }
+
+    return null
+  }
+
+  const selectedInfo = getSelectedVisitorInfo()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,78 +112,32 @@ export default function FollowUpForm({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
-          {/* Search Field */}
-          <div>
-            <label className="block text-sm font-medium mb-1">🔍 بحث عن عضو منتهي</label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ابحث بالاسم أو رقم الهاتف..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-            {expiredMembers.length > 50 && !searchTerm && (
-              <p className="text-xs text-gray-500 mt-1">
-                💡 يوجد {expiredMembers.length} عضو منتهي - استخدم البحث للوصول السريع
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">الزائر *</label>
-            <select
-              required
-              value={formData.visitorId}
-              onChange={(e) => setFormData({ ...formData, visitorId: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="">اختر زائر</option>
-
-              {/* الزوار */}
-              {visitors.length > 0 && (
-                <optgroup label="👤 زوار">
-                  {visitors.map(visitor => (
-                    <option key={visitor.id} value={visitor.id}>
-                      {visitor.name} - {visitor.phone}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-
-              {/* الأعضاء المنتهيين - نعرض النتائج المفلترة بس */}
-              {filteredExpiredMembers.length > 0 && (
-                <optgroup label={`❌ أعضاء منتهيين (${filteredExpiredMembers.length}${searchTerm ? ' من ' + expiredMembers.length : ''})`}>
-                  {filteredExpiredMembers.map((member: any) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name} - {member.phone}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-
-              {/* Day Use */}
-              {dayUseRecords.length > 0 && (
-                <optgroup label="🎁 استخدام يوم (Day Use)">
-                  {dayUseRecords.map(record => (
-                    <option key={`dayuse-${record.id}`} value={`dayuse-${record.id}`}>
-                      {record.name} - {record.phone} ({record.serviceType})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-
-              {/* Invitations */}
-              {invitations.length > 0 && (
-                <optgroup label="👥 دعوات من أعضاء">
-                  {invitations.map(inv => (
-                    <option key={`invitation-${inv.id}`} value={`invitation-${inv.id}`}>
-                      {inv.guestName} - {inv.guestPhone} (دعوة من {inv.member?.name || 'عضو'})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
+          {/* عرض معلومات الزائر/العضو المختار */}
+          {selectedInfo ? (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">
+                  {selectedInfo.name.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-gray-800">{selectedInfo.name}</h3>
+                    <span className="text-xs px-2 py-1 bg-blue-600 text-white rounded-full">
+                      {selectedInfo.type}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 text-sm mt-1">📱 {selectedInfo.phone}</p>
+                </div>
+              </div>
+              {/* Hidden input to store visitorId */}
+              <input type="hidden" name="visitorId" value={formData.visitorId} />
+            </div>
+          ) : (
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-center">
+              <p className="text-red-600 font-medium">⚠️ لم يتم اختيار عضو</p>
+              <p className="text-red-500 text-sm mt-1">الرجاء إغلاق النافذة واختيار عضو من القائمة</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-1">اسم البائع *</label>
