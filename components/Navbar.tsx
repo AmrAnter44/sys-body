@@ -22,6 +22,7 @@ export default function Navbar() {
     { href: '/', label: 'الرئيسية', icon: '🏠', permission: null },
     { href: '/members', label: 'الأعضاء', icon: '👥', permission: 'canViewMembers' as keyof Permissions },
     { href: '/pt', label: 'PT', icon: '💪', permission: 'canViewPT' as keyof Permissions },
+    { href: '/coach/dashboard', label: 'كوتش', icon: '🏋️', permission: 'canRegisterPTAttendance' as keyof Permissions },
     { href: '/dayuse', label: 'يوم استخدام', icon: '📊', permission: 'canViewDayUse' as keyof Permissions },
     { href: '/invitations', label: 'الدعوات', icon: '🎟️', permission: 'canViewVisitors' as keyof Permissions },
     { href: '/staff', label: 'الموظفين', icon: '👷', permission: 'canViewStaff' as keyof Permissions },
@@ -30,6 +31,7 @@ export default function Navbar() {
     { href: '/visitors', label: 'الزوار', icon: '🚶', permission: 'canViewVisitors' as keyof Permissions },
     { href: '/followups', label: 'المتابعات', icon: '📝', permission: 'canViewFollowUps' as keyof Permissions },
     { href: '/search', label: 'البحث', icon: '🔍', permission: 'canViewMembers' as keyof Permissions },
+    { href: '/offers', label: 'العروض', icon: '🎁', permission: 'canAccessSettings' as keyof Permissions },
     { href: '/closing', label: 'التقفيل', icon: '💰', permission: 'canAccessClosing' as keyof Permissions },
     { href: '/attendance-report', label: 'حضور', icon: '📊', permission: 'canViewAttendance' as keyof Permissions },
   ]
@@ -294,7 +296,8 @@ export default function Navbar() {
     const labels = {
       'ADMIN': '👑 مدير',
       'MANAGER': '📊 مشرف',
-      'STAFF': '👷 موظف'
+      'STAFF': '👷 موظف',
+      'COACH': '🏋️ كوتش'
     }
     return labels[role as keyof typeof labels] || role
   }

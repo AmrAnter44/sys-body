@@ -26,9 +26,12 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // ✅ توجيه المستخدم بناءً على دوره
+        const redirectUrl = data.user?.role === 'COACH' ? '/coach/dashboard' : '/members'
+
         // استخدام window.location بدلاً من router.push عشان يعمل full reload
         // وبالتالي يعيد جلب الصلاحيات في الـ Navbar
-        window.location.href = '/members'
+        window.location.href = redirectUrl
       } else {
         setError(data.error || 'فشل تسجيل الدخول')
       }

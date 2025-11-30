@@ -35,27 +35,43 @@ model PT {
   sessionsPurchased Int
   sessionsRemaining Int
   coachName         String
+  coachUserId       String?     // ✅ ربط الكوتش بحساب المستخدم
   pricePerSession   Float
   startDate         DateTime?
   expiryDate        DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
+
+  // ✅ QR Code للاشتراك بالكامل (يستخدم لجميع الحصص)
+  qrCode            String?     @unique
+  qrCodeImage       String?     // base64 image
+
   sessions          PTSession[]
   receipts          Receipt[]
+
+  @@index([coachUserId])
+  @@index([qrCode])
 }
 
 model PTSession {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   ptNumber    Int
   clientName  String
   coachName   String
   sessionDate DateTime
   notes       String?
-  createdAt   DateTime @default(now())
-  pt          PT       @relation(fields: [ptNumber], references: [ptNumber])
+  createdAt   DateTime  @default(now())
+
+  // ✅ حقول تسجيل الحضور (QR Code الآن في PT model)
+  attended    Boolean   @default(false)
+  attendedAt  DateTime?
+  attendedBy  String?   // اسم من سجل الحضور (الكوتش)
+
+  pt          PT        @relation(fields: [ptNumber], references: [ptNumber], onDelete: Cascade)
 
   @@index([ptNumber])
   @@index([sessionDate])
+  @@index([attended])
 }
 
 model DayUseInBody {
@@ -116,7 +132,7 @@ model Receipt {
   ptNumber      Int?
   dayUseId      String?
   dayUse        DayUseInBody? @relation(fields: [dayUseId], references: [id])
-  pt            PT?           @relation(fields: [ptNumber], references: [ptNumber])
+  pt            PT?           @relation(fields: [ptNumber], references: [ptNumber], onDelete: SetNull)
   member        Member?       @relation(fields: [memberId], references: [id])
 }
 
@@ -130,9 +146,23 @@ model MemberCounter {
   current Int @default(1000)
 }
 
+model Offer {
+  id              String   @id @default(cuid())
+  name            String
+  duration        Int      // عدد الأيام
+  price           Float
+  freePTSessions  Int      @default(0)
+  inBodyScans     Int      @default(0)
+  invitations     Int      @default(0)
+  icon            String   @default("📅")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 model Staff {
   id         String       @id @default(cuid())
-  
+
   staffCode  Int          @unique  // ✅ رقم الموظف الفريد
   name       String
   phone      String?
@@ -144,6 +174,9 @@ model Staff {
   updatedAt  DateTime     @updatedAt
   expenses   Expense[]
   attendance Attendance[] // ✅ علاقة الحضور
+
+  // ✅ علاقة الموظف بحساب المستخدم (للكوتشات)
+  user       User?
 
   @@index([staffCode])
 }
@@ -194,11 +227,15 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      String   @default("STAFF") // "ADMIN" | "MANAGER" | "STAFF"
+  role      String   @default("STAFF") // "ADMIN" | "MANAGER" | "STAFF" | "COACH"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  // ✅ ربط المستخدم بالموظف (للكوتشات)
+  staffId   String?  @unique
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+
   permissions Permission?
   activityLogs ActivityLog[]
 }
@@ -215,10 +252,11 @@ model Permission {
   canDeleteMembers  Boolean @default(false)
 
   // صلاحيات PT
-  canViewPT         Boolean @default(false)
-  canCreatePT       Boolean @default(false)
-  canEditPT         Boolean @default(false)
-  canDeletePT       Boolean @default(false)
+  canViewPT              Boolean @default(false)
+  canCreatePT            Boolean @default(false)
+  canEditPT              Boolean @default(false)
+  canDeletePT            Boolean @default(false)
+  canRegisterPTAttendance Boolean @default(false) // ✅ للكوتشات فقط
 
   // صلاحيات الموظفين
   canViewStaff      Boolean @default(false)
@@ -242,6 +280,12 @@ model Permission {
   canCreateVisitor  Boolean @default(false)
   canEditVisitor    Boolean @default(false)
   canDeleteVisitor  Boolean @default(false)
+
+  // صلاحيات المتابعات
+  canViewFollowUps  Boolean @default(false)
+  canCreateFollowUp Boolean @default(false)
+  canEditFollowUp   Boolean @default(false)
+  canDeleteFollowUp Boolean @default(false)
 
   // صلاحيات يوم الاستخدام
   canViewDayUse     Boolean @default(false)

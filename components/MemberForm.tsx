@@ -15,7 +15,9 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [nextMemberNumber, setNextMemberNumber] = useState<number | null>(null)
+  const [nextReceiptNumber, setNextReceiptNumber] = useState<number | null>(null)
   const [imagePreview, setImagePreview] = useState<string>('')
+  const [offers, setOffers] = useState<any[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
@@ -61,7 +63,38 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
       }
     }
 
+    const fetchNextReceiptNumber = async () => {
+      try {
+        const response = await fetch('/api/receipts/next-number')
+        const data = await response.json()
+        if (data.nextNumber !== undefined && data.nextNumber !== null) {
+          setNextReceiptNumber(data.nextNumber)
+        }
+      } catch (error) {
+        console.error('❌ خطأ في جلب رقم الإيصال:', error)
+      }
+    }
+
+    const fetchOffers = async () => {
+      try {
+        const response = await fetch('/api/offers?activeOnly=true')
+        const data = await response.json()
+        // التأكد من أن البيانات array
+        if (Array.isArray(data)) {
+          setOffers(data)
+        } else {
+          console.warn('⚠️ البيانات المستلمة ليست array:', data)
+          setOffers([])
+        }
+      } catch (error) {
+        console.error('❌ خطأ في جلب العروض:', error)
+        setOffers([])
+      }
+    }
+
     fetchNextNumber()
+    fetchNextReceiptNumber()
+    fetchOffers()
   }, [])
 
   useEffect(() => {
@@ -79,7 +112,60 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
     }))
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (event) => {
+        const img = new Image()
+        img.src = event.target?.result as string
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+
+          // تصغير الصورة إذا كانت كبيرة جداً
+          const maxDimension = 1200
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = (height / width) * maxDimension
+              width = maxDimension
+            } else {
+              width = (width / height) * maxDimension
+              height = maxDimension
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+
+          // ضغط الصورة بجودة 0.7
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const reader = new FileReader()
+                reader.readAsDataURL(blob)
+                reader.onloadend = () => {
+                  resolve(reader.result as string)
+                }
+              } else {
+                reject(new Error('فشل ضغط الصورة'))
+              }
+            },
+            'image/jpeg',
+            0.7
+          )
+        }
+        img.onerror = () => reject(new Error('فشل تحميل الصورة'))
+      }
+      reader.onerror = () => reject(new Error('فشل قراءة الملف'))
+    })
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -93,13 +179,16 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
       return
     }
 
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      const base64String = reader.result as string
-      setImagePreview(base64String)
-      setFormData(prev => ({ ...prev, profileImage: base64String }))
+    try {
+      setMessage('🔄 جاري ضغط الصورة...')
+      const compressedBase64 = await compressImage(file)
+      setImagePreview(compressedBase64)
+      setFormData(prev => ({ ...prev, profileImage: compressedBase64 }))
+      setMessage('')
+    } catch (error) {
+      console.error('خطأ في ضغط الصورة:', error)
+      setMessage('❌ فشل ضغط الصورة، حاول مرة أخرى')
     }
-    reader.readAsDataURL(file)
   }
 
   const removeImage = () => {
@@ -213,6 +302,13 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
           }, 500)
         }
         
+        // تحديث رقم الإيصال التالي
+        const receiptResponse = await fetch('/api/receipts/next-number')
+        const receiptData = await receiptResponse.json()
+        if (receiptData.nextNumber) {
+          setNextReceiptNumber(receiptData.nextNumber)
+        }
+
         setTimeout(() => {
           onSuccess()
         }, 2000)
@@ -230,6 +326,26 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
   const duration = calculateDuration()
   const paidAmount = formData.subscriptionPrice - formData.remainingAmount
 
+  // دالة تطبيق العرض
+  const applyOffer = (offer: any) => {
+    const startDate = formData.startDate || formatDateYMD(new Date())
+    const expiryDate = new Date(startDate)
+    expiryDate.setDate(expiryDate.getDate() + offer.duration)
+
+    setFormData(prev => ({
+      ...prev,
+      subscriptionPrice: offer.price,
+      freePTSessions: offer.freePTSessions,
+      inBodyScans: offer.inBodyScans,
+      invitations: offer.invitations,
+      startDate,
+      expiryDate: formatDateYMD(expiryDate)
+    }))
+
+    setMessage(`✅ تم تطبيق عرض: ${offer.name}`)
+    setTimeout(() => setMessage(''), 2000)
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {message && (
@@ -239,6 +355,48 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
           {message}
         </div>
       )}
+
+      {/* قسم العروض */}
+      <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6">
+        <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-purple-800">
+          <span>🎁</span>
+          <span>العروض المتاحة</span>
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">اختر عرض لملء البيانات تلقائياً</p>
+
+        {!Array.isArray(offers) || offers.length === 0 ? (
+          <div className="text-center py-8 bg-white rounded-xl border-2 border-dashed border-gray-300">
+            <p className="text-gray-500 text-sm">لا توجد عروض متاحة حالياً</p>
+            <p className="text-xs text-gray-400 mt-2">يمكن للأدمن إضافة عروض من صفحة العروض</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {offers.map(offer => (
+              <button
+                key={offer.id}
+                type="button"
+                onClick={() => applyOffer(offer)}
+                className="bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-xl p-4 transition transform hover:scale-105 hover:shadow-lg group"
+              >
+                <div className="text-3xl mb-2">{offer.icon}</div>
+                <div className="font-bold text-purple-800 mb-1">{offer.name}</div>
+                <div className="text-2xl font-bold text-green-600 mb-2">{offer.price} ج.م</div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div>💪 {offer.freePTSessions} PT</div>
+                  <div>⚖️ {offer.inBodyScans} InBody</div>
+                  <div>🎟️ {offer.invitations} دعوات</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4 bg-blue-100 border-r-4 border-blue-500 p-3 rounded">
+          <p className="text-xs text-blue-800">
+            <strong>💡 ملاحظة:</strong> يمكنك تعديل القيم بعد اختيار العرض
+          </p>
+        </div>
+      </div>
 
       <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
         <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
@@ -284,6 +442,18 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
             </p>
           )}
         </div>
+
+        {nextReceiptNumber && (
+          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🧾</span>
+              <div>
+                <p className="text-sm font-medium text-green-800">رقم الإيصال التالي</p>
+                <p className="text-2xl font-bold text-green-600">#{nextReceiptNumber}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

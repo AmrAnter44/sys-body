@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
 import { formatDateYMD } from '../../lib/dateFormatter'
+import { useConfirm } from '../../hooks/useConfirm'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 interface Staff {
   id: string
@@ -25,11 +27,14 @@ interface PTSession {
   startDate: string | null
   expiryDate: string | null
   createdAt: string
+  qrCode?: string
+  qrCodeImage?: string
 }
 
 export default function PTPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading, user } = usePermissions()
+  const { confirm, isOpen, options, handleConfirm, handleCancel } = useConfirm()
 
   const [sessions, setSessions] = useState<PTSession[]>([])
   const [coaches, setCoaches] = useState<Staff[]>([])
@@ -39,6 +44,8 @@ export default function PTPage() {
   const [coachesLoading, setCoachesLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [selectedSession, setSelectedSession] = useState<PTSession | null>(null)
 
   const [formData, setFormData] = useState({
     ptNumber: '',
@@ -185,14 +192,31 @@ export default function PTPage() {
   }
 
   const handleDelete = async (ptNumber: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الجلسة؟')) return
+    const confirmed = await confirm({
+      title: '⚠️ حذف اشتراك PT',
+      message: `هل أنت متأكد من حذف اشتراك PT رقم ${ptNumber}؟\nسيتم حذف جميع الجلسات المرتبطة به!\nلا يمكن التراجع عن هذا الإجراء.`,
+      confirmText: 'نعم، احذف',
+      cancelText: 'إلغاء',
+      type: 'danger'
+    })
+
+    if (!confirmed) return
 
     try {
-      await fetch(`/api/pt?ptNumber=${ptNumber}`, { method: 'DELETE' })
+      const response = await fetch(`/api/pt?ptNumber=${ptNumber}`, { method: 'DELETE' })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'فشل حذف الاشتراك')
+      }
+
+      setMessage('✅ تم حذف اشتراك PT بنجاح')
       fetchSessions()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error)
+      setMessage(`❌ ${error.message || 'حدث خطأ في الحذف'}`)
     }
+    setTimeout(() => setMessage(''), 3000)
   }
 
   const handleRenew = (session: PTSession) => {
@@ -228,38 +252,44 @@ export default function PTPage() {
     return <PermissionDenied message="ليس لديك صلاحية عرض جلسات PT" />
   }
 
+  const isCoach = user?.role === 'COACH'
+
   return (
     <div className="container mx-auto p-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">💪 إدارة جلسات PT</h1>
-          <p className="text-gray-600">إضافة وتعديل وحذف جلسات التدريب الشخصي</p>
+          <p className="text-gray-600">
+            {isCoach ? 'عرض جلسات التدريب الشخصي' : 'إضافة وتعديل وحذف جلسات التدريب الشخصي'}
+          </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/pt/commission')}
-            className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition transform hover:scale-105 shadow-lg flex items-center gap-2"
-          >
-            <span>💰</span>
-            <span>حاسبة التحصيل</span>
-          </button>
-          <button
-            onClick={() => router.push('/pt/sessions/history')}
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition transform hover:scale-105 shadow-lg flex items-center gap-2"
-          >
-            <span>📊</span>
-            <span>سجل الحضور</span>
-          </button>
-          <button
-            onClick={() => {
-              resetForm()
-              setShowForm(!showForm)
-            }}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition transform hover:scale-105"
-          >
-            {showForm ? 'إخفاء النموذج' : '➕ إضافة جلسة PT جديدة'}
-          </button>
-        </div>
+        {!isCoach && (
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/pt/commission')}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition transform hover:scale-105 shadow-lg flex items-center gap-2"
+            >
+              <span>💰</span>
+              <span>حاسبة التحصيل</span>
+            </button>
+            <button
+              onClick={() => router.push('/pt/sessions/history')}
+              className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition transform hover:scale-105 shadow-lg flex items-center gap-2"
+            >
+              <span>📊</span>
+              <span>سجل الحضور</span>
+            </button>
+            <button
+              onClick={() => {
+                resetForm()
+                setShowForm(!showForm)
+              }}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition transform hover:scale-105"
+            >
+              {showForm ? 'إخفاء النموذج' : '➕ إضافة جلسة PT جديدة'}
+            </button>
+          </div>
+        )}
       </div>
 
       {message && (
@@ -272,7 +302,7 @@ export default function PTPage() {
         </div>
       )}
 
-      {showForm && (
+      {!isCoach && showForm && (
         <div className="bg-white p-6 rounded-xl shadow-lg mb-6 border-2 border-blue-100">
           <h2 className="text-xl font-semibold mb-4">
             {editingSession ? 'تعديل جلسة PT' : 'إضافة جلسة PT جديدة'}
@@ -547,7 +577,7 @@ export default function PTPage() {
                   <th className="px-4 py-3 text-right">السعر</th>
                   <th className="px-4 py-3 text-right">الإجمالي</th>
                   <th className="px-4 py-3 text-right">التواريخ</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
+                  {!isCoach && <th className="px-4 py-3 text-right">إجراءات</th>}
                 </tr>
               </thead>
               <tbody>
@@ -610,23 +640,59 @@ export default function PTPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => handleRegisterSession(session)}
-                            disabled={session.sessionsRemaining === 0}
-                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                          >
-                            ✅ حضور
-                          </button>
-                          <button
-                            onClick={() => handleRenew(session)}
-                            className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
-                          >
-                            🔄 تجديد
-                          </button>
-                        </div>
-                      </td>
+                      {!isCoach && (
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => handleRegisterSession(session)}
+                              disabled={session.sessionsRemaining === 0}
+                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              ✅ حضور
+                            </button>
+                            <button
+                              onClick={() => handleRenew(session)}
+                              className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
+                            >
+                              🔄 تجديد
+                            </button>
+                            {session.qrCode && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedSession(session)
+                                    setShowQRModal(true)
+                                  }}
+                                  className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 flex items-center gap-1"
+                                  title="عرض Barcode"
+                                >
+                                  🔢 Barcode
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const checkInUrl = `${window.location.origin}/pt/check-in`
+                                    const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️`
+                                    const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
+                                    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+                                    window.open(whatsappUrl, '_blank')
+                                  }}
+                                  className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 flex items-center gap-1"
+                                  title="إرسال عبر WhatsApp"
+                                >
+                                  💬 واتس
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleDelete(session.ptNumber)}
+                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center gap-1"
+                              title="حذف الاشتراك"
+                            >
+                              🗑️ حذف
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
@@ -641,6 +707,194 @@ export default function PTPage() {
           )}
         </div>
       )}
+
+      {/* Barcode Modal */}
+      {showQRModal && selectedSession && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">📱 Barcode - {selectedSession.clientName}</h2>
+              <button
+                onClick={() => {
+                  setShowQRModal(false)
+                  setSelectedSession(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* معلومات الاشتراك */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">رقم PT:</span>
+                    <span className="font-bold mr-2">#{selectedSession.ptNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">الكوتش:</span>
+                    <span className="font-bold mr-2">{selectedSession.coachName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">الحصص المتبقية:</span>
+                    <span className="font-bold mr-2 text-green-600">
+                      {selectedSession.sessionsRemaining} / {selectedSession.sessionsPurchased}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">الهاتف:</span>
+                    <span className="font-bold mr-2">{selectedSession.phone}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barcode Image */}
+              {selectedSession.qrCodeImage ? (
+                <div className="flex flex-col items-center bg-white border-2 border-gray-200 rounded-lg p-6">
+                  <img
+                    src={selectedSession.qrCodeImage}
+                    alt="Barcode"
+                    className="w-full max-w-md h-auto"
+                  />
+                  <p className="text-xs text-gray-500 mt-3 text-center">
+                    امسح هذا الكود لتسجيل الحضور
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-gray-100 rounded-lg p-6 text-center">
+                  <p className="text-gray-500">⚠️ لا توجد صورة Barcode</p>
+                </div>
+              )}
+
+              {/* Barcode Text */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  رقم PT (الكود):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={selectedSession.qrCode}
+                    readOnly
+                    className="flex-1 px-3 py-2 bg-white border-2 border-gray-300 rounded-lg font-mono text-sm"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedSession.qrCode || '')
+                      setMessage('✅ تم نسخ الكود!')
+                      setTimeout(() => setMessage(''), 2000)
+                    }}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm font-medium"
+                  >
+                    📋 نسخ
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* زر تحميل Barcode */}
+                <button
+                  onClick={() => {
+                    if (!selectedSession.qrCodeImage) return
+
+                    // تحويل base64 إلى blob
+                    const link = document.createElement('a')
+                    link.href = selectedSession.qrCodeImage
+                    link.download = `PT_${selectedSession.ptNumber}_${selectedSession.clientName}_QR.png`
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+
+                    setMessage('✅ تم تحميل Barcode!')
+                    setTimeout(() => setMessage(''), 2000)
+                  }}
+                  className="bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold flex items-center justify-center gap-2"
+                >
+                  <span>📥</span>
+                  <span>تحميل QR</span>
+                </button>
+
+                {/* زر مشاركة Barcode (للموبايل) */}
+                <button
+                  onClick={async () => {
+                    if (!selectedSession.qrCodeImage) return
+
+                    try {
+                      // تحويل base64 إلى blob
+                      const response = await fetch(selectedSession.qrCodeImage)
+                      const blob = await response.blob()
+                      const file = new File([blob], `PT_QR_${selectedSession.clientName}.png`, { type: 'image/png' })
+
+                      // استخدام Share API
+                      if (navigator.share && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                          title: `Barcode - ${selectedSession.clientName}`,
+                          text: `Barcode لـ ${selectedSession.clientName}\nالحصص المتبقية: ${selectedSession.sessionsRemaining}/${selectedSession.sessionsPurchased}\nالكوتش: ${selectedSession.coachName}`,
+                          files: [file]
+                        })
+                        setMessage('✅ تم المشاركة!')
+                      } else {
+                        // Fallback: تحميل الصورة
+                        const link = document.createElement('a')
+                        link.href = selectedSession.qrCodeImage
+                        link.download = `PT_${selectedSession.ptNumber}_QR.png`
+                        link.click()
+                        setMessage('✅ تم تحميل Barcode (المشاركة غير مدعومة)')
+                      }
+                      setTimeout(() => setMessage(''), 2000)
+                    } catch (error) {
+                      console.error('Share error:', error)
+                      setMessage('⚠️ فشلت المشاركة - حاول التحميل')
+                      setTimeout(() => setMessage(''), 3000)
+                    }
+                  }}
+                  className="bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold flex items-center justify-center gap-2"
+                >
+                  <span>📤</span>
+                  <span>مشاركة QR</span>
+                </button>
+
+                {/* زر إرسال رابط واتساب */}
+                <button
+                  onClick={() => {
+                    const checkInUrl = `${window.location.origin}/pt/check-in`
+                    const text = `مرحباً ${selectedSession.clientName}! 👋\n\n✅ لتسجيل حضور PT:\n${checkInUrl}\n\nالحصص المتبقية: ${selectedSession.sessionsRemaining} من ${selectedSession.sessionsPurchased}\nالكوتش: ${selectedSession.coachName}\n\nبالتوفيق! 🏋️`
+                    const phone = selectedSession.phone.startsWith('0') ? '2' + selectedSession.phone : selectedSession.phone
+                    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+                    window.open(whatsappUrl, '_blank')
+                  }}
+                  className="col-span-2 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-bold flex items-center justify-center gap-2"
+                >
+                  <span>💬</span>
+                  <span>إرسال رابط واتساب</span>
+                </button>
+              </div>
+
+              <div className="bg-blue-50 border-r-4 border-blue-500 p-3 rounded">
+                <p className="text-xs text-blue-800">
+                  <strong>💡 ملاحظة:</strong> Barcode صالح لجميع حصص هذا الاشتراك. يُستخدم لتسجيل الحضور عند الكوتش.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isOpen}
+        title={options.title}
+        message={options.message}
+        confirmText={options.confirmText}
+        cancelText={options.cancelText}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        type={options.type}
+      />
     </div>
   )
 }

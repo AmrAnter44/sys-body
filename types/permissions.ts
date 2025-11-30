@@ -3,7 +3,7 @@
 /**
  * الأدوار المتاحة في النظام
  */
-export type UserRole = 'ADMIN' | 'MANAGER' | 'STAFF'
+export type UserRole = 'ADMIN' | 'MANAGER' | 'STAFF' | 'COACH'
 
 /**
  * صلاحيات المستخدم
@@ -20,6 +20,7 @@ export interface Permissions {
   canCreatePT: boolean
   canEditPT: boolean
   canDeletePT: boolean
+  canRegisterPTAttendance: boolean // للكوتشات فقط
 
   // صلاحيات الموظفين
   canViewStaff: boolean
@@ -134,6 +135,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canCreatePT: true,
     canEditPT: true,
     canDeletePT: true,
+    canRegisterPTAttendance: true,
     canViewStaff: true,
     canCreateStaff: true,
     canEditStaff: true,
@@ -173,6 +175,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canCreatePT: true,
     canEditPT: true,
     canDeletePT: false,
+    canRegisterPTAttendance: true,
     canViewStaff: true,
     canCreateStaff: false,
     canEditStaff: false,
@@ -212,6 +215,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canCreatePT: false,
     canEditPT: false,
     canDeletePT: false,
+    canRegisterPTAttendance: false,
     canViewStaff: false,
     canCreateStaff: false,
     canEditStaff: false,
@@ -242,6 +246,47 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canAccessSettings: false,
     canAccessAdmin: false,
   },
+  COACH: {
+    // الكوتش يرى فقط حصصه الخاصة
+    canViewMembers: false,
+    canCreateMembers: false,
+    canEditMembers: false,
+    canDeleteMembers: false,
+    canViewPT: true, // يرى حصصه فقط
+    canCreatePT: false,
+    canEditPT: false,
+    canDeletePT: false,
+    canRegisterPTAttendance: true, // الصلاحية الأساسية للكوتش
+    canViewStaff: false,
+    canCreateStaff: false,
+    canEditStaff: false,
+    canDeleteStaff: false,
+    canViewReceipts: false,
+    canEditReceipts: false,
+    canDeleteReceipts: false,
+    canViewExpenses: false,
+    canCreateExpense: false,
+    canEditExpense: false,
+    canDeleteExpense: false,
+    canViewVisitors: false,
+    canCreateVisitor: false,
+    canEditVisitor: false,
+    canDeleteVisitor: false,
+    canViewFollowUps: false,
+    canCreateFollowUp: false,
+    canEditFollowUp: false,
+    canDeleteFollowUp: false,
+    canViewDayUse: false,
+    canCreateDayUse: false,
+    canEditDayUse: false,
+    canDeleteDayUse: false,
+    canViewReports: false,
+    canViewFinancials: false,
+    canViewAttendance: false,
+    canAccessClosing: false,
+    canAccessSettings: false,
+    canAccessAdmin: false,
+  },
 }
 
 /**
@@ -256,6 +301,7 @@ export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
   canCreatePT: 'إنشاء جلسة PT',
   canEditPT: 'تعديل جلسة PT',
   canDeletePT: 'حذف جلسة PT',
+  canRegisterPTAttendance: 'تسجيل حضور PT',
   canViewStaff: 'عرض الموظفين',
   canCreateStaff: 'إضافة موظف',
   canEditStaff: 'تعديل موظف',
@@ -307,6 +353,7 @@ export const PERMISSION_GROUPS = {
       'canCreatePT',
       'canEditPT',
       'canDeletePT',
+      'canRegisterPTAttendance',
     ] as Array<keyof Permissions>,
   },
   staff: {
@@ -392,6 +439,7 @@ export const PERMISSION_ICONS: Record<keyof Permissions, string> = {
   canCreatePT: '➕',
   canEditPT: '✏️',
   canDeletePT: '🗑️',
+  canRegisterPTAttendance: '✅',
   canViewStaff: '👁️',
   canCreateStaff: '➕',
   canEditStaff: '✏️',

@@ -12,7 +12,8 @@ export async function GET(request: Request) {
     
     const users = await prisma.user.findMany({
       include: {
-        permissions: true
+        permissions: true,
+        staff: true  // ✅ جلب بيانات الموظف (للكوتشات)
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -49,14 +50,44 @@ export async function POST(request: Request) {
     await requireAdmin(request)
     
     const body = await request.json()
-    const { name, email, password, role } = body
-    
+    const { name, email, password, role, staffId } = body
+
     // التحقق من البيانات
     if (!name || !email || !password || !role) {
       return NextResponse.json(
         { error: 'جميع الحقول مطلوبة' },
         { status: 400 }
       )
+    }
+
+    // ✅ التحقق من اختيار موظف للكوتش
+    if (role === 'COACH' && !staffId) {
+      return NextResponse.json(
+        { error: 'يجب اختيار موظف لحساب الكوتش' },
+        { status: 400 }
+      )
+    }
+
+    // ✅ التحقق من أن الموظف موجود وليس لديه حساب
+    if (role === 'COACH' && staffId) {
+      const staff = await prisma.staff.findUnique({
+        where: { id: staffId },
+        include: { user: true }
+      })
+
+      if (!staff) {
+        return NextResponse.json(
+          { error: 'الموظف غير موجود' },
+          { status: 404 }
+        )
+      }
+
+      if (staff.user) {
+        return NextResponse.json(
+          { error: 'هذا الموظف لديه حساب مستخدم بالفعل' },
+          { status: 400 }
+        )
+      }
     }
     
     // التحقق من طول كلمة المرور
@@ -89,7 +120,8 @@ export async function POST(request: Request) {
         email,
         password: hashedPassword,
         role,
-        isActive: true
+        isActive: true,
+        staffId: role === 'COACH' ? staffId : undefined  // ✅ ربط بالموظف للكوتش
       }
     })
     
@@ -102,10 +134,11 @@ export async function POST(request: Request) {
         canCreateMembers: role === 'MANAGER',
         canEditMembers: role === 'MANAGER',
         canDeleteMembers: false,
-        canViewPT: role === 'MANAGER' || role === 'STAFF',
+        canViewPT: role === 'MANAGER' || role === 'STAFF' || role === 'COACH',
         canCreatePT: role === 'MANAGER',
         canEditPT: role === 'MANAGER',
         canDeletePT: false,
+        canRegisterPTAttendance: role === 'COACH',  // ✅ الكوتش يسجل الحضور فقط
         canViewStaff: role === 'MANAGER',
         canCreateStaff: false,
         canEditStaff: false,

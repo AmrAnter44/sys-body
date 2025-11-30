@@ -1,14 +1,22 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { requirePermission } from '../../../lib/auth'
+// @ts-ignore
+import bwipjs from 'bwip-js'
 
 // GET - جلب كل جلسات PT
 export async function GET(request: Request) {
   try {
     // ✅ التحقق من صلاحية عرض PT
-    await requirePermission(request, 'canViewPT')
-    
+    const user = await requirePermission(request, 'canViewPT')
+
+    // فلترة البيانات حسب الدور
+    const whereClause = user.role === 'COACH'
+      ? { coachUserId: user.userId }  // الكوتش يرى عملائه فقط
+      : {}  // الأدمن يرى الكل
+
     const ptSessions = await prisma.pT.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: { receipts: true }
     })
@@ -90,6 +98,57 @@ export async function POST(request: Request) {
       }
     }
 
+    // البحث عن الكوتش بالاسم لربط coachUserId
+    let coachUserId = null
+    if (coachName) {
+      const coachStaff = await prisma.staff.findFirst({
+        where: { name: coachName },
+        include: { user: true }
+      })
+
+      if (coachStaff && coachStaff.user) {
+        coachUserId = coachStaff.user.id
+        console.log(`✅ تم ربط الكوتش ${coachName} بـ userId: ${coachUserId}`)
+      } else {
+        console.warn(`⚠️ لم يتم العثور على حساب مستخدم للكوتش: ${coachName}`)
+      }
+    }
+
+    // توليد Barcode من 16 رقم عشوائي
+    let barcodeText = ''
+    let isUnique = false
+
+    // التأكد من أن الـ barcode فريد
+    while (!isUnique) {
+      barcodeText = Array.from({ length: 16 }, () => Math.floor(Math.random() * 10)).join('')
+      const existing = await prisma.pT.findUnique({
+        where: { qrCode: barcodeText }
+      })
+      if (!existing) {
+        isUnique = true
+      }
+    }
+
+    console.log(`🔢 تم توليد Barcode عشوائي (16 رقم): ${barcodeText}`)
+
+    // توليد Barcode كصورة
+    let qrCodeImage = ''
+    try {
+      const png = await bwipjs.toBuffer({
+        bcid: 'code128',
+        text: barcodeText,
+        scale: 5,
+        height: 15,
+        includetext: true,
+      })
+
+      const base64 = png.toString('base64')
+      qrCodeImage = `data:image/png;base64,${base64}`
+      console.log('✅ تم توليد Barcode كصورة')
+    } catch (barcodeError) {
+      console.error('❌ فشل توليد صورة Barcode:', barcodeError)
+    }
+
     // إنشاء جلسة PT
     const pt = await prisma.pT.create({
       data: {
@@ -99,9 +158,12 @@ export async function POST(request: Request) {
         sessionsPurchased,
         sessionsRemaining: sessionsPurchased,
         coachName,
+        coachUserId,  // ✅ ربط الكوتش بـ userId
         pricePerSession,
         startDate: startDate ? new Date(startDate) : null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
+        qrCode: barcodeText,
+        qrCodeImage: qrCodeImage
       },
     })
 

@@ -55,6 +55,10 @@ export default function FollowUpsPage() {
   const [contactedFilter, setContactedFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+
   // ✅ حساب الأعضاء المنتهيين
   const expiredMembers = useMemo(() => {
     const today = new Date()
@@ -311,31 +315,49 @@ export default function FollowUpsPage() {
   }
 
   // فلترة النتائج
-  const filteredFollowUps = allFollowUps
-    .filter(fu => {
-      const matchesSearch =
-        fu.visitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        fu.visitor.phone.includes(searchTerm) ||
-        fu.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (fu.salesName && fu.salesName.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredFollowUps = useMemo(() => {
+    return allFollowUps
+      .filter(fu => {
+        const matchesSearch =
+          fu.visitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          fu.visitor.phone.includes(searchTerm) ||
+          fu.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (fu.salesName && fu.salesName.toLowerCase().includes(searchTerm.toLowerCase()))
 
-      const matchesResult = resultFilter === 'all' || fu.result === resultFilter
-      const matchesContacted = contactedFilter === 'all' ||
-        (contactedFilter === 'contacted' && fu.contacted) ||
-        (contactedFilter === 'not-contacted' && !fu.contacted)
+        const matchesResult = resultFilter === 'all' || fu.result === resultFilter
+        const matchesContacted = contactedFilter === 'all' ||
+          (contactedFilter === 'contacted' && fu.contacted) ||
+          (contactedFilter === 'not-contacted' && !fu.contacted)
 
-      const priority = getFollowUpPriority(fu)
-      const matchesPriority = priorityFilter === 'all' || priority === priorityFilter
+        const priority = getFollowUpPriority(fu)
+        const matchesPriority = priorityFilter === 'all' || priority === priorityFilter
 
-      return matchesSearch && matchesResult && matchesContacted && matchesPriority
-    })
-    .sort((a, b) => {
-      const aIsMember = isVisitorAMember(a.visitor.phone)
-      const bIsMember = isVisitorAMember(b.visitor.phone)
-      if (aIsMember && !bIsMember) return 1
-      if (!aIsMember && bIsMember) return -1
-      return 0
-    })
+        return matchesSearch && matchesResult && matchesContacted && matchesPriority
+      })
+      .sort((a, b) => {
+        const aIsMember = isVisitorAMember(a.visitor.phone)
+        const bIsMember = isVisitorAMember(b.visitor.phone)
+        if (aIsMember && !bIsMember) return 1
+        if (!aIsMember && bIsMember) return -1
+        return 0
+      })
+  }, [allFollowUps, searchTerm, resultFilter, contactedFilter, priorityFilter])
+
+  // إعادة تعيين الصفحة للأولى عند تغيير الفلاتر
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, resultFilter, contactedFilter, priorityFilter])
+
+  // حساب الصفحات
+  const totalPages = Math.ceil(filteredFollowUps.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentFollowUps = filteredFollowUps.slice(startIndex, endIndex)
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const getResultBadge = (result?: string) => {
     const badges = {
@@ -678,7 +700,7 @@ export default function FollowUpsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredFollowUps.map((followUp) => {
+                {currentFollowUps.map((followUp) => {
                   const isMember = isVisitorAMember(followUp.visitor.phone)
                   const isExpired = followUp.visitor.source === 'expired-member'
                   const hasRenewed = isExpired && hasExpiredMemberRenewed(followUp.visitor.phone)
@@ -838,6 +860,106 @@ export default function FollowUpsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredFollowUps.length > 0 && (
+            <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                {/* معلومات الصفحة */}
+                <div className="text-sm text-gray-600">
+                  عرض {startIndex + 1} إلى {Math.min(endIndex, filteredFollowUps.length)} من {filteredFollowUps.length} متابعة
+                </div>
+
+                {/* عدد العناصر في الصفحة */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">عدد العناصر:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+
+                {/* أزرار التنقل */}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => goToPage(1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      الأولى
+                    </button>
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      السابقة
+                    </button>
+
+                    {/* أرقام الصفحات */}
+                    <div className="flex gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number
+                        if (totalPages <= 5) {
+                          pageNum = i + 1
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i
+                        } else {
+                          pageNum = currentPage - 2 + i
+                        }
+
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => goToPage(pageNum)}
+                            className={`px-3 py-2 rounded-lg font-medium ${
+                              currentPage === pageNum
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      التالية
+                    </button>
+                    <button
+                      onClick={() => goToPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      الأخيرة
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* معلومات إضافية */}
+              <div className="mt-4 text-center text-sm text-gray-500">
+                الصفحة {currentPage} من {totalPages}
+              </div>
+            </div>
+          )}
 
           {filteredFollowUps.length === 0 && (
             <div className="text-center py-12 text-gray-500">

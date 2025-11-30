@@ -9,15 +9,30 @@ interface User {
   id: string
   name: string
   email: string
-  role: 'ADMIN' | 'MANAGER' | 'STAFF'
+  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'COACH'
   isActive: boolean
   createdAt: string
   permissions?: Permissions
+  staff?: {
+    id: string
+    name: string
+    staffCode: number
+    position?: string
+  }
+}
+
+interface Staff {
+  id: string
+  staffCode: number
+  name: string
+  position?: string
+  isActive: boolean
 }
 
 export default function AdminUsersPage() {
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   
@@ -27,7 +42,8 @@ export default function AdminUsersPage() {
     name: '',
     email: '',
     password: '',
-    role: 'STAFF' as 'ADMIN' | 'MANAGER' | 'STAFF'
+    role: 'STAFF' as 'ADMIN' | 'MANAGER' | 'STAFF' | 'COACH',
+    staffId: ''
   })
   
   // State للـ Modal تعديل الصلاحيات
@@ -45,6 +61,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers()
+    fetchStaff()
   }, [])
 
   const fetchUsers = async () => {
@@ -65,9 +82,27 @@ export default function AdminUsersPage() {
     }
   }
 
+  const fetchStaff = async () => {
+    try {
+      const response = await fetch('/api/staff')
+      if (response.ok) {
+        const data = await response.json()
+        setStaff(data.filter((s: Staff) => s.isActive))
+      }
+    } catch (error) {
+      console.error('Error fetching staff:', error)
+    }
+  }
+
   const handleAddUser = async () => {
     if (!newUserData.name || !newUserData.email || !newUserData.password) {
       setMessage('⚠️ يرجى ملء جميع الحقول')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    if (newUserData.role === 'COACH' && !newUserData.staffId) {
+      setMessage('⚠️ يجب اختيار موظف لحساب الكوتش')
       setTimeout(() => setMessage(''), 3000)
       return
     }
@@ -85,7 +120,7 @@ export default function AdminUsersPage() {
       if (response.ok) {
         setMessage('✅ تم إضافة المستخدم بنجاح')
         setShowAddModal(false)
-        setNewUserData({ name: '', email: '', password: '', role: 'STAFF' })
+        setNewUserData({ name: '', email: '', password: '', role: 'STAFF', staffId: '' })
         fetchUsers()
       } else {
         setMessage(`❌ ${data.error || 'فشل إضافة المستخدم'}`)
@@ -209,7 +244,8 @@ export default function AdminUsersPage() {
     const badges = {
       'ADMIN': 'bg-red-100 text-red-800 border-red-300',
       'MANAGER': 'bg-blue-100 text-blue-800 border-blue-300',
-      'STAFF': 'bg-green-100 text-green-800 border-green-300'
+      'STAFF': 'bg-green-100 text-green-800 border-green-300',
+      'COACH': 'bg-purple-100 text-purple-800 border-purple-300'
     }
     return badges[role as keyof typeof badges] || 'bg-gray-100 text-gray-800'
   }
@@ -218,7 +254,8 @@ export default function AdminUsersPage() {
     const labels = {
       'ADMIN': '👑 مدير',
       'MANAGER': '📊 مشرف',
-      'STAFF': '👷 موظف'
+      'STAFF': '👷 موظف',
+      'COACH': '🏋️ كوتش'
     }
     return labels[role as keyof typeof labels] || role
   }
@@ -228,7 +265,8 @@ export default function AdminUsersPage() {
     active: users.filter(u => u.isActive).length,
     admins: users.filter(u => u.role === 'ADMIN').length,
     managers: users.filter(u => u.role === 'MANAGER').length,
-    staff: users.filter(u => u.role === 'STAFF').length
+    staff: users.filter(u => u.role === 'STAFF').length,
+    coaches: users.filter(u => u.role === 'COACH').length
   }
 
   if (loading && users.length === 0) {
@@ -267,30 +305,35 @@ export default function AdminUsersPage() {
       )}
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-xl shadow-lg">
           <div className="text-3xl font-bold">{stats.total}</div>
           <div className="text-sm opacity-90">إجمالي المستخدمين</div>
         </div>
-        
+
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-xl shadow-lg">
           <div className="text-3xl font-bold">{stats.active}</div>
           <div className="text-sm opacity-90">نشط</div>
         </div>
-        
+
         <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-5 rounded-xl shadow-lg">
           <div className="text-3xl font-bold">{stats.admins}</div>
           <div className="text-sm opacity-90">مدراء</div>
         </div>
-        
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-xl shadow-lg">
+
+        <div className="bg-gradient-to-br from-blue-400 to-blue-500 text-white p-5 rounded-xl shadow-lg">
           <div className="text-3xl font-bold">{stats.managers}</div>
           <div className="text-sm opacity-90">مشرفين</div>
         </div>
-        
+
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5 rounded-xl shadow-lg">
           <div className="text-3xl font-bold">{stats.staff}</div>
           <div className="text-sm opacity-90">موظفين</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-xl shadow-lg">
+          <div className="text-3xl font-bold">{stats.coaches}</div>
+          <div className="text-sm opacity-90">كوتشات</div>
         </div>
       </div>
 
@@ -303,6 +346,7 @@ export default function AdminUsersPage() {
                 <th className="px-6 py-4 text-right font-bold">الاسم</th>
                 <th className="px-6 py-4 text-right font-bold">البريد الإلكتروني</th>
                 <th className="px-6 py-4 text-right font-bold">الدور</th>
+                <th className="px-6 py-4 text-right font-bold">الموظف</th>
                 <th className="px-6 py-4 text-right font-bold">الحالة</th>
                 <th className="px-6 py-4 text-right font-bold">تاريخ الإنشاء</th>
                 <th className="px-6 py-4 text-right font-bold">إجراءات</th>
@@ -326,6 +370,16 @@ export default function AdminUsersPage() {
                     <span className={`px-3 py-1 rounded-full text-sm font-bold border-2 ${getRoleBadge(user.role)}`}>
                       {getRoleLabel(user.role)}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {user.staff ? (
+                      <div className="text-sm">
+                        <div className="font-semibold text-purple-700">{user.staff.name}</div>
+                        <div className="text-gray-500">#{user.staff.staffCode}</div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">-</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-sm font-bold ${
@@ -460,14 +514,48 @@ export default function AdminUsersPage() {
                 </label>
                 <select
                   value={newUserData.role}
-                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value as any })}
+                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value as any, staffId: '' })}
                   className="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="STAFF">👷 موظف</option>
                   <option value="MANAGER">📊 مشرف</option>
                   <option value="ADMIN">👑 مدير</option>
+                  <option value="COACH">🏋️ كوتش</option>
                 </select>
               </div>
+
+              {newUserData.role === 'COACH' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    الموظف <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={newUserData.staffId}
+                    onChange={(e) => {
+                      const selectedStaff = staff.find(s => s.id === e.target.value)
+                      setNewUserData({
+                        ...newUserData,
+                        staffId: e.target.value,
+                        name: selectedStaff?.name || '',
+                        email: selectedStaff ? `coach${selectedStaff.staffCode}@gym.com` : ''
+                      })
+                    }}
+                    className="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">اختر موظف...</option>
+                    {staff
+                      .filter(s => !users.find(u => u.staff?.id === s.id))
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} - #{s.staffCode} {s.position ? `(${s.position})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    سيتم إنشاء حساب كوتش مرتبط بهذا الموظف
+                  </p>
+                </div>
+              )}
 
               <div className="bg-blue-50 border-r-4 border-blue-500 p-4 rounded">
                 <p className="text-sm text-blue-800">

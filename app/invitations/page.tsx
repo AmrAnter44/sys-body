@@ -21,6 +21,8 @@ export default function InvitationsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
 
   const fetchInvitations = async () => {
     try {
@@ -38,6 +40,11 @@ export default function InvitationsPage() {
     fetchInvitations()
   }, [])
 
+  // إعادة تعيين الصفحة عند تغيير الفلاتر
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, dateFilter])
+
   const handleDelete = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذه الدعوة؟')) return
 
@@ -51,18 +58,29 @@ export default function InvitationsPage() {
 
   // فلترة النتائج
   const filteredInvitations = invitations.filter(inv => {
-    const matchesSearch = 
+    const matchesSearch =
       inv.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.guestPhone.includes(searchTerm) ||
       inv.member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.member.memberNumber.toString().includes(searchTerm)
 
-    const matchesDate = dateFilter 
+    const matchesDate = dateFilter
       ? new Date(inv.createdAt).toISOString().split('T')[0] === dateFilter
       : true
 
     return matchesSearch && matchesDate
   })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredInvitations.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentInvitations = filteredInvitations.slice(startIndex, endIndex)
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // إحصائيات
   const stats = {
@@ -177,7 +195,7 @@ export default function InvitationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredInvitations.map((invitation) => (
+                {currentInvitations.map((invitation) => (
                   <tr key={invitation.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div>
@@ -231,6 +249,103 @@ export default function InvitationsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredInvitations.length > 0 && totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
+              {/* معلومات الصفحة */}
+              <div className="text-sm text-gray-600">
+                عرض {startIndex + 1} - {Math.min(endIndex, filteredInvitations.length)} من {filteredInvitations.length} دعوة
+              </div>
+
+              {/* أزرار التنقل */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => goToPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                  title="الصفحة الأولى"
+                >
+                  الأولى
+                </button>
+
+                <button
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                  title="السابقة"
+                >
+                  السابقة
+                </button>
+
+                {/* أرقام الصفحات */}
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    let pageNum
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'hover:bg-gray-200'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <button
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                  title="التالية"
+                >
+                  التالية
+                </button>
+
+                <button
+                  onClick={() => goToPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                  title="الصفحة الأخيرة"
+                >
+                  الأخيرة
+                </button>
+              </div>
+
+              {/* اختيار عدد العناصر في الصفحة */}
+              <div className="flex items-center gap-2 text-sm">
+                <label className="text-gray-600">عدد العناصر:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           {filteredInvitations.length === 0 && (
             <div className="text-center py-12 text-gray-500">

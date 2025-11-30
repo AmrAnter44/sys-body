@@ -7,6 +7,8 @@ import PermissionDenied from '../../components/PermissionDenied'
 import ReceiptWhatsApp from '../../components/ReceiptWhatsApp'
 import { ReceiptDetailModal } from '../../components/ReceiptDetailModal'
 import { printReceiptFromData } from '../../lib/printSystem'
+import { useConfirm } from '../../hooks/useConfirm'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 interface Receipt {
   id: string
@@ -25,7 +27,8 @@ interface Receipt {
 export default function ReceiptsPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading, user } = usePermissions()
-  
+  const { confirm, isOpen, options, handleConfirm, handleCancel } = useConfirm()
+
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,6 +47,10 @@ export default function ReceiptsPage() {
   })
   const [nextReceiptNumber, setNextReceiptNumber] = useState(1000)
   const [showReceiptNumberEdit, setShowReceiptNumberEdit] = useState(false)
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
 
   // ✅ جميع الـ hooks يجب أن تكون قبل أي return
   const canEdit = hasPermission('canEditReceipts')
@@ -90,6 +97,18 @@ export default function ReceiptsPage() {
     }
 
     setFilteredReceipts(filtered)
+    setCurrentPage(1) // إعادة تعيين الصفحة للأولى عند الفلترة
+  }
+
+  // حساب الصفحات
+  const totalPages = Math.ceil(filteredReceipts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentReceipts = filteredReceipts.slice(startIndex, endIndex)
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const fetchReceipts = async () => {
@@ -229,7 +248,15 @@ export default function ReceiptsPage() {
       return
     }
 
-    if (!confirm('هل أنت متأكد من حذف هذا الإيصال؟ لا يمكن التراجع عن هذا الإجراء!')) return
+    const confirmed = await confirm({
+      title: '⚠️ حذف الإيصال',
+      message: 'هل أنت متأكد من حذف هذا الإيصال؟\nلا يمكن التراجع عن هذا الإجراء!',
+      confirmText: 'نعم، احذف',
+      cancelText: 'إلغاء',
+      type: 'danger'
+    })
+
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/receipts/update?id=${receiptId}`, {
@@ -541,7 +568,7 @@ export default function ReceiptsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredReceipts.map((receipt) => {
+              {currentReceipts.map((receipt) => {
                 let details: any = {}
                 try {
                   details = JSON.parse(receipt.itemDetails)
@@ -634,6 +661,103 @@ export default function ReceiptsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredReceipts.length > 0 && totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
+            {/* معلومات الصفحة */}
+            <div className="text-sm text-gray-600">
+              عرض {startIndex + 1} - {Math.min(endIndex, filteredReceipts.length)} من {filteredReceipts.length} إيصال
+            </div>
+
+            {/* أزرار التنقل */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => goToPage(1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                title="الصفحة الأولى"
+              >
+                الأولى
+              </button>
+
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                title="السابقة"
+              >
+                السابقة
+              </button>
+
+              {/* أرقام الصفحات */}
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'hover:bg-gray-200'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                title="التالية"
+              >
+                التالية
+              </button>
+
+              <button
+                onClick={() => goToPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                title="الصفحة الأخيرة"
+              >
+                الأخيرة
+              </button>
+            </div>
+
+            {/* اختيار عدد العناصر في الصفحة */}
+            <div className="flex items-center gap-2 text-sm">
+              <label className="text-gray-600">عدد العناصر:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value))
+                  setCurrentPage(1)
+                }}
+                className="border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {filteredReceipts.length === 0 && !loading && (
           <div className="text-center py-20 text-gray-500">
@@ -803,6 +927,18 @@ export default function ReceiptsPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isOpen}
+        title={options.title}
+        message={options.message}
+        confirmText={options.confirmText}
+        cancelText={options.cancelText}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        type={options.type}
+      />
     </div>
   )
 }

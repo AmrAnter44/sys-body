@@ -215,15 +215,54 @@ async function importExcel() {
   let failed = 0;
   const errors = [];
 
+  // الحصول على آخر رقم إيصال أو البدء من 1000
+  let receiptCounter = await prisma.receiptCounter.findFirst();
+  if (!receiptCounter) {
+    receiptCounter = await prisma.receiptCounter.create({
+      data: { current: 1000 }
+    });
+  }
+  let currentReceiptNumber = receiptCounter.current;
+
   console.log("🚀 Starting fresh import (all records will be created)...\n");
+  console.log(`📝 Starting receipt numbers from: ${currentReceiptNumber}\n`);
+
+  let receiptsCreated = 0;
 
   for (const record of records) {
     try {
       // إضافة عضو جديد مباشرة (لأننا مسحنا كل البيانات القديمة)
-      await prisma.member.create({ data: record });
+      const member = await prisma.member.create({ data: record });
       created++;
+
+      // إنشاء إيصال للعضو
+      currentReceiptNumber++;
+      const receiptDetails = {
+        memberNumber: member.memberNumber,
+        memberName: member.name,
+        subscriptionPrice: member.subscriptionPrice,
+        paidAmount: member.subscriptionPrice - member.remainingAmount,
+        remainingAmount: member.remainingAmount,
+        startDate: member.startDate?.toISOString().split('T')[0],
+        expiryDate: member.expiryDate?.toISOString().split('T')[0],
+        type: 'اشتراك جديد'
+      };
+
+      await prisma.receipt.create({
+        data: {
+          receiptNumber: currentReceiptNumber,
+          type: 'عضوية',
+          amount: member.subscriptionPrice - member.remainingAmount,
+          itemDetails: JSON.stringify(receiptDetails),
+          paymentMethod: 'cash',
+          memberId: member.id,
+          createdAt: member.createdAt
+        }
+      });
+      receiptsCreated++;
+
       if (created % 50 === 0) {
-        console.log(`✅ Created ${created}/${records.length} members...`);
+        console.log(`✅ Created ${created}/${records.length} members and ${receiptsCreated} receipts...`);
       }
     } catch (err) {
       failed++;
@@ -235,10 +274,18 @@ async function importExcel() {
     }
   }
 
+  // تحديث عداد الإيصالات
+  await prisma.receiptCounter.update({
+    where: { id: receiptCounter.id },
+    data: { current: currentReceiptNumber }
+  });
+  console.log(`\n📝 Updated receipt counter to: ${currentReceiptNumber}`);
+
   console.log("\n=================================================");
   console.log(`✅ FRESH IMPORT COMPLETE`);
   console.log(`=================================================`);
   console.log(`➕ New members created: ${created}`);
+  console.log(`📝 Receipts created: ${receiptsCreated}`);
   console.log(`⚠️  Failed: ${failed}`);
   console.log(`📊 Skipped during parsing: ${skippedRecords.length}`);
   console.log(`📈 Success rate: ${((created / records.length) * 100).toFixed(1)}%`);
@@ -250,6 +297,7 @@ async function importExcel() {
       summary: {
         totalRows: rawData.length,
         newMembers: created,
+        receiptsCreated,
         failed,
         skipped: skippedRecords.length,
         timestamp: new Date().toISOString()

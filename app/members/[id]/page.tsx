@@ -8,6 +8,8 @@ import PaymentMethodSelector from '../../../components/Paymentmethodselector'
 import RenewalForm from '../../../components/RenewalForm'
 import { formatDateYMD, calculateRemainingDays } from '../../../lib/dateFormatter'
 import BarcodeWhatsApp from '../../../components/BarcodeWhatsApp'
+import { usePermissions } from '../../../hooks/usePermissions'
+import PermissionDenied from '../../../components/PermissionDenied'
 
 interface Member {
   id: string
@@ -51,6 +53,7 @@ export default function MemberDetailPage() {
   const params = useParams()
   const router = useRouter()
   const memberId = params.id as string
+  const { hasPermission, loading: permissionsLoading } = usePermissions()
 
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
@@ -58,6 +61,7 @@ export default function MemberDetailPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
   const [showRenewalForm, setShowRenewalForm] = useState(false)
+  const [lastReceiptNumber, setLastReceiptNumber] = useState<number | null>(null)
 
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean
@@ -83,6 +87,16 @@ export default function MemberDetailPage() {
     notes: ''
   })
 
+  const [editBasicInfoData, setEditBasicInfoData] = useState({
+    name: '',
+    phone: ''
+  })
+
+  const [addRemainingAmountData, setAddRemainingAmountData] = useState({
+    amount: 0,
+    notes: ''
+  })
+
   const [activeModal, setActiveModal] = useState<string | null>(null)
 
   const fetchMember = async () => {
@@ -90,7 +104,7 @@ export default function MemberDetailPage() {
       const response = await fetch('/api/members')
       const members = await response.json()
       const foundMember = members.find((m: Member) => m.id === memberId)
-      
+
       if (foundMember) {
         // ✅ تحويل كل الأرقام لـ integers
         const memberWithDefaults = {
@@ -102,9 +116,12 @@ export default function MemberDetailPage() {
           subscriptionPrice: parseInt(foundMember.subscriptionPrice?.toString() || '0'),
           remainingAmount: parseInt(foundMember.remainingAmount?.toString() || '0')
         }
-        
+
         console.log('Member data:', memberWithDefaults)
         setMember(memberWithDefaults)
+
+        // جلب آخر إيصال للعضو
+        fetchLastReceipt(memberId)
       } else {
         setMessage('❌ لم يتم العثور على العضو')
       }
@@ -113,6 +130,21 @@ export default function MemberDetailPage() {
       setMessage('❌ حدث خطأ في تحميل البيانات')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchLastReceipt = async (memberId: string) => {
+    try {
+      const response = await fetch(`/api/receipts?memberId=${memberId}`)
+      if (response.ok) {
+        const receipts = await response.json()
+        if (receipts && receipts.length > 0) {
+          // أول إيصال في القائمة هو الأحدث (orderBy createdAt desc)
+          setLastReceiptNumber(receipts[0].receiptNumber)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching last receipt:', error)
     }
   }
 
@@ -173,11 +205,12 @@ export default function MemberDetailPage() {
             paymentMethod: paymentData.paymentMethod
           })
           setShowReceipt(true)
+          setLastReceiptNumber(receipt.receiptNumber)
         }
 
         setMessage('✅ تم دفع المبلغ بنجاح!')
         setTimeout(() => setMessage(''), 3000)
-        
+
         setPaymentData({ amount: 0, paymentMethod: 'cash', notes: '' })
         setActiveModal(null)
         fetchMember()
@@ -329,6 +362,92 @@ export default function MemberDetailPage() {
     })
   }
 
+  const handleEditBasicInfo = async () => {
+    if (!member || !editBasicInfoData.name.trim() || !editBasicInfoData.phone.trim()) {
+      setMessage('⚠️ يرجى إدخال الاسم ورقم الهاتف')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    setLoading(true)
+    setMessage('')
+
+    try {
+      const response = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: member.id,
+          name: editBasicInfoData.name.trim(),
+          phone: editBasicInfoData.phone.trim()
+        })
+      })
+
+      if (response.ok) {
+        setMessage('✅ تم تحديث البيانات بنجاح!')
+        setTimeout(() => setMessage(''), 3000)
+
+        setEditBasicInfoData({ name: '', phone: '' })
+        setActiveModal(null)
+        fetchMember()
+      } else {
+        const result = await response.json()
+        setMessage(`❌ ${result.error || 'فشل تحديث البيانات'}`)
+        setTimeout(() => setMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error(error)
+      setMessage('❌ حدث خطأ في الاتصال')
+      setTimeout(() => setMessage(''), 3000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAddRemainingAmount = async () => {
+    if (!member || addRemainingAmountData.amount <= 0) {
+      setMessage('⚠️ يرجى إدخال مبلغ صحيح')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    setLoading(true)
+    setMessage('')
+
+    try {
+      const cleanAmount = parseInt(addRemainingAmountData.amount.toString())
+      const newRemaining = member.remainingAmount + cleanAmount
+
+      const response = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: member.id,
+          remainingAmount: newRemaining
+        })
+      })
+
+      if (response.ok) {
+        setMessage(`✅ تم إضافة ${cleanAmount} ج.م للمبلغ المتبقي`)
+        setTimeout(() => setMessage(''), 3000)
+
+        setAddRemainingAmountData({ amount: 0, notes: '' })
+        setActiveModal(null)
+        fetchMember()
+      } else {
+        const result = await response.json()
+        setMessage(`❌ ${result.error || 'فشل تحديث المبلغ'}`)
+        setTimeout(() => setMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error(error)
+      setMessage('❌ حدث خطأ في الاتصال')
+      setTimeout(() => setMessage(''), 3000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleFreeze = async () => {
     if (!member || !member.expiryDate || freezeData.days <= 0) {
       setMessage('⚠️ يرجى إدخال عدد أيام صحيح')
@@ -340,7 +459,7 @@ export default function MemberDetailPage() {
     try {
       // ✅ تحويل لـ integer
       const cleanDays = parseInt(freezeData.days.toString())
-      
+
       const currentExpiry = new Date(member.expiryDate)
       const newExpiry = new Date(currentExpiry)
       newExpiry.setDate(newExpiry.getDate() + cleanDays)
@@ -357,7 +476,7 @@ export default function MemberDetailPage() {
       if (response.ok) {
         setMessage(`✅ تم إضافة ${cleanDays} يوم للاشتراك`)
         setTimeout(() => setMessage(''), 3000)
-        
+
         setFreezeData({ days: 0, reason: '' })
         setActiveModal(null)
         fetchMember()
@@ -467,7 +586,7 @@ export default function MemberDetailPage() {
         </div>
 
         <div className="mt-6 pt-6 border-t border-white border-opacity-20">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-white bg-opacity-20 rounded-lg p-4">
               <p className="text-sm opacity-90">الحالة</p>
               <p className="text-lg font-bold">
@@ -490,6 +609,12 @@ export default function MemberDetailPage() {
             <div className="bg-white bg-opacity-20 rounded-lg p-4">
               <p className="text-sm opacity-90">المبلغ المتبقي</p>
               <p className="text-2xl font-bold text-yellow-300">{member.remainingAmount} ج.م</p>
+            </div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-sm opacity-90">آخر إيصال</p>
+              <p className="text-2xl font-bold text-green-300">
+                {lastReceiptNumber ? `#${lastReceiptNumber}` : '---'}
+              </p>
             </div>
           </div>
         </div>
@@ -595,6 +720,51 @@ export default function MemberDetailPage() {
           </button>
         </div>
       </div>
+
+      {hasPermission('canEditMembers') && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-blue-100 p-3 rounded-full">
+                <span className="text-3xl">✏️</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">تعديل البيانات الأساسية</h3>
+                <p className="text-sm text-gray-600">تعديل الاسم ورقم الهاتف</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setEditBasicInfoData({ name: member.name, phone: member.phone })
+                setActiveModal('edit-basic-info')
+              }}
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
+            >
+              تعديل البيانات
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-yellow-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-yellow-100 p-3 rounded-full">
+                <span className="text-3xl">➕</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">إضافة للمبلغ المتبقي</h3>
+                <p className="text-sm text-gray-600">زيادة الدَين على العضو</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveModal('add-remaining-amount')}
+              disabled={loading}
+              className="w-full bg-yellow-600 text-white py-3 rounded-lg hover:bg-yellow-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold"
+            >
+              إضافة مبلغ
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-xl shadow-lg p-6">
@@ -855,6 +1025,186 @@ export default function MemberDetailPage() {
         </div>
       )}
 
+      {/* Modal: تعديل البيانات الأساسية */}
+      {activeModal === 'edit-basic-info' && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveModal(null)
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold flex items-center gap-2">
+                <span>✏️</span>
+                <span>تعديل البيانات الأساسية</span>
+              </h3>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border-r-4 border-blue-500 p-4 rounded-lg mb-6">
+              <p className="font-bold text-blue-800">
+                العضو: #{member.memberNumber}
+              </p>
+              <p className="text-sm text-blue-700 mt-1">
+                الاسم الحالي: {member.name}
+              </p>
+              <p className="text-sm text-blue-700">
+                رقم الهاتف الحالي: {member.phone}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  الاسم الجديد <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editBasicInfoData.name}
+                  onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, name: e.target.value })}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
+                  placeholder="أدخل الاسم الجديد"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  رقم الهاتف الجديد <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={editBasicInfoData.phone}
+                  onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, phone: e.target.value })}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono"
+                  placeholder="01xxxxxxxxx"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleEditBasicInfo}
+                  disabled={loading || !editBasicInfoData.name.trim() || !editBasicInfoData.phone.trim()}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold"
+                >
+                  {loading ? 'جاري الحفظ...' : '✅ حفظ التعديلات'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: إضافة للمبلغ المتبقي */}
+      {activeModal === 'add-remaining-amount' && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveModal(null)
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold flex items-center gap-2">
+                <span>➕</span>
+                <span>إضافة للمبلغ المتبقي</span>
+              </h3>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bg-yellow-50 border-r-4 border-yellow-500 p-4 rounded-lg mb-6">
+              <p className="font-bold text-yellow-800">
+                العضو: {member.name} (#{member.memberNumber})
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                المبلغ المتبقي الحالي: {member.remainingAmount} ج.م
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  المبلغ المراد إضافته <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={addRemainingAmountData.amount || ''}
+                  onChange={(e) => setAddRemainingAmountData({ ...addRemainingAmountData, amount: parseInt(e.target.value) || 0 })}
+                  min="1"
+                  className="w-full px-4 py-3 border-2 rounded-lg text-xl focus:outline-none focus:border-yellow-500"
+                  placeholder="0"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">ملاحظات</label>
+                <textarea
+                  value={addRemainingAmountData.notes}
+                  onChange={(e) => setAddRemainingAmountData({ ...addRemainingAmountData, notes: e.target.value })}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-yellow-500"
+                  rows={3}
+                  placeholder="سبب زيادة المبلغ..."
+                />
+              </div>
+
+              {addRemainingAmountData.amount > 0 && (
+                <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+                  <p className="text-sm text-red-800 mb-2">
+                    المبلغ المتبقي بعد الإضافة:
+                  </p>
+                  <p className="text-xl font-bold text-red-600">
+                    {member.remainingAmount + addRemainingAmountData.amount} ج.م
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddRemainingAmount}
+                  disabled={loading || addRemainingAmountData.amount <= 0}
+                  className="flex-1 bg-yellow-600 text-white py-3 rounded-lg hover:bg-yellow-700 disabled:bg-gray-400 font-bold"
+                >
+                  {loading ? 'جاري الحفظ...' : '✅ تأكيد الإضافة'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal: إدخال تفاصيل الضيف (الدعوة) */}
       {activeModal === 'invitation' && (
         <div 
@@ -986,8 +1336,9 @@ export default function MemberDetailPage() {
                 paymentMethod: receipt.paymentMethod || 'cash'
               })
               setShowReceipt(true)
+              setLastReceiptNumber(receipt.receiptNumber)
             }
-            
+
             fetchMember()
             setShowRenewalForm(false)
             setMessage('✅ تم تجديد الاشتراك بنجاح!')
