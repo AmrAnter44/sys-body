@@ -733,6 +733,19 @@ export default function SearchPage() {
                           </div>
                         )}
 
+                        {/* عرض الملاحظات */}
+                        {result.data.notes && (
+                          <div className="mb-3 sm:mb-4 bg-blue-50 border-2 border-blue-400 rounded-lg p-3 sm:p-4">
+                            <div className="flex items-start gap-2 mb-2">
+                              <span className="text-lg sm:text-xl">📝</span>
+                              <p className="text-xs sm:text-sm font-bold text-blue-800">الملاحظات:</p>
+                            </div>
+                            <p className="text-sm sm:text-base md:text-lg text-gray-700 leading-relaxed whitespace-pre-wrap">
+                              {result.data.notes}
+                            </p>
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 gap-2 sm:gap-3">
                           <button
                             onClick={() => handleViewMemberDetails(result.data.id)}

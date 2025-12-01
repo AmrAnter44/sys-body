@@ -89,7 +89,14 @@ export default function MemberDetailPage() {
 
   const [editBasicInfoData, setEditBasicInfoData] = useState({
     name: '',
-    phone: ''
+    phone: '',
+    subscriptionPrice: 0,
+    inBodyScans: 0,
+    invitations: 0,
+    freePTSessions: 0,
+    notes: '',
+    startDate: '',
+    expiryDate: ''
   })
 
   const [addRemainingAmountData, setAddRemainingAmountData] = useState({
@@ -379,7 +386,14 @@ export default function MemberDetailPage() {
         body: JSON.stringify({
           id: member.id,
           name: editBasicInfoData.name.trim(),
-          phone: editBasicInfoData.phone.trim()
+          phone: editBasicInfoData.phone.trim(),
+          subscriptionPrice: parseInt(editBasicInfoData.subscriptionPrice.toString()),
+          inBodyScans: parseInt(editBasicInfoData.inBodyScans.toString()),
+          invitations: parseInt(editBasicInfoData.invitations.toString()),
+          freePTSessions: parseInt(editBasicInfoData.freePTSessions.toString()),
+          notes: editBasicInfoData.notes.trim() || null,
+          startDate: editBasicInfoData.startDate || null,
+          expiryDate: editBasicInfoData.expiryDate || null
         })
       })
 
@@ -387,7 +401,17 @@ export default function MemberDetailPage() {
         setMessage('✅ تم تحديث البيانات بنجاح!')
         setTimeout(() => setMessage(''), 3000)
 
-        setEditBasicInfoData({ name: '', phone: '' })
+        setEditBasicInfoData({
+          name: '',
+          phone: '',
+          subscriptionPrice: 0,
+          inBodyScans: 0,
+          invitations: 0,
+          freePTSessions: 0,
+          notes: '',
+          startDate: '',
+          expiryDate: ''
+        })
         setActiveModal(null)
         fetchMember()
       } else {
@@ -618,6 +642,19 @@ export default function MemberDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* عرض الملاحظات */}
+        {member.notes && (
+          <div className="mt-6 pt-6 border-t border-white border-opacity-20">
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">📝</span>
+                <p className="text-sm opacity-90 font-semibold">الملاحظات</p>
+              </div>
+              <p className="text-base leading-relaxed whitespace-pre-wrap">{member.notes}</p>
+            </div>
+          </div>
+        )}
       </div>
 
             <div className="mb-6">
@@ -729,13 +766,23 @@ export default function MemberDetailPage() {
                 <span className="text-3xl">✏️</span>
               </div>
               <div>
-                <h3 className="text-xl font-bold">تعديل البيانات الأساسية</h3>
-                <p className="text-sm text-gray-600">تعديل الاسم ورقم الهاتف</p>
+                <h3 className="text-xl font-bold">تعديل بيانات العضو</h3>
+                <p className="text-sm text-gray-600">تعديل جميع بيانات العضو (الاسم، الهاتف، الاشتراك، الخدمات، الملاحظات)</p>
               </div>
             </div>
             <button
               onClick={() => {
-                setEditBasicInfoData({ name: member.name, phone: member.phone })
+                setEditBasicInfoData({
+                  name: member.name,
+                  phone: member.phone,
+                  subscriptionPrice: member.subscriptionPrice,
+                  inBodyScans: member.inBodyScans ?? 0,
+                  invitations: member.invitations ?? 0,
+                  freePTSessions: member.freePTSessions ?? 0,
+                  notes: member.notes || '',
+                  startDate: member.startDate ? formatDateYMD(member.startDate) : '',
+                  expiryDate: member.expiryDate ? formatDateYMD(member.expiryDate) : ''
+                })
                 setActiveModal('edit-basic-info')
               }}
               disabled={loading}
@@ -1028,17 +1075,17 @@ export default function MemberDetailPage() {
       {/* Modal: تعديل البيانات الأساسية */}
       {activeModal === 'edit-basic-info' && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto"
           style={{ zIndex: 9999 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setActiveModal(null)
           }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 my-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold flex items-center gap-2">
                 <span>✏️</span>
-                <span>تعديل البيانات الأساسية</span>
+                <span>تعديل بيانات العضو</span>
               </h3>
               <button
                 onClick={() => setActiveModal(null)}
@@ -1051,58 +1098,170 @@ export default function MemberDetailPage() {
 
             <div className="bg-blue-50 border-r-4 border-blue-500 p-4 rounded-lg mb-6">
               <p className="font-bold text-blue-800">
-                العضو: #{member.memberNumber}
+                تعديل بيانات العضو: #{member.memberNumber}
               </p>
               <p className="text-sm text-blue-700 mt-1">
-                الاسم الحالي: {member.name}
-              </p>
-              <p className="text-sm text-blue-700">
-                رقم الهاتف الحالي: {member.phone}
+                يمكنك تعديل جميع بيانات العضو من هنا
               </p>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  الاسم الجديد <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editBasicInfoData.name}
-                  onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, name: e.target.value })}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
-                  placeholder="أدخل الاسم الجديد"
-                  autoFocus
-                />
+            <div className="space-y-6">
+              {/* البيانات الأساسية */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-bold text-lg mb-4">📋 البيانات الأساسية</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      الاسم <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editBasicInfoData.name}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, name: e.target.value })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="أدخل الاسم"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      رقم الهاتف <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={editBasicInfoData.phone}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, phone: e.target.value })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono"
+                      placeholder="01xxxxxxxxx"
+                      dir="ltr"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  رقم الهاتف الجديد <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={editBasicInfoData.phone}
-                  onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, phone: e.target.value })}
-                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 font-mono"
-                  placeholder="01xxxxxxxxx"
-                  dir="ltr"
-                />
+              {/* بيانات الاشتراك */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="font-bold text-lg mb-4">💰 بيانات الاشتراك</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      سعر الاشتراك (ج.م)
+                    </label>
+                    <input
+                      type="number"
+                      value={editBasicInfoData.subscriptionPrice || ''}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, subscriptionPrice: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-green-500"
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      تاريخ البداية
+                    </label>
+                    <input
+                      type="date"
+                      value={editBasicInfoData.startDate}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, startDate: e.target.value })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-green-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      تاريخ الانتهاء
+                    </label>
+                    <input
+                      type="date"
+                      value={editBasicInfoData.expiryDate}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, expiryDate: e.target.value })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-green-500"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex gap-3">
+              {/* الخدمات المجانية */}
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h4 className="font-bold text-lg mb-4">🎁 الخدمات المجانية</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      ⚖️ InBody Scans
+                    </label>
+                    <input
+                      type="number"
+                      value={editBasicInfoData.inBodyScans || ''}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, inBodyScans: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      🎟️ الدعوات
+                    </label>
+                    <input
+                      type="number"
+                      value={editBasicInfoData.invitations || ''}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, invitations: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      💪 حصص PT مجانية
+                    </label>
+                    <input
+                      type="number"
+                      value={editBasicInfoData.freePTSessions || ''}
+                      onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, freePTSessions: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-purple-500"
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* الملاحظات */}
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <h4 className="font-bold text-lg mb-4">📝 ملاحظات</h4>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    ملاحظات إضافية
+                  </label>
+                  <textarea
+                    value={editBasicInfoData.notes}
+                    onChange={(e) => setEditBasicInfoData({ ...editBasicInfoData, notes: e.target.value })}
+                    className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-yellow-500"
+                    rows={4}
+                    placeholder="أضف أي ملاحظات هنا..."
+                  />
+                </div>
+              </div>
+
+              {/* أزرار التحكم */}
+              <div className="flex gap-3 pt-4 border-t">
                 <button
                   type="button"
                   onClick={handleEditBasicInfo}
                   disabled={loading || !editBasicInfoData.name.trim() || !editBasicInfoData.phone.trim()}
-                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold"
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold text-lg"
                 >
-                  {loading ? 'جاري الحفظ...' : '✅ حفظ التعديلات'}
+                  {loading ? 'جاري الحفظ...' : '✅ حفظ جميع التعديلات'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveModal(null)}
-                  className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
+                  className="px-8 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-bold"
                 >
                   إلغاء
                 </button>

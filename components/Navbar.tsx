@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { usePermissions } from '../hooks/usePermissions'
 import type { Permissions } from '../types/permissions'
+import LinkModal from './LinkModal'
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -15,6 +16,7 @@ export default function Navbar() {
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchMessage, setSearchMessage] = useState<{type: 'success' | 'error' | 'warning', text: string, staff?: any} | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showLinkModal, setShowLinkModal] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
@@ -382,6 +384,16 @@ export default function Navbar() {
                 </div>
               )}
 
+              {/* Link Button */}
+              <button
+                onClick={() => setShowLinkModal(true)}
+                className="px-3 sm:px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition flex items-center gap-1 sm:gap-2 font-bold flex-shrink-0"
+                title="مشاركة اللينك"
+              >
+                <span>🔗</span>
+                <span className="hidden sm:inline text-sm">Link</span>
+              </button>
+
               {/* Quick Search Button */}
               <button
                 onClick={() => {
@@ -532,6 +544,11 @@ export default function Navbar() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Link Modal */}
+      {showLinkModal && (
+        <LinkModal onClose={() => setShowLinkModal(false)} />
       )}
 
       <style jsx global>{`

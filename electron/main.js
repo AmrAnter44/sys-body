@@ -1,14 +1,29 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
 const http = require('http');
+const os = require('os');
 
 let mainWindow;
 let serverProcess;
 
 // ------------------ وظائف مساعدة ------------------
+
+// الحصول على IP Address المحلي
+function getLocalIPAddress() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // تجاهل internal (127.0.0.1) و IPv6
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost'; // fallback
+}
 
 // التحقق من المنفذ
 function checkPort(port) {
@@ -156,7 +171,8 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: false,
       partition: 'persist:gym', // حفظ الـ cookies والـ session
-      enableRemoteModule: false
+      enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js')
     },
     autoHideMenuBar: !isDev,
     title: 'نظام إدارة الصالة الرياضية',
@@ -193,6 +209,13 @@ function createWindow() {
     if (serverProcess) serverProcess.kill();
   });
 }
+
+// ------------------ IPC Handlers ------------------
+
+// ✅ Handler للحصول على IP Address
+ipcMain.handle('get-local-ip', () => {
+  return getLocalIPAddress();
+});
 
 // ------------------ أحداث التطبيق ------------------
 
