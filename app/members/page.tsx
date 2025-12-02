@@ -442,106 +442,257 @@ export default function MembersPage() {
       {loading ? (
         <div className="text-center py-12">جاري التحميل...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-4 py-3 text-right">الصورة</th>
-                  <th className="px-4 py-3 text-right">رقم العضوية</th>
-                  <th className="px-4 py-3 text-right">الاسم</th>
-                  <th className="px-4 py-3 text-right">الهاتف</th>
-                  <th className="px-4 py-3 text-right">InBody</th>
-                  <th className="px-4 py-3 text-right">دعوات</th>
-                  <th className="px-4 py-3 text-right">السعر</th>
-                  <th className="px-4 py-3 text-right">المتبقي</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
-                  <th className="px-4 py-3 text-right">تاريخ البداية</th>
-                  <th className="px-4 py-3 text-right">تاريخ الانتهاء</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.isArray(currentMembers) && currentMembers.map((member) => {
-                  const isExpired = member.expiryDate ? new Date(member.expiryDate) < new Date() : false
-                  const daysRemaining = calculateRemainingDays(member.expiryDate)
-                  const isExpiringSoon = daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 7
-                  
-                  return (
-                    <tr key={member.id} className="border-t hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100">
-                          {member.profileImage ? (
-                            <img 
-                              src={member.profileImage} 
-                              alt={member.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
+        <>
+          {/* Desktop Table - Hidden on mobile/tablet */}
+          <div className="hidden lg:block bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-right">الصورة</th>
+                    <th className="px-4 py-3 text-right">رقم العضوية</th>
+                    <th className="px-4 py-3 text-right">الاسم</th>
+                    <th className="px-4 py-3 text-right">الهاتف</th>
+                    <th className="px-4 py-3 text-right">InBody</th>
+                    <th className="px-4 py-3 text-right">دعوات</th>
+                    <th className="px-4 py-3 text-right">السعر</th>
+                    <th className="px-4 py-3 text-right">المتبقي</th>
+                    <th className="px-4 py-3 text-right">الحالة</th>
+                    <th className="px-4 py-3 text-right">تاريخ البداية</th>
+                    <th className="px-4 py-3 text-right">تاريخ الانتهاء</th>
+                    <th className="px-4 py-3 text-right">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.isArray(currentMembers) && currentMembers.map((member) => {
+                    const isExpired = member.expiryDate ? new Date(member.expiryDate) < new Date() : false
+                    const daysRemaining = calculateRemainingDays(member.expiryDate)
+                    const isExpiringSoon = daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 7
+
+                    return (
+                      <tr key={member.id} className="border-t hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100">
+                            {member.profileImage ? (
+                              <img
+                                src={member.profileImage}
+                                alt={member.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3 font-bold text-blue-600">#{member.memberNumber}</td>
+                        <td className="px-4 py-3">{member.name}</td>
+                        <td className="px-4 py-3">{member.phone}</td>
+                        <td className="px-4 py-3">{member.inBodyScans}</td>
+                        <td className="px-4 py-3">{member.invitations}</td>
+                        <td className="px-4 py-3">{member.subscriptionPrice} ج.م</td>
+                        <td className="px-4 py-3 text-red-600">{member.remainingAmount} ج.م</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-sm ${
+                            member.isActive && !isExpired ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {member.isActive && !isExpired ? 'نشط' : 'منتهي'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-gray-700 font-mono">
+                            {formatDateYMD(member.startDate)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {member.expiryDate ? (
+                            <div>
+                              <span className={`font-mono ${isExpired ? 'text-red-600 font-bold' : isExpiringSoon ? 'text-orange-600 font-bold' : ''}`}>
+                                {formatDateYMD(member.expiryDate)}
+                              </span>
+                              {daysRemaining !== null && daysRemaining > 0 && (
+                                <p className={`text-xs ${isExpiringSoon ? 'text-orange-600' : 'text-gray-500'}`}>
+                                  {isExpiringSoon && '⚠️ '} باقي {daysRemaining} يوم
+                                </p>
+                              )}
+                              {isExpired && daysRemaining !== null && (
+                                <p className="text-xs text-red-600">
+                                  ❌ منتهي منذ {Math.abs(daysRemaining)} يوم
+                                </p>
+                              )}
+                            </div>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleViewDetails(member.id)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-md hover:shadow-lg font-medium"
+                          >
+                            👁️ عرض التفاصيل
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile/Tablet Cards - Hidden on desktop */}
+          <div className="lg:hidden space-y-3">
+            {Array.isArray(currentMembers) && currentMembers.map((member) => {
+              const isExpired = member.expiryDate ? new Date(member.expiryDate) < new Date() : false
+              const daysRemaining = calculateRemainingDays(member.expiryDate)
+              const isExpiringSoon = daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 7
+
+              return (
+                <div key={member.id} className="bg-white rounded-xl shadow-md overflow-hidden border-2 border-gray-200 hover:shadow-lg transition">
+                  {/* Header with Image and Member Number */}
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-3 border-white shadow-lg bg-gray-100 flex-shrink-0">
+                        {member.profileImage ? (
+                          <img
+                            src={member.profileImage}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xl font-bold text-white mb-1">#{member.memberNumber}</div>
+                        <div className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          member.isActive && !isExpired ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                        }`}>
+                          {member.isActive && !isExpired ? '✓ نشط' : '✕ منتهي'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-3 space-y-2.5">
+                    {/* Name */}
+                    <div className="pb-2.5 border-b-2 border-gray-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">👤</span>
+                        <span className="text-xs text-gray-500 font-semibold">الاسم</span>
+                      </div>
+                      <div className="text-base font-bold text-gray-800">{member.name}</div>
+                    </div>
+
+                    {/* Phone */}
+                    <div className="pb-2.5 border-b-2 border-gray-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">📱</span>
+                        <span className="text-xs text-gray-500 font-semibold">الهاتف</span>
+                      </div>
+                      <div className="text-base font-mono text-gray-800 direction-ltr text-right">{member.phone}</div>
+                    </div>
+
+                    {/* Services Grid */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">📊</span>
+                          <span className="text-xs text-purple-700 font-semibold">InBody</span>
+                        </div>
+                        <div className="text-lg font-bold text-purple-600">{member.inBodyScans}</div>
+                      </div>
+                      <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">🎫</span>
+                          <span className="text-xs text-orange-700 font-semibold">دعوات</span>
+                        </div>
+                        <div className="text-lg font-bold text-orange-600">{member.invitations}</div>
+                      </div>
+                    </div>
+
+                    {/* Price Info */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">💰</span>
+                          <span className="text-xs text-green-700 font-semibold">السعر</span>
+                        </div>
+                        <div className="text-base font-bold text-green-600">{member.subscriptionPrice} ج.م</div>
+                      </div>
+                      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">⚠️</span>
+                          <span className="text-xs text-red-700 font-semibold">المتبقي</span>
+                        </div>
+                        <div className="text-base font-bold text-red-600">{member.remainingAmount} ج.م</div>
+                      </div>
+                    </div>
+
+                    {/* Dates */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm">📅</span>
+                          <span className="text-xs text-blue-700 font-semibold">تاريخ البداية</span>
+                        </div>
+                        <div className="text-sm font-mono text-gray-700">{formatDateYMD(member.startDate)}</div>
+                      </div>
+
+                      {member.expiryDate && (
+                        <div className={`border-2 rounded-lg p-2.5 ${
+                          isExpired ? 'bg-red-50 border-red-300' : isExpiringSoon ? 'bg-orange-50 border-orange-300' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm">{isExpired ? '❌' : isExpiringSoon ? '⚠️' : '📅'}</span>
+                            <span className={`text-xs font-semibold ${
+                              isExpired ? 'text-red-700' : isExpiringSoon ? 'text-orange-700' : 'text-gray-700'
+                            }`}>تاريخ الانتهاء</span>
+                          </div>
+                          <div className={`text-sm font-mono font-bold ${
+                            isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-gray-700'
+                          }`}>
+                            {formatDateYMD(member.expiryDate)}
+                          </div>
+                          {daysRemaining !== null && daysRemaining > 0 && (
+                            <div className={`text-xs mt-1 font-semibold ${isExpiringSoon ? 'text-orange-700' : 'text-gray-600'}`}>
+                              {isExpiringSoon && '⚠️ '} باقي {daysRemaining} يوم
+                            </div>
+                          )}
+                          {isExpired && daysRemaining !== null && (
+                            <div className="text-xs mt-1 font-semibold text-red-700">
+                              ❌ منتهي منذ {Math.abs(daysRemaining)} يوم
                             </div>
                           )}
                         </div>
-                      </td>
-                      
-                      <td className="px-4 py-3 font-bold text-blue-600">#{member.memberNumber}</td>
-                      <td className="px-4 py-3">{member.name}</td>
-                      <td className="px-4 py-3">{member.phone}</td>
-                      <td className="px-4 py-3">{member.inBodyScans}</td>
-                      <td className="px-4 py-3">{member.invitations}</td>
-                      <td className="px-4 py-3">{member.subscriptionPrice} ج.م</td>
-                      <td className="px-4 py-3 text-red-600">{member.remainingAmount} ج.م</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-sm ${
-                          member.isActive && !isExpired ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {member.isActive && !isExpired ? 'نشط' : 'منتهي'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-gray-700 font-mono">
-                          {formatDateYMD(member.startDate)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {member.expiryDate ? (
-                          <div>
-                            <span className={`font-mono ${isExpired ? 'text-red-600 font-bold' : isExpiringSoon ? 'text-orange-600 font-bold' : ''}`}>
-                              {formatDateYMD(member.expiryDate)}
-                            </span>
-                            {daysRemaining !== null && daysRemaining > 0 && (
-                              <p className={`text-xs ${isExpiringSoon ? 'text-orange-600' : 'text-gray-500'}`}>
-                                {isExpiringSoon && '⚠️ '} باقي {daysRemaining} يوم
-                              </p>
-                            )}
-                            {isExpired && daysRemaining !== null && (
-                              <p className="text-xs text-red-600">
-                                ❌ منتهي منذ {Math.abs(daysRemaining)} يوم
-                              </p>
-                            )}
-                          </div>
-                        ) : '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleViewDetails(member.id)}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-md hover:shadow-lg font-medium"
-                        >
-                          👁️ عرض التفاصيل
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      )}
+                    </div>
 
-          {/* Pagination Controls */}
-          {filteredMembers.length > 0 && (
+                    {/* Action Button */}
+                    <button
+                      onClick={() => handleViewDetails(member.id)}
+                      className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm hover:bg-blue-700 transition shadow-md hover:shadow-lg font-bold mt-1.5"
+                    >
+                      👁️ عرض التفاصيل
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && filteredMembers.length > 0 && (
             <div className="mt-6 bg-white rounded-lg shadow-md p-6">
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 {/* معلومات الصفحة */}
@@ -640,26 +791,24 @@ export default function MembersPage() {
             </div>
           )}
 
-          {filteredMembers.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-500">
-              {(searchId || searchName || searchPhone || filterStatus !== 'all' || specificDate) ? (
-                <>
-                  <div className="text-6xl mb-4">🔍</div>
-                  <p className="text-xl">لا توجد نتائج مطابقة للبحث</p>
-                  <button
-                    onClick={clearAllFilters}
-                    className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-                  >
-                    مسح جميع الفلاتر
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="text-6xl mb-4">📋</div>
-                  <p className="text-xl">لا يوجد أعضاء حالياً</p>
-                </>
-              )}
-            </div>
+      {filteredMembers.length === 0 && !loading && (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center text-gray-500">
+          {(searchId || searchName || searchPhone || filterStatus !== 'all' || specificDate) ? (
+            <>
+              <div className="text-6xl mb-4">🔍</div>
+              <p className="text-xl">لا توجد نتائج مطابقة للبحث</p>
+              <button
+                onClick={clearAllFilters}
+                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              >
+                مسح جميع الفلاتر
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-6xl mb-4">📋</div>
+              <p className="text-xl">لا يوجد أعضاء حالياً</p>
+            </>
           )}
         </div>
       )}

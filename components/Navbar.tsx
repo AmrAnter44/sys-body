@@ -17,31 +17,38 @@ export default function Navbar() {
   const [searchMessage, setSearchMessage] = useState<{type: 'success' | 'error' | 'warning', text: string, staff?: any} | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
+  const [showDrawer, setShowDrawer] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
   const allLinks = [
-    { href: '/', label: 'الرئيسية', icon: '🏠', permission: null },
-    { href: '/members', label: 'الأعضاء', icon: '👥', permission: 'canViewMembers' as keyof Permissions },
-    { href: '/pt', label: 'PT', icon: '💪', permission: 'canViewPT' as keyof Permissions },
-    { href: '/coach/dashboard', label: 'كوتش', icon: '🏋️', permission: 'canRegisterPTAttendance' as keyof Permissions },
-    { href: '/dayuse', label: 'يوم استخدام', icon: '📊', permission: 'canViewDayUse' as keyof Permissions },
-    { href: '/invitations', label: 'الدعوات', icon: '🎟️', permission: 'canViewVisitors' as keyof Permissions },
-    { href: '/staff', label: 'الموظفين', icon: '👷', permission: 'canViewStaff' as keyof Permissions },
-    { href: '/receipts', label: 'الإيصالات', icon: '🧾', permission: 'canViewReceipts' as keyof Permissions },
-    { href: '/expenses', label: 'المصروفات', icon: '💸', permission: 'canViewExpenses' as keyof Permissions },
-    { href: '/visitors', label: 'الزوار', icon: '🚶', permission: 'canViewVisitors' as keyof Permissions },
-    { href: '/followups', label: 'المتابعات', icon: '📝', permission: 'canViewFollowUps' as keyof Permissions },
-    { href: '/search', label: 'البحث', icon: '🔍', permission: 'canViewMembers' as keyof Permissions },
-    { href: '/offers', label: 'العروض', icon: '🎁', permission: 'canAccessSettings' as keyof Permissions },
-    { href: '/closing', label: 'التقفيل', icon: '💰', permission: 'canAccessClosing' as keyof Permissions },
-    { href: '/attendance-report', label: 'حضور', icon: '📊', permission: 'canViewAttendance' as keyof Permissions },
+    { href: '/', label: 'الرئيسية', icon: '🏠', permission: null, roleRequired: null },
+    { href: '/members', label: 'الأعضاء', icon: '👥', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
+    { href: '/pt', label: 'PT', icon: '💪', permission: 'canViewPT' as keyof Permissions, roleRequired: null },
+    { href: '/coach/dashboard', label: 'كوتش', icon: '🏋️', permission: 'canRegisterPTAttendance' as keyof Permissions, roleRequired: 'COACH' },
+    { href: '/dayuse', label: 'يوم استخدام', icon: '📊', permission: 'canViewDayUse' as keyof Permissions, roleRequired: null },
+    { href: '/invitations', label: 'الدعوات', icon: '🎟️', permission: 'canViewVisitors' as keyof Permissions, roleRequired: null },
+    { href: '/staff', label: 'الموظفين', icon: '👷', permission: 'canViewStaff' as keyof Permissions, roleRequired: null },
+    { href: '/receipts', label: 'الإيصالات', icon: '🧾', permission: 'canViewReceipts' as keyof Permissions, roleRequired: null },
+    { href: '/expenses', label: 'المصروفات', icon: '💸', permission: 'canViewExpenses' as keyof Permissions, roleRequired: null },
+    { href: '/visitors', label: 'الزوار', icon: '🚶', permission: 'canViewVisitors' as keyof Permissions, roleRequired: null },
+    { href: '/followups', label: 'المتابعات', icon: '📝', permission: 'canViewFollowUps' as keyof Permissions, roleRequired: null },
+    { href: '/search', label: 'البحث', icon: '🔍', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
+    { href: '/offers', label: 'العروض', icon: '🎁', permission: 'canAccessSettings' as keyof Permissions, roleRequired: null },
+    { href: '/closing', label: 'التقفيل', icon: '💰', permission: 'canAccessClosing' as keyof Permissions, roleRequired: null },
+    { href: '/attendance-report', label: 'حضور', icon: '📊', permission: 'canViewAttendance' as keyof Permissions, roleRequired: null },
   ]
 
-  // Filter links based on permissions
-  const links = allLinks.filter(link =>
-    !link.permission || hasPermission(link.permission)
-  )
+  // Filter links based on permissions and role
+  const links = allLinks.filter(link => {
+    // Check permission
+    if (link.permission && !hasPermission(link.permission)) return false
+
+    // Check role if required
+    if (link.roleRequired && user?.role !== link.roleRequired) return false
+
+    return true
+  })
 
   // Open search modal with Ctrl+K
   useEffect(() => {
@@ -311,8 +318,19 @@ export default function Navbar() {
         <div className="container mx-auto px-2 sm:px-4">
           {/* الصف الأول: اللوجو + البحث السريع + اسم المستخدم */}
           <div className="flex items-center justify-between h-14 sm:h-16 gap-2 border-b border-white/20 lg:border-0">
-            {/* Logo */}
+            {/* Hamburger Menu + Logo */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Hamburger Button - يظهر في الموبايل والتابلت فقط */}
+              <button
+                onClick={() => setShowDrawer(!showDrawer)}
+                className="lg:hidden p-2 hover:bg-white/20 rounded-lg transition"
+                aria-label="القائمة"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
               <img src='/icon.png' alt="logo" className='w-6 h-6 sm:w-8 sm:h-8'/>
               <span className="font-bold text-base sm:text-xl">X GYM</span>
             </div>
@@ -410,23 +428,108 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* الصف الثاني: روابط التنقل - بدون سكرول في الموبايل */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:flex lg:justify-center gap-1 py-2 lg:py-3">
+          {/* الصف الثاني: روابط التنقل - يظهر في Desktop فقط */}
+          <div className="hidden lg:flex lg:justify-center gap-1 py-2 lg:py-3">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-2 py-2 rounded-lg transition-all hover:bg-white/20 text-center flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 ${
+                className={`px-2 py-2 rounded-lg transition-all hover:bg-white/20 text-center flex items-center justify-center gap-1 ${
                   pathname === link.href ? 'bg-white/30 font-bold' : ''
                 }`}
               >
-                <span className="text-base sm:text-lg">{link.icon}</span>
-                <span className="text-[10px] sm:text-xs lg:text-sm whitespace-nowrap">{link.label}</span>
+                <span className="text-lg">{link.icon}</span>
+                <span className="text-sm whitespace-nowrap">{link.label}</span>
               </Link>
             ))}
           </div>
         </div>
       </nav>
+
+      {/* Mobile/Tablet Drawer - ينزلق من اليمين */}
+      {showDrawer && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-[100] lg:hidden animate-fadeIn"
+            onClick={() => setShowDrawer(false)}
+          />
+
+          {/* Drawer */}
+          <div className="fixed top-0 right-0 h-full w-72 sm:w-80 bg-white z-[101] shadow-2xl lg:hidden animate-slideRight overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between sticky top-0">
+              <div className="flex items-center gap-3">
+                <img src='/icon.png' alt="logo" className='w-8 h-8'/>
+                <span className="font-bold text-xl">القائمة</span>
+              </div>
+              <button
+                onClick={() => setShowDrawer(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="p-4 space-y-2">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setShowDrawer(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                    pathname === link.href
+                      ? 'bg-blue-100 text-blue-700 font-bold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="text-2xl">{link.icon}</span>
+                  <span className="text-base">{link.label}</span>
+                </Link>
+              ))}
+            </div>
+
+            {/* User Info at Bottom */}
+            {user && (
+              <div className="p-4 border-t mt-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-800">{user.name}</p>
+                      <p className="text-xs text-gray-600">{getRoleLabel(user.role)}</p>
+                    </div>
+                  </div>
+
+                  {user.role === 'ADMIN' && (
+                    <Link
+                      href="/admin/users"
+                      onClick={() => setShowDrawer(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition mb-2"
+                    >
+                      <span>👥</span>
+                      <span className="text-sm">إدارة المستخدمين</span>
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-bold"
+                  >
+                    <span>🚪</span>
+                    <span>تسجيل الخروج</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Search Modal/Popup */}
       {showSearchModal && (
@@ -556,7 +659,7 @@ export default function Navbar() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        
+
         @keyframes scaleIn {
           from {
             opacity: 0;
@@ -567,7 +670,7 @@ export default function Navbar() {
             transform: translate(-50%, -50%) scale(1);
           }
         }
-        
+
         @keyframes slideDown {
           from {
             opacity: 0;
@@ -578,17 +681,30 @@ export default function Navbar() {
             transform: translateY(0);
           }
         }
-        
+
+        @keyframes slideRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
         }
-        
+
         .animate-scaleIn {
           animation: scaleIn 0.3s ease-out;
         }
-        
+
         .animate-slideDown {
           animation: slideDown 0.4s ease-out;
+        }
+
+        .animate-slideRight {
+          animation: slideRight 0.3s ease-out;
         }
       `}</style>
     </>

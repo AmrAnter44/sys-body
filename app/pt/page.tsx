@@ -255,26 +255,26 @@ export default function PTPage() {
   const isCoach = user?.role === 'COACH'
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">💪 إدارة جلسات PT</h1>
-          <p className="text-gray-600">
+    <div className="container mx-auto p-4 sm:p-6" dir="rtl">
+      <div className="mb-6">
+        <div className="mb-4">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">💪 إدارة جلسات PT</h1>
+          <p className="text-sm sm:text-base text-gray-600">
             {isCoach ? 'عرض جلسات التدريب الشخصي' : 'إضافة وتعديل وحذف جلسات التدريب الشخصي'}
           </p>
         </div>
         {!isCoach && (
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => router.push('/pt/commission')}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition transform hover:scale-105 shadow-lg flex items-center gap-2"
+              className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <span>💰</span>
               <span>حاسبة التحصيل</span>
             </button>
             <button
               onClick={() => router.push('/pt/sessions/history')}
-              className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition transform hover:scale-105 shadow-lg flex items-center gap-2"
+              className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <span>📊</span>
               <span>سجل الحضور</span>
@@ -284,7 +284,7 @@ export default function PTPage() {
                 resetForm()
                 setShowForm(!showForm)
               }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition transform hover:scale-105"
+              className="w-full sm:w-auto bg-blue-600 text-white px-3 sm:px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               {showForm ? 'إخفاء النموذج' : '➕ إضافة جلسة PT جديدة'}
             </button>
@@ -565,147 +565,309 @@ export default function PTPage() {
       {loading ? (
         <div className="text-center py-12">جاري التحميل...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-4 py-3 text-right">رقم PT</th>
-                  <th className="px-4 py-3 text-right">العميل</th>
-                  <th className="px-4 py-3 text-right">الكوتش</th>
-                  <th className="px-4 py-3 text-right">الجلسات</th>
-                  <th className="px-4 py-3 text-right">السعر</th>
-                  <th className="px-4 py-3 text-right">الإجمالي</th>
-                  <th className="px-4 py-3 text-right">التواريخ</th>
-                  {!isCoach && <th className="px-4 py-3 text-right">إجراءات</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSessions.map((session) => {
-                  const isExpiringSoon =
-                    session.expiryDate &&
-                    new Date(session.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                  const isExpired = session.expiryDate && new Date(session.expiryDate) < new Date()
+        <>
+          {/* Desktop Table - Hidden on mobile/tablet */}
+          <div className="hidden lg:block bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-right">رقم PT</th>
+                    <th className="px-4 py-3 text-right">العميل</th>
+                    <th className="px-4 py-3 text-right">الكوتش</th>
+                    <th className="px-4 py-3 text-right">الجلسات</th>
+                    <th className="px-4 py-3 text-right">السعر</th>
+                    <th className="px-4 py-3 text-right">الإجمالي</th>
+                    <th className="px-4 py-3 text-right">التواريخ</th>
+                    {!isCoach && <th className="px-4 py-3 text-right">إجراءات</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSessions.map((session) => {
+                    const isExpiringSoon =
+                      session.expiryDate &&
+                      new Date(session.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                    const isExpired = session.expiryDate && new Date(session.expiryDate) < new Date()
 
-                  return (
-                    <tr
-                      key={session.ptNumber}
-                      className={`border-t hover:bg-gray-50 ${
-                        isExpired ? 'bg-red-50' : isExpiringSoon ? 'bg-yellow-50' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-3">
-                        <span className="font-bold text-blue-600">#{session.ptNumber}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="font-semibold">{session.clientName}</p>
-                          <p className="text-sm text-gray-600">{session.phone}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">{session.coachName}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-center">
-                          <p
-                            className={`font-bold ${
-                              session.sessionsRemaining === 0
-                                ? 'text-red-600'
-                                : session.sessionsRemaining <= 3
-                                ? 'text-orange-600'
-                                : 'text-green-600'
-                            }`}
-                          >
-                            {session.sessionsRemaining}
-                          </p>
-                          <p className="text-xs text-gray-500">من {session.sessionsPurchased}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">{session.pricePerSession} ج.م</td>
-                      <td className="px-4 py-3 font-bold text-green-600">
-                        {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} ج.م
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs font-mono">
-                          {session.startDate && (
-                            <p>من: {formatDateYMD(session.startDate)}</p>
-                          )}
-                          {session.expiryDate && (
-                            <p className={isExpired ? 'text-red-600 font-bold' : ''}>
-                              إلى: {formatDateYMD(session.expiryDate)}
-                            </p>
-                          )}
-                          {isExpired && <p className="text-red-600 font-bold">❌ منتهية</p>}
-                          {!isExpired && isExpiringSoon && (
-                            <p className="text-orange-600 font-bold">⚠️ قريبة الانتهاء</p>
-                          )}
-                        </div>
-                      </td>
-                      {!isCoach && (
+                    return (
+                      <tr
+                        key={session.ptNumber}
+                        className={`border-t hover:bg-gray-50 ${
+                          isExpired ? 'bg-red-50' : isExpiringSoon ? 'bg-yellow-50' : ''
+                        }`}
+                      >
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => handleRegisterSession(session)}
-                              disabled={session.sessionsRemaining === 0}
-                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                            >
-                              ✅ حضور
-                            </button>
-                            <button
-                              onClick={() => handleRenew(session)}
-                              className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
-                            >
-                              🔄 تجديد
-                            </button>
-                            {session.qrCode && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setSelectedSession(session)
-                                    setShowQRModal(true)
-                                  }}
-                                  className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 flex items-center gap-1"
-                                  title="عرض Barcode"
-                                >
-                                  🔢 Barcode
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const checkInUrl = `${window.location.origin}/pt/check-in`
-                                    const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️`
-                                    const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
-                                    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
-                                    window.open(whatsappUrl, '_blank')
-                                  }}
-                                  className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 flex items-center gap-1"
-                                  title="إرسال عبر WhatsApp"
-                                >
-                                  💬 واتس
-                                </button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => handleDelete(session.ptNumber)}
-                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center gap-1"
-                              title="حذف الاشتراك"
-                            >
-                              🗑️ حذف
-                            </button>
+                          <span className="font-bold text-blue-600">#{session.ptNumber}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="font-semibold">{session.clientName}</p>
+                            <p className="text-sm text-gray-600">{session.phone}</p>
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        <td className="px-4 py-3">{session.coachName}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-center">
+                            <p
+                              className={`font-bold ${
+                                session.sessionsRemaining === 0
+                                  ? 'text-red-600'
+                                  : session.sessionsRemaining <= 3
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                              }`}
+                            >
+                              {session.sessionsRemaining}
+                            </p>
+                            <p className="text-xs text-gray-500">من {session.sessionsPurchased}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{session.pricePerSession} ج.م</td>
+                        <td className="px-4 py-3 font-bold text-green-600">
+                          {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} ج.م
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs font-mono">
+                            {session.startDate && (
+                              <p>من: {formatDateYMD(session.startDate)}</p>
+                            )}
+                            {session.expiryDate && (
+                              <p className={isExpired ? 'text-red-600 font-bold' : ''}>
+                                إلى: {formatDateYMD(session.expiryDate)}
+                              </p>
+                            )}
+                            {isExpired && <p className="text-red-600 font-bold">❌ منتهية</p>}
+                            {!isExpired && isExpiringSoon && (
+                              <p className="text-orange-600 font-bold">⚠️ قريبة الانتهاء</p>
+                            )}
+                          </div>
+                        </td>
+                        {!isCoach && (
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => handleRegisterSession(session)}
+                                disabled={session.sessionsRemaining === 0}
+                                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                ✅ حضور
+                              </button>
+                              <button
+                                onClick={() => handleRenew(session)}
+                                className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
+                              >
+                                🔄 تجديد
+                              </button>
+                              {session.qrCode && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedSession(session)
+                                      setShowQRModal(true)
+                                    }}
+                                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 flex items-center gap-1"
+                                    title="عرض Barcode"
+                                  >
+                                    🔢 Barcode
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const checkInUrl = `${window.location.origin}/pt/check-in`
+                                      const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️`
+                                      const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
+                                      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+                                      window.open(whatsappUrl, '_blank')
+                                    }}
+                                    className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 flex items-center gap-1"
+                                    title="إرسال عبر WhatsApp"
+                                  >
+                                    💬 واتس
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                onClick={() => handleDelete(session.ptNumber)}
+                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center gap-1"
+                                title="حذف الاشتراك"
+                              >
+                                🗑️ حذف
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile/Tablet Cards - Hidden on desktop */}
+          <div className="lg:hidden space-y-3">
+            {filteredSessions.map((session) => {
+              const isExpiringSoon =
+                session.expiryDate &&
+                new Date(session.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+              const isExpired = session.expiryDate && new Date(session.expiryDate) < new Date()
+
+              return (
+                <div
+                  key={session.ptNumber}
+                  className={`bg-white rounded-xl shadow-md overflow-hidden border-2 hover:shadow-lg transition ${
+                    isExpired ? 'border-red-300 bg-red-50' : isExpiringSoon ? 'border-orange-300 bg-orange-50' : 'border-gray-200'
+                  }`}
+                >
+                  {/* Header */}
+                  <div className={`p-2.5 ${isExpired ? 'bg-red-600' : isExpiringSoon ? 'bg-orange-600' : 'bg-gradient-to-r from-purple-600 to-purple-700'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xl font-bold text-white">#{session.ptNumber}</div>
+                      <div className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        session.sessionsRemaining === 0 ? 'bg-red-500' : session.sessionsRemaining <= 3 ? 'bg-orange-500' : 'bg-green-500'
+                      } text-white`}>
+                        {session.sessionsRemaining} / {session.sessionsPurchased} حصة
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-3 space-y-2.5">
+                    {/* Client Info */}
+                    <div className="pb-2.5 border-b-2 border-gray-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">👤</span>
+                        <span className="text-xs text-gray-500 font-semibold">العميل</span>
+                      </div>
+                      <div className="text-base font-bold text-gray-800">{session.clientName}</div>
+                      <div className="text-sm font-mono text-gray-600 mt-1">{session.phone}</div>
+                    </div>
+
+                    {/* Coach */}
+                    <div className="pb-2.5 border-b-2 border-gray-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">🏋️</span>
+                        <span className="text-xs text-gray-500 font-semibold">الكوتش</span>
+                      </div>
+                      <div className="text-base font-bold text-gray-800">{session.coachName}</div>
+                    </div>
+
+                    {/* Price Info */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">💰</span>
+                          <span className="text-xs text-blue-700 font-semibold">السعر/حصة</span>
+                        </div>
+                        <div className="text-base font-bold text-blue-600">{session.pricePerSession} ج.م</div>
+                      </div>
+                      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">💵</span>
+                          <span className="text-xs text-green-700 font-semibold">الإجمالي</span>
+                        </div>
+                        <div className="text-base font-bold text-green-600">
+                          {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} ج.م
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dates */}
+                    {(session.startDate || session.expiryDate) && (
+                      <div className={`border-2 rounded-lg p-2.5 ${
+                        isExpired ? 'bg-red-50 border-red-300' : isExpiringSoon ? 'bg-orange-50 border-orange-300' : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm">📅</span>
+                          <span className={`text-xs font-semibold ${
+                            isExpired ? 'text-red-700' : isExpiringSoon ? 'text-orange-700' : 'text-gray-700'
+                          }`}>الفترة</span>
+                        </div>
+                        <div className="space-y-1 text-xs font-mono">
+                          {session.startDate && (
+                            <div className="text-gray-700">من: {formatDateYMD(session.startDate)}</div>
+                          )}
+                          {session.expiryDate && (
+                            <div className={isExpired ? 'text-red-600 font-bold' : 'text-gray-700'}>
+                              إلى: {formatDateYMD(session.expiryDate)}
+                            </div>
+                          )}
+                          {isExpired && (
+                            <div className="text-red-600 font-bold">❌ منتهية</div>
+                          )}
+                          {!isExpired && isExpiringSoon && (
+                            <div className="text-orange-600 font-bold">⚠️ قريبة الانتهاء</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    {!isCoach && (
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => handleRegisterSession(session)}
+                          disabled={session.sessionsRemaining === 0}
+                          className="bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-1"
+                        >
+                          <span>✅</span>
+                          <span>حضور</span>
+                        </button>
+                        <button
+                          onClick={() => handleRenew(session)}
+                          className="bg-purple-600 text-white py-2 rounded-lg text-sm hover:bg-purple-700 font-bold flex items-center justify-center gap-1"
+                        >
+                          <span>🔄</span>
+                          <span>تجديد</span>
+                        </button>
+                        {session.qrCode && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedSession(session)
+                                setShowQRModal(true)
+                              }}
+                              className="bg-blue-500 text-white py-2 rounded-lg text-sm hover:bg-blue-600 font-bold flex items-center justify-center gap-1"
+                            >
+                              <span>🔢</span>
+                              <span>Barcode</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                const checkInUrl = `${window.location.origin}/pt/check-in`
+                                const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️`
+                                const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
+                                const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+                                window.open(whatsappUrl, '_blank')
+                              }}
+                              className="bg-green-500 text-white py-2 rounded-lg text-sm hover:bg-green-600 font-bold flex items-center justify-center gap-1"
+                            >
+                              <span>💬</span>
+                              <span>واتس</span>
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDelete(session.ptNumber)}
+                          className="bg-red-600 text-white py-2 rounded-lg text-sm hover:bg-red-700 font-bold flex items-center justify-center gap-1 col-span-2"
+                        >
+                          <span>🗑️</span>
+                          <span>حذف الاشتراك</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {filteredSessions.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              {searchTerm ? 'لا توجد نتائج للبحث' : 'لا توجد جلسات PT حالياً'}
+            <div className="bg-white rounded-lg shadow-md p-12 text-center text-gray-500">
+              <div className="text-6xl mb-4">📋</div>
+              <p className="text-xl">{searchTerm ? 'لا توجد نتائج للبحث' : 'لا توجد جلسات PT حالياً'}</p>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Barcode Modal */}
