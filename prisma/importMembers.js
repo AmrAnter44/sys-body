@@ -60,23 +60,26 @@ function parseMemberNumber(value) {
 }
 
 async function importExcel() {
-  // 🗑️ مسح كل البيانات المرتبطة بالأعضاء أولاً
-  console.log("🗑️  Deleting all related data and members...");
+  // 🗑️ مسح جميع الإيصالات أولاً (بالكامل)
+  console.log("🗑️  Deleting all receipts and related data...");
   try {
-    // مسح البيانات المرتبطة أولاً (بالترتيب الصحيح)
+    // مسح جميع الإيصالات أولاً (وليس فقط إيصالات الأعضاء)
+    const allReceipts = await prisma.receipt.deleteMany({});
+    console.log(`   ✓ Deleted ${allReceipts.count} ALL receipts`);
+
+    // إعادة تعيين عداد الإيصالات
+    await prisma.receiptCounter.deleteMany({});
+    console.log(`   ✓ Reset receipt counter`);
+
+    // مسح الدعوات المرتبطة بالأعضاء
     const invitations = await prisma.invitation.deleteMany({});
     console.log(`   ✓ Deleted ${invitations.count} invitations`);
-    
-    const receipts = await prisma.receipt.deleteMany({
-      where: { memberId: { not: null } }
-    });
-    console.log(`   ✓ Deleted ${receipts.count} member receipts`);
-    
+
     // دلوقتي نقدر نمسح الأعضاء
     const members = await prisma.member.deleteMany({});
     console.log(`   ✓ Deleted ${members.count} members\n`);
-    
-    console.log(`✅ Database cleared successfully!\n`);
+
+    console.log(`✅ Database cleared successfully (including ALL receipts)!\n`);
   } catch (err) {
     console.error("❌ Error deleting data:", err.message);
     throw err;
@@ -113,6 +116,13 @@ async function importExcel() {
           rowData[header] = cell.value;
         }
       });
+
+      // ✅ إضافة رقم الإيصال من العمود B (Column 2)
+      const receiptNumberFromExcel = row.getCell(2).value; // العمود B
+      if (receiptNumberFromExcel) {
+        rowData['receiptNumber'] = receiptNumberFromExcel;
+      }
+
       if (Object.keys(rowData).length > 0) {
         rawData.push(rowData);
       }
@@ -127,6 +137,7 @@ async function importExcel() {
     console.log(Object.keys(rawData[0]));
     console.log("\n🔍 DEBUG: First row data:");
     console.log(rawData[0]);
+    console.log("\n🔍 DEBUG: Receipt number from Column B:", rawData[0]['receiptNumber']);
   }
 
   const recordsMap = new Map(); // استخدام Map بدل array لتخزين آخر سجل لكل رقم
@@ -175,6 +186,11 @@ async function importExcel() {
     today.setHours(0, 0, 0, 0);
     const isActive = expiryDate >= today; // نشط إذا لم ينته بعد
 
+    // ✅ قراءة رقم الإيصال من Excel
+    const receiptNumberFromExcel = row["receiptNumber"]
+      ? parseInt(row["receiptNumber"].toString())
+      : null;
+
     const data = {
       createdAt,
       startDate,
@@ -185,7 +201,8 @@ async function importExcel() {
       subscriptionPrice: parseFloat(row["subscriptionPrice"]) || 0,
       remainingAmount: parseFloat(row["remainingAmount"]) || 0,
       notes: row["Reception Name"] ? `Reception: ${row["Reception Name"]}` : null,
-      isActive // ✅ إضافة isActive
+      isActive, // ✅ إضافة isActive
+      receiptNumber: receiptNumberFromExcel // ✅ إضافة رقم الإيصال من Excel
     };
 
     // حفظ السجل في Map - لو الرقم مكرر هيستبدل القديم بالجديد تلقائياً
@@ -206,37 +223,38 @@ async function importExcel() {
   }
 
   console.log("\n⏳ Starting fresh import in 5 seconds...");
-  console.log("⚠️  ALL EXISTING MEMBERS WILL BE DELETED!");
+  console.log("⚠️  ALL EXISTING MEMBERS AND RECEIPTS WILL BE DELETED!");
   console.log("Press Ctrl+C to cancel if needed.\n");
-  
+
   await new Promise(resolve => setTimeout(resolve, 5000));
 
   let created = 0;
   let failed = 0;
   const errors = [];
 
-  // الحصول على آخر رقم إيصال أو البدء من 1000
-  let receiptCounter = await prisma.receiptCounter.findFirst();
-  if (!receiptCounter) {
-    receiptCounter = await prisma.receiptCounter.create({
-      data: { current: 1000 }
-    });
-  }
-  let currentReceiptNumber = receiptCounter.current;
-
-  console.log("🚀 Starting fresh import (all records will be created)...\n");
-  console.log(`📝 Starting receipt numbers from: ${currentReceiptNumber}\n`);
+  console.log("🚀 Starting fresh import...\n");
+  console.log(`📝 Using receipt numbers from Excel (Column B)\n`);
 
   let receiptsCreated = 0;
+  let maxReceiptNumber = 1000; // لتتبع أعلى رقم إيصال
 
   for (const record of records) {
     try {
+      // إزالة receiptNumber من بيانات العضو
+      const { receiptNumber, ...memberData } = record;
+
       // إضافة عضو جديد مباشرة (لأننا مسحنا كل البيانات القديمة)
-      const member = await prisma.member.create({ data: record });
+      const member = await prisma.member.create({ data: memberData });
       created++;
 
-      // إنشاء إيصال للعضو
-      currentReceiptNumber++;
+      // ✅ استخدام رقم الإيصال من Excel أو إنشاء رقم تلقائي
+      const receiptNumberToUse = receiptNumber || (maxReceiptNumber + 1);
+
+      // تحديث أعلى رقم إيصال
+      if (receiptNumberToUse > maxReceiptNumber) {
+        maxReceiptNumber = receiptNumberToUse;
+      }
+
       const receiptDetails = {
         memberNumber: member.memberNumber,
         memberName: member.name,
@@ -250,7 +268,7 @@ async function importExcel() {
 
       await prisma.receipt.create({
         data: {
-          receiptNumber: currentReceiptNumber,
+          receiptNumber: receiptNumberToUse,
           type: 'عضوية',
           amount: member.subscriptionPrice - member.remainingAmount,
           itemDetails: JSON.stringify(receiptDetails),
@@ -262,7 +280,7 @@ async function importExcel() {
       receiptsCreated++;
 
       if (created % 50 === 0) {
-        console.log(`✅ Created ${created}/${records.length} members and ${receiptsCreated} receipts...`);
+        console.log(`✅ Created ${created}/${records.length} members and ${receiptsCreated} receipts (using Excel receipt numbers)...`);
       }
     } catch (err) {
       failed++;
@@ -274,18 +292,22 @@ async function importExcel() {
     }
   }
 
-  // تحديث عداد الإيصالات
-  await prisma.receiptCounter.update({
-    where: { id: receiptCounter.id },
-    data: { current: currentReceiptNumber }
+  // إنشاء عداد الإيصالات بأعلى رقم + 1
+  await prisma.receiptCounter.create({
+    data: {
+      id: 1,
+      current: maxReceiptNumber + 1
+    }
   });
-  console.log(`\n📝 Updated receipt counter to: ${currentReceiptNumber}`);
+  console.log(`\n📝 Created receipt counter starting from: ${maxReceiptNumber + 1}`);
 
   console.log("\n=================================================");
   console.log(`✅ FRESH IMPORT COMPLETE`);
   console.log(`=================================================`);
   console.log(`➕ New members created: ${created}`);
-  console.log(`📝 Receipts created: ${receiptsCreated}`);
+  console.log(`📝 Receipts created: ${receiptsCreated} (using Excel receipt numbers from Column B)`);
+  console.log(`🔢 Highest receipt number: ${maxReceiptNumber}`);
+  console.log(`📊 Next receipt number will be: ${maxReceiptNumber + 1}`);
   console.log(`⚠️  Failed: ${failed}`);
   console.log(`📊 Skipped during parsing: ${skippedRecords.length}`);
   console.log(`📈 Success rate: ${((created / records.length) * 100).toFixed(1)}%`);
@@ -298,9 +320,12 @@ async function importExcel() {
         totalRows: rawData.length,
         newMembers: created,
         receiptsCreated,
+        maxReceiptNumber,
+        nextReceiptNumber: maxReceiptNumber + 1,
         failed,
         skipped: skippedRecords.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        note: "Receipt numbers imported from Excel Column B"
       },
       errors,
       skipped: skippedRecords
