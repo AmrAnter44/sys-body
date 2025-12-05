@@ -48,6 +48,8 @@ export async function POST(request: Request) {
         ? "يوم استخدام"
         : serviceType === "InBody"
         ? "InBody"
+        : serviceType === "LockerRental"
+        ? "تأجير لوجر"
         : serviceType;
 
     // ✅ إنشاء الإيصال وربطه بالـ DayUse
@@ -87,7 +89,8 @@ export async function POST(request: Request) {
             name: name.trim(),
             phone: phone.trim(),
             source: "invitation", // مصدر الزائر: دعوة
-            interestedIn: serviceType === "DayUse" ? "يوم استخدام" : "InBody",
+            interestedIn: serviceType === "DayUse" ? "يوم استخدام" :
+                         serviceType === "InBody" ? "InBody" : "تأجير لوجر",
             notes: `دعوة ${typeArabic} - موظف: ${staffName}`,
             status: "pending",
           },

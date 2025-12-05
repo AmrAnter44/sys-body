@@ -1,11 +1,11 @@
 {
   "summary": {
-    "totalRows": 2869,
-    "newMembers": 1491,
-    "receiptsCreated": 1491,
-    "failed": 131,
-    "skipped": 605,
-    "timestamp": "2025-11-30T15:26:30.511Z"
+    "totalRows": 2972,
+    "newMembers": 1513,
+    "receiptsCreated": 1513,
+    "failed": 133,
+    "skipped": 668,
+    "timestamp": "2025-12-04T20:22:28.248Z"
   },
   "errors": [
     {
@@ -260,21 +260,6 @@
         "remainingAmount": 0,
         "notes": null,
         "isActive": true
-      },
-      "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
-    },
-    {
-      "record": {
-        "createdAt": "2025-01-31T00:00:00.000Z",
-        "startDate": "2025-01-13T00:00:00.000Z",
-        "expiryDate": "2025-06-13T00:00:00.000Z",
-        "memberNumber": 359,
-        "name": "ابراهيم محمد",
-        "phone": "01281845324",
-        "subscriptionPrice": 1800,
-        "remainingAmount": 0,
-        "notes": null,
-        "isActive": false
       },
       "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
     },
@@ -805,21 +790,6 @@
     },
     {
       "record": {
-        "createdAt": "2025-07-01T00:00:00.000Z",
-        "startDate": "2025-07-01T00:00:00.000Z",
-        "expiryDate": "2025-10-01T00:00:00.000Z",
-        "memberNumber": 895,
-        "name": "بيتر جمال",
-        "phone": "01281879913",
-        "subscriptionPrice": 1400,
-        "remainingAmount": 0,
-        "notes": null,
-        "isActive": false
-      },
-      "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
-    },
-    {
-      "record": {
         "createdAt": "2025-07-02T00:00:00.000Z",
         "startDate": "+202500-07-01T21:00:00.000Z",
         "expiryDate": "2025-12-29T00:00:00.000Z",
@@ -1025,6 +995,21 @@
         "remainingAmount": 0,
         "notes": null,
         "isActive": false
+      },
+      "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
+    },
+    {
+      "record": {
+        "createdAt": "2025-12-01T00:00:00.000Z",
+        "startDate": "2025-12-01T00:00:00.000Z",
+        "expiryDate": "2026-01-01T00:00:00.000Z",
+        "memberNumber": 1482,
+        "name": "مروان عبدالسلام",
+        "phone": "01019551202",
+        "subscriptionPrice": 800,
+        "remainingAmount": 0,
+        "notes": null,
+        "isActive": true
       },
       "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
     },
@@ -1339,7 +1324,7 @@
         "subscriptionPrice": 1500,
         "remainingAmount": 500,
         "notes": null,
-        "isActive": true
+        "isActive": false
       },
       "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
     },
@@ -1834,7 +1819,7 @@
         "subscriptionPrice": 600,
         "remainingAmount": 0,
         "notes": null,
-        "isActive": true
+        "isActive": false
       },
       "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
     },
@@ -1972,6 +1957,51 @@
         "isActive": true
       },
       "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
+    },
+    {
+      "record": {
+        "createdAt": "2025-11-29T00:00:00.000Z",
+        "startDate": "2025-11-29T00:00:00.000Z",
+        "expiryDate": "2026-04-28T00:00:00.000Z",
+        "memberNumber": 1468,
+        "name": "محمد اسامه الشبراوي",
+        "phone": "01063998681",
+        "subscriptionPrice": 1800,
+        "remainingAmount": 0,
+        "notes": null,
+        "isActive": true
+      },
+      "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
+    },
+    {
+      "record": {
+        "createdAt": "2025-11-30T00:00:00.000Z",
+        "startDate": "2025-12-26T00:00:00.000Z",
+        "expiryDate": "2026-05-25T00:00:00.000Z",
+        "memberNumber": 1475,
+        "name": "معتصم عمر نصر",
+        "phone": "01104527491",
+        "subscriptionPrice": 1210,
+        "remainingAmount": 0,
+        "notes": null,
+        "isActive": true
+      },
+      "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nUnique constraint failed on the fields: (`memberNumber`)"
+    },
+    {
+      "record": {
+        "createdAt": "2025-12-01T00:00:00.000Z",
+        "startDate": "2025-12-01T00:00:00.000Z",
+        "expiryDate": "+022026-04-29T21:00:00.000Z",
+        "memberNumber": 1485,
+        "name": "محمد احمد عبدالخالق",
+        "phone": "01015794242",
+        "subscriptionPrice": 1800,
+        "remainingAmount": 0,
+        "notes": null,
+        "isActive": true
+      },
+      "error": "\nInvalid `prisma.member.create()` invocation:\n\n\nCould not convert argument value Object {\"$type\": String(\"DateTime\"), \"value\": String(\"+022026-04-29T21:00:00.000Z\")} to ArgumentValue."
     }
   ],
   "skipped": [
@@ -10714,6 +10744,510 @@
         "remainingAmount": 0,
         "Start Date": "2025-11-24T00:00:00.000Z",
         "End Date": "2025-12-24T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-11-29T00:00:00.000Z",
+        "receipts": 2169,
+        "memberNumber": "-",
+        "name": "عمر رامي",
+        "phone": "-",
+        "Gift ( + )": "other",
+        "gift": "other",
+        "subscriptionPrice": 150,
+        "remainingAmount": 0,
+        "Start Date": "2025-11-29T00:00:00.000Z",
+        "End Date": "2025-11-29T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-11-29T00:00:00.000Z",
+        "receipts": 2174,
+        "memberNumber": 1466,
+        "name": "محمد جمال عبدالناصر",
+        "phone": "-",
+        "Gift ( + )": "Membership",
+        "gift": "جديد",
+        "subscriptionPrice": 1800,
+        "remainingAmount": 0,
+        "Start Date": "2025-11-29T00:00:00.000Z",
+        "End Date": "2026-04-28T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-12-30T00:00:00.000Z",
+        "receipts": 2191,
+        "memberNumber": 1476,
+        "name": "مروان عمر نصر",
+        "phone": "-",
+        "Gift ( + )": "Membership",
+        "gift": "جديد",
+        "subscriptionPrice": 1210,
+        "remainingAmount": 0,
+        "Start Date": "2025-12-26T00:00:00.000Z",
+        "End Date": "2026-05-25T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-11-30T00:00:00.000Z",
+        "receipts": 2193,
+        "memberNumber": 1278,
+        "name": "محمد ايمن عبدالفتاح",
+        "phone": "-",
+        "Gift ( + )": "Membership",
+        "gift": "تجديد",
+        "subscriptionPrice": 1800,
+        "remainingAmount": 0,
+        "Start Date": "2025-11-30T00:00:00.000Z",
+        "End Date": "2026-04-30T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-12-01T00:00:00.000Z",
+        "receipts": 2200,
+        "memberNumber": "-",
+        "name": "ك مازن",
+        "phone": "-",
+        "Gift ( + )": "Membership",
+        "gift": "تجديد",
+        "subscriptionPrice": 1500,
+        "remainingAmount": 0,
+        "Start Date": "2025-11-24T00:00:00.000Z",
+        "End Date": "2025-12-23T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-12-01T00:00:00.000Z",
+        "receipts": 2202,
+        "memberNumber": 1477,
+        "name": "اسامه صبري",
+        "phone": "-",
+        "Gift ( + )": "Membership",
+        "gift": "جديد",
+        "subscriptionPrice": 1800,
+        "remainingAmount": 0,
+        "Start Date": "2025-11-30T00:00:00.000Z",
+        "End Date": "2026-04-29T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Invalid phone",
+      "row": {
+        "createdAt": "2025-12-01T00:00:00.000Z",
+        "receipts": 2204,
+        "memberNumber": 1218,
+        "name": "اياد محمد عبدالنعيم",
+        "phone": "-",
+        "Gift ( + )": "Membership",
+        "gift": "جديد",
+        "subscriptionPrice": 1300,
+        "remainingAmount": 0,
+        "Start Date": "2025-09-20T00:00:00.000Z",
+        "End Date": "2025-12-28T00:00:00.000Z"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2213,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": "-",
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2238,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2239,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2240,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2241,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2242,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2243,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2244,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2245,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2246,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2247,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2248,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2249,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2250,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2251,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2252,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2253,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2254,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2255,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2256,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2257,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2258,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2259,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2260,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2261,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2262,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2263,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2264,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2265,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2266,
+        "Gift ( + )": "Membership"
+      }
+    },
+    {
+      "reason": "Empty name",
+      "row": {
+        "receipts": 2267,
+        "Gift ( + )": "Membership"
       }
     }
   ]

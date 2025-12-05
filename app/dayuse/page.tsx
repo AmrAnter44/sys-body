@@ -173,6 +173,7 @@ export default function DayUsePage() {
                 >
                   <option value="DayUse">يوم استخدام</option>
                   <option value="InBody">InBody</option>
+                  <option value="LockerRental">تأجير لوجر</option>
                 </select>
               </div>
 
@@ -244,11 +245,14 @@ export default function DayUsePage() {
                   <td className="px-4 py-3">{entry.phone}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded text-sm ${
-                      entry.serviceType === 'DayUse' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-green-100 text-green-800'
+                      entry.serviceType === 'DayUse'
+                        ? 'bg-blue-100 text-blue-800'
+                        : entry.serviceType === 'InBody'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-orange-100 text-orange-800'
                     }`}>
-                      {entry.serviceType === 'DayUse' ? 'يوم استخدام' : 'InBody'}
+                      {entry.serviceType === 'DayUse' ? 'يوم استخدام' :
+                       entry.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
                     </span>
                   </td>
                   <td className="px-4 py-3">{entry.price} ج.م</td>

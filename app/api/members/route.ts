@@ -82,22 +82,23 @@ export async function POST(request: Request) {
     await requirePermission(request, 'canCreateMembers')
     
     const body = await request.json()
-    const { 
-      memberNumber, 
-      name, 
-      phone, 
+    const {
+      memberNumber,
+      name,
+      phone,
       profileImage,
-      inBodyScans, 
-      invitations, 
-      freePTSessions, 
-      subscriptionPrice, 
-      remainingAmount, 
-      notes, 
-      startDate, 
-      expiryDate, 
+      inBodyScans,
+      invitations,
+      freePTSessions,
+      subscriptionPrice,
+      remainingAmount,
+      notes,
+      startDate,
+      expiryDate,
       paymentMethod,
       staffName,
-      isOther
+      isOther,
+      customCreatedAt
     } = body
 
     console.log('📝 إضافة عضو جديد:', {
@@ -160,21 +161,29 @@ export async function POST(request: Request) {
     }
 
     // إنشاء العضو
+    const memberData: any = {
+      memberNumber: cleanMemberNumber,
+      name,
+      phone,
+      profileImage,
+      inBodyScans: cleanInBodyScans,
+      invitations: cleanInvitations,
+      freePTSessions: cleanFreePTSessions,
+      subscriptionPrice: cleanSubscriptionPrice,
+      remainingAmount: cleanRemainingAmount,
+      notes,
+      startDate: startDate ? new Date(startDate) : null,
+      expiryDate: expiryDate ? new Date(expiryDate) : null,
+    }
+
+    // إذا كان هناك تاريخ مخصص من الأدمن، استخدمه
+    if (customCreatedAt) {
+      memberData.createdAt = new Date(customCreatedAt)
+      console.log('⏰ استخدام تاريخ مخصص للعضو:', new Date(customCreatedAt))
+    }
+
     const member = await prisma.member.create({
-      data: {
-        memberNumber: cleanMemberNumber,
-        name,
-        phone,
-        profileImage,
-        inBodyScans: cleanInBodyScans,
-        invitations: cleanInvitations,
-        freePTSessions: cleanFreePTSessions,
-        subscriptionPrice: cleanSubscriptionPrice,
-        remainingAmount: cleanRemainingAmount,
-        notes,
-        startDate: startDate ? new Date(startDate) : null,
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-      },
+      data: memberData,
     })
 
     console.log('✅ تم إنشاء العضو:', member.id, 'رقم العضوية:', member.memberNumber)
@@ -232,31 +241,39 @@ export async function POST(request: Request) {
         subscriptionDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
       }
 
-      const receipt = await prisma.receipt.create({
-        data: {
-          receiptNumber: availableReceiptNumber,
-          type: 'Member',
-          amount: paidAmount,
-          paymentMethod: paymentMethod || 'cash',
+      let receiptData: any = {
+        receiptNumber: availableReceiptNumber,
+        type: 'Member',
+        amount: paidAmount,
+        paymentMethod: paymentMethod || 'cash',
+        staffName: staffName.trim(),
+        itemDetails: JSON.stringify({
+          memberNumber: cleanMemberNumber,
+          memberName: name,
+          phone: phone,
+          subscriptionPrice: cleanSubscriptionPrice,
+          paidAmount: paidAmount,
+          remainingAmount: cleanRemainingAmount,
+          freePTSessions: cleanFreePTSessions,
+          inBodyScans: cleanInBodyScans,
+          invitations: cleanInvitations,
+          startDate: startDate,
+          expiryDate: expiryDate,
+          subscriptionDays: subscriptionDays,
           staffName: staffName.trim(),
-          itemDetails: JSON.stringify({
-            memberNumber: cleanMemberNumber,
-            memberName: name,
-            phone: phone,
-            subscriptionPrice: cleanSubscriptionPrice,
-            paidAmount: paidAmount,
-            remainingAmount: cleanRemainingAmount,
-            freePTSessions: cleanFreePTSessions,
-            inBodyScans: cleanInBodyScans,
-            invitations: cleanInvitations,
-            startDate: startDate,
-            expiryDate: expiryDate,
-            subscriptionDays: subscriptionDays,
-            staffName: staffName.trim(),
-            isOther: isOther === true,
-          }),
-          memberId: member.id,
-        },
+          isOther: isOther === true,
+        }),
+        memberId: member.id,
+      }
+
+      // إذا كان هناك تاريخ مخصص من الأدمن، استخدمه للإيصال أيضاً
+      if (customCreatedAt) {
+        receiptData.createdAt = new Date(customCreatedAt)
+        console.log('⏰ استخدام تاريخ مخصص للإيصال:', new Date(customCreatedAt))
+      }
+
+      const receipt = await prisma.receipt.create({
+        data: receiptData,
       })
 
       console.log('✅ تم إنشاء الإيصال:', receipt.receiptNumber)

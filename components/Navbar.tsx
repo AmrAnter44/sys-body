@@ -6,11 +6,14 @@ import { useState, useRef, useEffect } from 'react'
 import { usePermissions } from '../hooks/usePermissions'
 import type { Permissions } from '../types/permissions'
 import LinkModal from './LinkModal'
+import AdminDateOverride from './AdminDateOverride'
+import { useAdminDate } from '../contexts/AdminDateContext'
 
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { hasPermission, user } = usePermissions()
+  const { hasPermission, user, isAdmin } = usePermissions()
+  const { setCustomCreatedAt } = useAdminDate()
   const [quickSearchId, setQuickSearchId] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
@@ -313,6 +316,12 @@ export default function Navbar() {
 
   return (
     <>
+      {/* Admin Date Override - يظهر فوق كل شيء */}
+      <AdminDateOverride
+        isAdmin={isAdmin}
+        onDateChange={(date) => setCustomCreatedAt(date)}
+      />
+
       {/* ✅ Navbar بتصميم صفين */}
       <nav className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg sticky top-0 z-40">
         <div className="container mx-auto px-2 sm:px-4">

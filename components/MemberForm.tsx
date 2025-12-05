@@ -8,9 +8,10 @@ import { usePermissions } from '../hooks/usePermissions'
 
 interface MemberFormProps {
   onSuccess: () => void
+  customCreatedAt?: Date | null
 }
 
-export default function MemberForm({ onSuccess }: MemberFormProps) {
+export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormProps) {
   const { user } = usePermissions()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -244,7 +245,8 @@ export default function MemberForm({ onSuccess }: MemberFormProps) {
       freePTSessions: parseInt(formData.freePTSessions.toString()),
       subscriptionPrice: parseInt(formData.subscriptionPrice.toString()),
       remainingAmount: parseInt(formData.remainingAmount.toString()),
-      staffName: user?.name || ''
+      staffName: user?.name || '',
+      customCreatedAt: customCreatedAt ? customCreatedAt.toISOString() : null
     }
 
     console.log('📤 إرسال البيانات:', {

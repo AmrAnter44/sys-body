@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
 import MemberForm from '../../components/MemberForm'
+import { useAdminDate } from '../../contexts/AdminDateContext'
 import { formatDateYMD, calculateRemainingDays } from '../../lib/dateFormatter'
 
 interface Member {
@@ -28,6 +29,7 @@ interface Member {
 export default function MembersPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading } = usePermissions()
+  const { customCreatedAt } = useAdminDate()
 
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
@@ -223,10 +225,13 @@ export default function MembersPage() {
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h2 className="text-xl font-semibold mb-4">إضافة عضو جديد</h2>
-          <MemberForm onSuccess={() => {
-            fetchMembers()
-            setShowForm(false)
-          }} />
+          <MemberForm
+            onSuccess={() => {
+              fetchMembers()
+              setShowForm(false)
+            }}
+            customCreatedAt={customCreatedAt}
+          />
         </div>
       )}
 

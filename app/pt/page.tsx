@@ -54,6 +54,7 @@ export default function PTPage() {
     sessionsPurchased: 8,
     coachName: '',
     pricePerSession: 0,
+    totalPrice: 0,
     startDate: formatDateYMD(new Date()),
     expiryDate: '',
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay',
@@ -116,6 +117,7 @@ export default function PTPage() {
       sessionsPurchased: 8,
       coachName: '',
       pricePerSession: 0,
+      totalPrice: 0,
       startDate: formatDateYMD(new Date()),
       expiryDate: '',
       paymentMethod: 'cash',
@@ -123,6 +125,24 @@ export default function PTPage() {
     })
     setEditingSession(null)
     setShowForm(false)
+  }
+
+  // دالة لتحديث السعر الإجمالي عند تغيير سعر الحصة أو عدد الحصص
+  const handlePricePerSessionChange = (value: number) => {
+    const totalPrice = value * formData.sessionsPurchased
+    setFormData({ ...formData, pricePerSession: value, totalPrice })
+  }
+
+  // دالة لتحديث سعر الحصة عند تغيير السعر الإجمالي
+  const handleTotalPriceChange = (value: number) => {
+    const pricePerSession = formData.sessionsPurchased > 0 ? value / formData.sessionsPurchased : 0
+    setFormData({ ...formData, totalPrice: value, pricePerSession })
+  }
+
+  // دالة لتحديث عدد الحصص وإعادة حساب الأسعار
+  const handleSessionsChange = (value: number) => {
+    const pricePerSession = value > 0 ? formData.totalPrice / value : 0
+    setFormData({ ...formData, sessionsPurchased: value, pricePerSession })
   }
 
   const calculateExpiryFromMonths = (months: number) => {
@@ -139,6 +159,7 @@ export default function PTPage() {
   }
 
   const handleEdit = (session: PTSession) => {
+    const totalPrice = session.sessionsPurchased * session.pricePerSession
     setFormData({
       ptNumber: session.ptNumber.toString(),
       clientName: session.clientName,
@@ -146,6 +167,7 @@ export default function PTPage() {
       sessionsPurchased: session.sessionsPurchased,
       coachName: session.coachName,
       pricePerSession: session.pricePerSession,
+      totalPrice: totalPrice,
       startDate: session.startDate ? formatDateYMD(session.startDate) : '',
       expiryDate: session.expiryDate ? formatDateYMD(session.expiryDate) : '',
       paymentMethod: 'cash',
@@ -398,9 +420,7 @@ export default function PTPage() {
                   required
                   min="1"
                   value={formData.sessionsPurchased}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sessionsPurchased: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => handleSessionsChange(parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="8"
                 />
@@ -408,20 +428,36 @@ export default function PTPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  سعر الجلسة (ج.م) <span className="text-red-600">*</span>
+                  السعر الإجمالي (ج.م) <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="number"
                   required
                   min="0"
                   step="0.01"
+                  value={formData.totalPrice}
+                  onChange={(e) => handleTotalPriceChange(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border rounded-lg bg-yellow-50 border-yellow-300"
+                  placeholder="1600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  سعر الجلسة (تلقائي)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
                   value={formData.pricePerSession}
-                  onChange={(e) =>
-                    setFormData({ ...formData, pricePerSession: parseFloat(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg"
+                  onChange={(e) => handlePricePerSessionChange(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border rounded-lg bg-gray-50"
                   placeholder="200"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 يتم حسابه تلقائياً من الإجمالي ÷ عدد الجلسات
+                </p>
               </div>
 
               <div>
@@ -487,12 +523,18 @@ export default function PTPage() {
               </select>
             </div>
 
-            {formData.sessionsPurchased > 0 && formData.pricePerSession > 0 && (
+            {formData.sessionsPurchased > 0 && formData.totalPrice > 0 && (
               <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">الإجمالي:</span>
+                  <span className="text-lg font-semibold">💰 الإجمالي النهائي:</span>
                   <span className="text-2xl font-bold text-green-600">
-                    {(formData.sessionsPurchased * formData.pricePerSession).toFixed(2)} ج.م
+                    {formData.totalPrice.toFixed(2)} ج.م
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
+                  <span>سعر الجلسة الواحدة:</span>
+                  <span className="font-semibold">
+                    {formData.pricePerSession.toFixed(2)} ج.م
                   </span>
                 </div>
               </div>

@@ -1,7 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import Navbar from '../components/Navbar'
-import { PreventInputScroll } from './PreventInputScroll'
+import ClientLayout from '../components/ClientLayout'
 
 export const metadata: Metadata = {
   title: 'نظام إدارة الصالة الرياضية - X GYM',
@@ -19,9 +18,7 @@ export default function RootLayout({
         <link rel="icon" href="/icon.png" />
       </head>
       <body className="bg-gray-50 min-h-screen">
-        <PreventInputScroll />
-        <Navbar />
-        <main>{children}</main>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   )
