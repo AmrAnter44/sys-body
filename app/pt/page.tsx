@@ -24,6 +24,7 @@ interface PTSession {
   sessionsRemaining: number
   coachName: string
   pricePerSession: number
+  remainingAmount?: number
   startDate: string | null
   expiryDate: string | null
   createdAt: string
@@ -46,6 +47,12 @@ export default function PTPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showQRModal, setShowQRModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState<PTSession | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentSession, setPaymentSession] = useState<PTSession | null>(null)
+  const [paymentFormData, setPaymentFormData] = useState({
+    paymentAmount: 0,
+    paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay' | 'wallet'
+  })
 
   const [formData, setFormData] = useState({
     ptNumber: '',
@@ -55,6 +62,7 @@ export default function PTPage() {
     coachName: '',
     pricePerSession: 0,
     totalPrice: 0,
+    remainingAmount: 0,
     startDate: formatDateYMD(new Date()),
     expiryDate: '',
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay',
@@ -118,6 +126,7 @@ export default function PTPage() {
       coachName: '',
       pricePerSession: 0,
       totalPrice: 0,
+      remainingAmount: 0,
       startDate: formatDateYMD(new Date()),
       expiryDate: '',
       paymentMethod: 'cash',
@@ -168,6 +177,7 @@ export default function PTPage() {
       coachName: session.coachName,
       pricePerSession: session.pricePerSession,
       totalPrice: totalPrice,
+      remainingAmount: 0, // Will be populated if PT model has it
       startDate: session.startDate ? formatDateYMD(session.startDate) : '',
       expiryDate: session.expiryDate ? formatDateYMD(session.expiryDate) : '',
       paymentMethod: 'cash',
@@ -247,6 +257,50 @@ export default function PTPage() {
 
   const handleRegisterSession = (session: PTSession) => {
     router.push(`/pt/sessions/register?ptNumber=${session.ptNumber}`)
+  }
+
+  const handleOpenPaymentModal = (session: PTSession) => {
+    setPaymentSession(session)
+    setPaymentFormData({
+      paymentAmount: session.remainingAmount || 0,
+      paymentMethod: 'cash'
+    })
+    setShowPaymentModal(true)
+  }
+
+  const handlePayRemaining = async () => {
+    if (!paymentSession) return
+
+    try {
+      setLoading(true)
+      const response = await fetch('/api/pt/pay-remaining', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ptNumber: paymentSession.ptNumber,
+          paymentAmount: paymentFormData.paymentAmount,
+          paymentMethod: paymentFormData.paymentMethod,
+          staffName: user?.name || ''
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        setMessage('✅ تم دفع المبلغ المتبقي بنجاح!')
+        setTimeout(() => setMessage(''), 3000)
+        fetchSessions()
+        setShowPaymentModal(false)
+        setPaymentSession(null)
+      } else {
+        setMessage(`❌ ${result.error || 'فشل الدفع'}`)
+      }
+    } catch (error) {
+      console.error('Error paying remaining:', error)
+      setMessage('❌ حدث خطأ في الدفع')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filteredSessions = sessions.filter(
@@ -362,9 +416,12 @@ export default function PTPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">رقم الهاتف</label>
+                <label className="block text-sm font-medium mb-1">
+                  رقم الهاتف <span className="text-red-600">*</span>
+                </label>
                 <input
                   type="tel"
+                  required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
@@ -440,6 +497,24 @@ export default function PTPage() {
                   className="w-full px-3 py-2 border rounded-lg bg-yellow-50 border-yellow-300"
                   placeholder="1600"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  الباقي (ج.م)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.remainingAmount}
+                  onChange={(e) => setFormData({ ...formData, remainingAmount: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border rounded-lg bg-orange-50 border-orange-300"
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 المبلغ المتبقي غير المدفوع
+                </p>
               </div>
 
               <div>
@@ -537,6 +612,20 @@ export default function PTPage() {
                     {formData.pricePerSession.toFixed(2)} ج.م
                   </span>
                 </div>
+                <div className="flex justify-between items-center mt-2 text-sm border-t pt-2">
+                  <span className="font-semibold text-blue-700">المدفوع:</span>
+                  <span className="font-bold text-blue-600">
+                    {(formData.totalPrice - formData.remainingAmount).toFixed(2)} ج.م
+                  </span>
+                </div>
+                {formData.remainingAmount > 0 && (
+                  <div className="flex justify-between items-center mt-1 text-sm">
+                    <span className="font-semibold text-orange-700">الباقي:</span>
+                    <span className="font-bold text-orange-600">
+                      {formData.remainingAmount.toFixed(2)} ج.م
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -620,6 +709,7 @@ export default function PTPage() {
                     <th className="px-4 py-3 text-right">الجلسات</th>
                     <th className="px-4 py-3 text-right">السعر</th>
                     <th className="px-4 py-3 text-right">الإجمالي</th>
+                    <th className="px-4 py-3 text-right">الباقي</th>
                     <th className="px-4 py-3 text-right">التواريخ</th>
                     {!isCoach && <th className="px-4 py-3 text-right">إجراءات</th>}
                   </tr>
@@ -669,6 +759,17 @@ export default function PTPage() {
                           {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} ج.م
                         </td>
                         <td className="px-4 py-3">
+                          <span
+                            className={`font-bold ${
+                              (session.remainingAmount || 0) > 0
+                                ? 'text-orange-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {(session.remainingAmount || 0).toFixed(0)} ج.م
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
                           <div className="text-xs font-mono">
                             {session.startDate && (
                               <p>من: {formatDateYMD(session.startDate)}</p>
@@ -700,6 +801,14 @@ export default function PTPage() {
                               >
                                 🔄 تجديد
                               </button>
+                              {(session.remainingAmount || 0) > 0 && (
+                                <button
+                                  onClick={() => handleOpenPaymentModal(session)}
+                                  className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700"
+                                >
+                                  💰 دفع الباقي
+                                </button>
+                              )}
                               {session.qrCode && (
                                 <>
                                   <button
@@ -813,6 +922,19 @@ export default function PTPage() {
                       </div>
                     </div>
 
+                    {/* Remaining Amount */}
+                    {(session.remainingAmount || 0) > 0 && (
+                      <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-2.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-sm">⚠️</span>
+                          <span className="text-xs text-orange-700 font-semibold">المبلغ المتبقي</span>
+                        </div>
+                        <div className="text-base font-bold text-orange-600">
+                          {(session.remainingAmount || 0).toFixed(0)} ج.م
+                        </div>
+                      </div>
+                    )}
+
                     {/* Dates */}
                     {(session.startDate || session.expiryDate) && (
                       <div className={`border-2 rounded-lg p-2.5 ${
@@ -861,6 +983,15 @@ export default function PTPage() {
                           <span>🔄</span>
                           <span>تجديد</span>
                         </button>
+                        {(session.remainingAmount || 0) > 0 && (
+                          <button
+                            onClick={() => handleOpenPaymentModal(session)}
+                            className="col-span-2 bg-orange-600 text-white py-2 rounded-lg text-sm hover:bg-orange-700 font-bold flex items-center justify-center gap-1"
+                          >
+                            <span>💰</span>
+                            <span>دفع الباقي ({(session.remainingAmount || 0).toFixed(0)} ج.م)</span>
+                          </button>
+                        )}
                         {session.qrCode && (
                           <>
                             <button
@@ -1081,6 +1212,162 @@ export default function PTPage() {
               <div className="bg-blue-50 border-r-4 border-blue-500 p-3 rounded">
                 <p className="text-xs text-blue-800">
                   <strong>💡 ملاحظة:</strong> Barcode صالح لجميع حصص هذا الاشتراك. يُستخدم لتسجيل الحضور عند الكوتش.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && paymentSession && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">💰 دفع المبلغ المتبقي</h2>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false)
+                  setPaymentSession(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* معلومات الاشتراك */}
+              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-lg p-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">رقم PT:</span>
+                    <span className="font-bold">#{paymentSession.ptNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">العميل:</span>
+                    <span className="font-bold">{paymentSession.clientName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">الكوتش:</span>
+                    <span className="font-bold">{paymentSession.coachName}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-orange-700 font-semibold">المبلغ المتبقي:</span>
+                    <span className="font-bold text-orange-600 text-lg">
+                      {(paymentSession.remainingAmount || 0).toFixed(0)} ج.م
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* مبلغ الدفع */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  مبلغ الدفع (ج.م) <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={paymentSession.remainingAmount || 0}
+                  step="0.01"
+                  value={paymentFormData.paymentAmount}
+                  onChange={(e) =>
+                    setPaymentFormData({
+                      ...paymentFormData,
+                      paymentAmount: parseFloat(e.target.value) || 0
+                    })
+                  }
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg font-bold"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentFormData({
+                        ...paymentFormData,
+                        paymentAmount: paymentSession.remainingAmount || 0
+                      })
+                    }
+                    className="flex-1 px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-sm font-medium"
+                  >
+                    الكل ({(paymentSession.remainingAmount || 0).toFixed(0)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentFormData({
+                        ...paymentFormData,
+                        paymentAmount: (paymentSession.remainingAmount || 0) / 2
+                      })
+                    }
+                    className="flex-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-sm font-medium"
+                  >
+                    النصف ({((paymentSession.remainingAmount || 0) / 2).toFixed(0)})
+                  </button>
+                </div>
+              </div>
+
+              {/* طريقة الدفع */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  طريقة الدفع <span className="text-red-600">*</span>
+                </label>
+                <select
+                  value={paymentFormData.paymentMethod}
+                  onChange={(e) =>
+                    setPaymentFormData({
+                      ...paymentFormData,
+                      paymentMethod: e.target.value as 'cash' | 'visa' | 'instapay' | 'wallet'
+                    })
+                  }
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="cash">💵 كاش</option>
+                  <option value="visa">💳 فيزا</option>
+                  <option value="instapay">📱 إنستاباي</option>
+                  <option value="wallet">👛 محفظة</option>
+                </select>
+              </div>
+
+              {/* المبلغ المتبقي بعد الدفع */}
+              {paymentFormData.paymentAmount > 0 && (
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-blue-700 font-semibold">
+                      المتبقي بعد الدفع:
+                    </span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {((paymentSession.remainingAmount || 0) - paymentFormData.paymentAmount).toFixed(0)} ج.م
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* أزرار الإجراءات */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowPaymentModal(false)
+                    setPaymentSession(null)
+                  }}
+                  className="bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-bold"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={handlePayRemaining}
+                  disabled={loading || paymentFormData.paymentAmount <= 0 || paymentFormData.paymentAmount > (paymentSession.remainingAmount || 0)}
+                  className="bg-orange-600 text-white py-3 rounded-lg hover:bg-orange-700 font-bold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'جاري الدفع...' : '✅ تأكيد الدفع'}
+                </button>
+              </div>
+
+              {/* ملاحظة */}
+              <div className="bg-orange-50 border-r-4 border-orange-500 p-3 rounded">
+                <p className="text-xs text-orange-800">
+                  <strong>💡 ملاحظة:</strong> سيتم إنشاء إيصال للمبلغ المدفوع وتحديث المبلغ المتبقي.
                 </p>
               </div>
             </div>

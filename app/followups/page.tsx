@@ -227,10 +227,38 @@ export default function FollowUpsPage() {
     setMessage('')
 
     try {
+      // ✅ البحث عن بيانات الزائر/العضو للإرسال إلى الـ API
+      let visitorData = null
+
+      // البحث في الزوار
+      const visitor = visitors.find(v => v.id === formData.visitorId)
+      if (visitor) {
+        visitorData = { name: visitor.name, phone: visitor.phone, source: visitor.source }
+      }
+
+      // البحث في الأعضاء المنتهيين
+      const expMember = expiredMembers.find((m: any) => m.id === formData.visitorId)
+      if (expMember) {
+        const cleanName = expMember.name.replace(' (عضو منتهي)', '').trim()
+        visitorData = { name: cleanName, phone: expMember.phone, source: 'expired-member' }
+      }
+
+      // البحث في Day Use
+      const dayUse = dayUseRecords.find(r => `dayuse-${r.id}` === formData.visitorId)
+      if (dayUse) {
+        visitorData = { name: dayUse.name, phone: dayUse.phone, source: 'invitation' }
+      }
+
+      // البحث في Invitations
+      const invitation = invitations.find(inv => `invitation-${inv.id}` === formData.visitorId)
+      if (invitation) {
+        visitorData = { name: invitation.guestName, phone: invitation.guestPhone, source: 'member-invitation' }
+      }
+
       const response = await fetch('/api/visitors/followups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, visitorData }),
       })
 
       if (response.ok) {

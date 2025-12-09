@@ -30,7 +30,11 @@ asar: true
 asarUnpack:
   - "node_modules/@prisma/**/*"
   - "node_modules/.prisma/**/*"
+  - "node_modules/bwip-js/**/*"
+  - "node_modules/sharp/**/*"
+  - "node_modules/better-sqlite3/**/*"
   - "prisma/**/*"
+  - "electron/check-and-migrate.js"
 
 win:
   target:

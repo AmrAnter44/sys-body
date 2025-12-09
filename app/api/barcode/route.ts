@@ -12,6 +12,10 @@ export async function POST(req: Request) {
       scale: 5,
       height: 15,
       includetext: true,
+      paddingleft: 10,
+      paddingright: 10,
+      paddingtop: 5,
+      paddingbottom: 5,
     });
 
     const base64 = png.toString("base64");

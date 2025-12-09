@@ -20,6 +20,42 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, phone, serviceType, price, staffName, paymentMethod } = body;
 
+    // ✅ التحقق من الحقول المطلوبة
+    if (!name || name.trim() === '') {
+      return NextResponse.json(
+        { error: 'اسم العميل مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!phone || phone.trim() === '') {
+      return NextResponse.json(
+        { error: 'رقم الهاتف مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!serviceType || serviceType.trim() === '') {
+      return NextResponse.json(
+        { error: 'نوع الخدمة مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!price || price <= 0) {
+      return NextResponse.json(
+        { error: 'السعر مطلوب ويجب أن يكون أكبر من صفر' },
+        { status: 400 }
+      )
+    }
+
+    if (!staffName || staffName.trim() === '') {
+      return NextResponse.json(
+        { error: 'اسم الموظف مطلوب' },
+        { status: 400 }
+      )
+    }
+
     // إنشاء الإدخال
     const entry = await prisma.dayUseInBody.create({
       data: {

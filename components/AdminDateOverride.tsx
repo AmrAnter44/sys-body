@@ -10,6 +10,7 @@ interface AdminDateOverrideProps {
 
 export default function AdminDateOverride({ isAdmin, onDateChange }: AdminDateOverrideProps) {
   const [isEnabled, setIsEnabled] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [customDate, setCustomDate] = useState(formatDateYMD(new Date()))
   const [customTime, setCustomTime] = useState('12:00')
 
@@ -28,76 +29,131 @@ export default function AdminDateOverride({ isAdmin, onDateChange }: AdminDateOv
   if (!isAdmin) return null
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isEnabled ? 'bg-gradient-to-r from-red-600 to-orange-600' : 'bg-gradient-to-r from-purple-600 to-blue-600'
-    } text-white shadow-lg`}>
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* Toggle Button */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsEnabled(!isEnabled)}
-              className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                isEnabled
-                  ? 'bg-white text-red-600 hover:bg-red-50'
-                  : 'bg-white/20 hover:bg-white/30'
-              }`}
-            >
-              {isEnabled ? '🔴 تفعيل - وضع التاريخ المخصص' : '⚪ تفعيل وضع التاريخ المخصص'}
-            </button>
+    <>
+      {/* Button in Navbar */}
+      <button
+        onClick={() => setShowModal(true)}
+        className={`relative px-3 py-2 rounded-lg font-semibold transition-all text-sm ${
+          isEnabled
+            ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
+            : 'bg-purple-600 text-white hover:bg-purple-700'
+        }`}
+        title="تغيير تاريخ التسجيل"
+      >
+        <span className="flex items-center gap-2">
+          🕐
+          {isEnabled && <span className="text-xs">مفعّل</span>}
+        </span>
+        {isEnabled && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+        )}
+      </button>
 
-            {isEnabled && (
-              <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-lg">
-                <span className="text-sm">⚠️</span>
-                <span className="text-sm font-semibold">جميع العمليات ستُسجل بالتاريخ المخصص</span>
-              </div>
-            )}
-          </div>
-
-          {/* Date and Time Inputs */}
-          {isEnabled && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-semibold">📅 التاريخ:</label>
-                <input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
-                  className="px-3 py-1 rounded-lg text-gray-900 font-mono text-sm border-2 border-white"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-semibold">🕐 الوقت:</label>
-                <input
-                  type="time"
-                  value={customTime}
-                  onChange={(e) => setCustomTime(e.target.value)}
-                  className="px-3 py-1 rounded-lg text-gray-900 font-mono text-sm border-2 border-white"
-                />
-              </div>
-
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                ⏰ تغيير تاريخ التسجيل
+              </h2>
               <button
-                onClick={() => {
-                  setCustomDate(formatDateYMD(new Date()))
-                  const now = new Date()
-                  setCustomTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
-                }}
-                className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold"
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
               >
-                🔄 الآن
-              </button>
-
-              <button
-                onClick={() => setIsEnabled(false)}
-                className="px-4 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-bold"
-              >
-                ✖️ إيقاف
+                ×
               </button>
             </div>
-          )}
+
+            {/* Enable/Disable Toggle */}
+            <div className={`p-4 rounded-lg mb-6 ${
+              isEnabled ? 'bg-red-50 border-2 border-red-300' : 'bg-gray-50 border-2 border-gray-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-lg text-gray-900">
+                    {isEnabled ? '🔴 الوضع مفعّل حالياً' : '⚪ الوضع غير مفعّل'}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {isEnabled
+                      ? '⚠️ جميع العمليات ستُسجل بالتاريخ المخصص أدناه'
+                      : 'العمليات ستُسجل بالتاريخ والوقت الحالي'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsEnabled(!isEnabled)}
+                  className={`px-6 py-3 rounded-lg font-bold transition-all ${
+                    isEnabled
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {isEnabled ? 'إيقاف' : 'تفعيل'}
+                </button>
+              </div>
+            </div>
+
+            {/* Date and Time Controls */}
+            {isEnabled && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-gray-700">
+                      📅 التاريخ
+                    </label>
+                    <input
+                      type="date"
+                      value={customDate}
+                      onChange={(e) => setCustomDate(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 font-mono focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-gray-700">
+                      🕐 الوقت
+                    </label>
+                    <input
+                      type="time"
+                      value={customTime}
+                      onChange={(e) => setCustomTime(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 font-mono focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setCustomDate(formatDateYMD(new Date()))
+                    const now = new Date()
+                    setCustomTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+                  }}
+                  className="w-full px-4 py-3 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg font-semibold transition"
+                >
+                  🔄 تعيين التاريخ والوقت الحالي
+                </button>
+
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                  <p className="text-sm text-yellow-800">
+                    <strong>💡 ملاحظة:</strong> التاريخ المخصص: {customDate} الساعة {customTime}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold transition"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   )
 }

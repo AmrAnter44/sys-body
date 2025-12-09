@@ -181,31 +181,36 @@ export default function SearchPage() {
     }
 
     const inputValue = memberId.trim()
-    
-    // ✅ فحص إذا كان الإدخال يبدأ بحرف 's' - تسجيل حضور موظف
-    if (inputValue.toLowerCase().startsWith('s')) {
-      const staffCode = inputValue.substring(1) // إزالة حرف 's' والحصول على الرقم
-      
-      if (!staffCode || isNaN(parseInt(staffCode))) {
+
+    // ✅ فحص إذا كان الرقم 9 خانات أو أكثر - موظف
+    if (/^\d{9,}$/.test(inputValue)) {
+      const numericCode = parseInt(inputValue, 10)
+
+      if (numericCode < 100000000) {
         playAlarmSound()
         setAttendanceMessage({
           type: 'error',
-          text: '❌ رقم الموظف غير صحيح. استخدم الصيغة: s22'
+          text: '❌ رقم الموظف يجب أن يكون 9 أرقام (مثال: 100000022)'
         })
         setMemberId('')
         setTimeout(() => setAttendanceMessage(null), 4000)
         return
       }
 
+      // ✅ تحويل الرقم من 9 خانات إلى s + رقم
+      // مثال: 100000022 -> s022
+      const staffNumber = numericCode - 100000000
+      const staffCode = `s${staffNumber.toString().padStart(3, '0')}`
+
       setLoading(true)
       setAttendanceMessage(null)
-      
+
       try {
         // 🔧 تسجيل حضور الموظف
         const response = await fetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ staffCode: staffCode.trim() }),
+          body: JSON.stringify({ staffCode }),
         })
 
         const data = await response.json()
@@ -410,7 +415,7 @@ export default function SearchPage() {
           <strong className="text-red-600"> صوت أحمر 🚨:</strong> منتهي أو غير موجود
         </p>
         <p className="text-xs sm:text-sm text-blue-600 mt-2 font-bold">
-          👷 <strong>تسجيل حضور موظف:</strong> اكتب <code className="bg-blue-100 px-1 sm:px-2 py-1 rounded text-xs sm:text-sm">s22</code> (حرف s + الرقم) للتسجيل التلقائي
+          👷 <strong>تسجيل حضور موظف:</strong> اكتب 9 أرقام <code className="bg-blue-100 px-1 sm:px-2 py-1 rounded text-xs sm:text-sm">100000022</code> للتسجيل التلقائي
         </p>
       </div>
 
@@ -428,7 +433,7 @@ export default function SearchPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            <span className="hidden sm:inline">🎯 البحث برقم العضوية (ID) أو تسجيل حضور (s22)</span>
+            <span className="hidden sm:inline">🎯 البحث برقم العضوية (ID) أو تسجيل حضور (9 أرقام)</span>
             <span className="sm:hidden">🎯 رقم العضوية / حضور</span>
           </button>
           <button
@@ -460,8 +465,8 @@ export default function SearchPage() {
             <div className="bg-blue-50 border-2 border-blue-300 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
               <p className="text-blue-800 font-bold mb-2 text-sm sm:text-base">📝 كيفية الاستخدام:</p>
               <ul className="text-blue-700 space-y-1 text-xs sm:text-sm">
-                <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم مباشرة (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">1001</code>)</li>
-                <li>• <strong>لتسجيل حضور موظف:</strong> اكتب حرف s ثم الرقم (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">s22</code>)</li>
+                <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم (1-8 خانات) مباشرة (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">1001</code>)</li>
+                <li>• <strong>لتسجيل حضور موظف:</strong> اكتب 9 أرقام (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">100000022</code>)</li>
               </ul>
             </div>
             
@@ -514,7 +519,7 @@ export default function SearchPage() {
                 onChange={(e) => setMemberId(e.target.value)}
                 onKeyPress={handleIdKeyPress}
                 className="flex-1 px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 lg:px-6 lg:py-6 border-2 sm:border-4 border-green-300 rounded-lg sm:rounded-xl text-lg sm:text-xl md:text-2xl lg:text-4xl font-bold text-center focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
-                placeholder="1001 أو s22"
+                placeholder="1001 أو 100000022"
                 autoFocus
               />
               <button

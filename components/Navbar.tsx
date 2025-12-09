@@ -194,14 +194,14 @@ export default function Navbar() {
     setSearchMessage(null)
 
     const inputValue = quickSearchId.trim()
-    
-    // ✅ فحص إذا كان الإدخال يبدأ بحرف 's' - تسجيل حضور موظف
-    if (inputValue.toLowerCase().startsWith('s')) {
-      const staffCode = inputValue.substring(1)
-      
-      if (!staffCode || isNaN(parseInt(staffCode))) {
+
+    // ✅ فحص إذا كان الرقم 9 خانات أو أكثر - موظف
+    if (/^\d{9,}$/.test(inputValue)) {
+      const numericCode = parseInt(inputValue, 10)
+
+      if (numericCode < 100000000) {
         playAlarmSound()
-        setSearchMessage({ type: 'error', text: '❌ رقم الموظف غير صحيح. استخدم الصيغة: s22' })
+        setSearchMessage({ type: 'error', text: '❌ رقم الموظف يجب أن يكون 9 أرقام (مثال: 100000022)' })
         setQuickSearchId('')
         setTimeout(() => {
           setSearchMessage(null)
@@ -211,11 +211,16 @@ export default function Navbar() {
         return
       }
 
+      // ✅ تحويل الرقم من 9 خانات إلى s + رقم
+      // مثال: 100000022 -> s022
+      const staffNumber = numericCode - 100000000
+      const staffCode = `s${staffNumber.toString().padStart(3, '0')}`
+
       try {
         const response = await fetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ staffCode: staffCode.trim() }),
+          body: JSON.stringify({ staffCode }),
         })
 
         const data = await response.json()
@@ -316,12 +321,6 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Admin Date Override - يظهر فوق كل شيء */}
-      <AdminDateOverride
-        isAdmin={isAdmin}
-        onDateChange={(date) => setCustomCreatedAt(date)}
-      />
-
       {/* ✅ Navbar بتصميم صفين */}
       <nav className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg sticky top-0 z-40">
         <div className="container mx-auto px-2 sm:px-4">
@@ -345,6 +344,12 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Admin Date Override Button */}
+              <AdminDateOverride
+                isAdmin={isAdmin}
+                onDateChange={(date) => setCustomCreatedAt(date)}
+              />
+
               {/* User Icon with Name - Dropdown */}
               {user && (
                 <div className="relative">
@@ -578,8 +583,8 @@ export default function Navbar() {
               <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 mb-4">
                 <p className="text-blue-800 font-bold mb-2">📝 كيفية الاستخدام:</p>
                 <ul className="text-blue-700 space-y-1 text-sm">
-                  <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم مباشرة (مثال: <code className="bg-white px-2 py-1 rounded">1001</code>)</li>
-                  <li>• <strong>لتسجيل حضور موظف:</strong> اكتب حرف s ثم الرقم (مثال: <code className="bg-white px-2 py-1 rounded">s22</code>)</li>
+                  <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم (1-8 خانات) مباشرة (مثال: <code className="bg-white px-2 py-1 rounded">1001</code>)</li>
+                  <li>• <strong>لتسجيل حضور موظف:</strong> اكتب 9 أرقام (مثال: <code className="bg-white px-2 py-1 rounded">100000022</code>)</li>
                 </ul>
               </div>
 
@@ -592,7 +597,7 @@ export default function Navbar() {
                     value={quickSearchId}
                     onChange={(e) => setQuickSearchId(e.target.value)}
                     onKeyPress={handleSearchKeyPress}
-                    placeholder="1001 أو s22"
+                    placeholder="1001 أو 100000022"
                     className="flex-1 px-4 py-3 md:px-6 md:py-4 border-4 border-blue-300 rounded-xl text-xl md:text-2xl lg:text-3xl font-bold text-center focus:border-blue-600 focus:ring-4 focus:ring-blue-200 transition text-gray-800"
                     disabled={isSearching}
                     autoFocus

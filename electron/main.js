@@ -77,6 +77,24 @@ function copyFolderRecursive(source, target) {
 
 async function startProductionServer() {
   try {
+    // ✅ تشغيل migration script أولاً
+    try {
+      const { migrateDatabase } = require('./check-and-migrate');
+      const possibleDbPaths = [
+        path.join(process.resourcesPath, 'app', 'prisma', 'gym.db'),
+        path.join(process.cwd(), 'prisma', 'gym.db')
+      ];
+      for (const dbPath of possibleDbPaths) {
+        if (fs.existsSync(dbPath)) {
+          migrateDatabase(dbPath);
+          break;
+        }
+      }
+    } catch (migrationError) {
+      console.warn('⚠️ Migration warning:', migrationError.message);
+      // Continue even if migration fails (database might not exist yet)
+    }
+
     // kill port إذا مش فاضي
     const portAvailable = await checkPort(4001);
     if (!portAvailable) {

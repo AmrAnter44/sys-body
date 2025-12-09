@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     // ✅ البحث عن الموظف بالرقم
     const staff = await prisma.staff.findUnique({
-      where: { staffCode: parseInt(staffCode) },
+      where: { staffCode: staffCode },
     })
 
     if (!staff) {

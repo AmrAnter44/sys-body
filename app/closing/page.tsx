@@ -40,6 +40,7 @@ export default function ClosingPage() {
     instapay: 0,
     cash: 0,
     wallet: 0,
+    totalPayments: 0,
     totalRevenue: 0,
     netProfit: 0
   })
@@ -79,7 +80,12 @@ export default function ClosingPage() {
       const dailyMap: { [key: string]: DailyData } = {}
 
       filteredReceipts.forEach((receipt: any) => {
-        const date = new Date(receipt.createdAt).toISOString().split('T')[0]
+        // استخدام التاريخ المحلي بدلاً من UTC
+        const receiptDate = new Date(receipt.createdAt)
+        const year = receiptDate.getFullYear()
+        const month = String(receiptDate.getMonth() + 1).padStart(2, '0')
+        const day = String(receiptDate.getDate()).padStart(2, '0')
+        const date = `${year}-${month}-${day}`
         
         if (!dailyMap[date]) {
           dailyMap[date] = {
@@ -100,9 +106,10 @@ export default function ClosingPage() {
 
         dailyMap[date].receipts.push(receipt)
 
-        if (receipt.type === 'Member') {
+        // تحديد نوع الإيصال
+        if (receipt.type === 'Member' || receipt.type === 'تجديد عضويه') {
           dailyMap[date].floor += receipt.amount
-        } else if (receipt.type === 'PT') {
+        } else if (receipt.type === 'PT' || receipt.type === 'اشتراك برايفت' || receipt.type === 'تجديد برايفت') {
           dailyMap[date].pt += receipt.amount
         }
 
@@ -119,7 +126,12 @@ export default function ClosingPage() {
       })
 
       filteredExpenses.forEach((expense: any) => {
-        const date = new Date(expense.createdAt).toISOString().split('T')[0]
+        // استخدام التاريخ المحلي بدلاً من UTC
+        const expenseDate = new Date(expense.createdAt)
+        const year = expenseDate.getFullYear()
+        const month = String(expenseDate.getMonth() + 1).padStart(2, '0')
+        const day = String(expenseDate.getDate()).padStart(2, '0')
+        const date = `${year}-${month}-${day}`
         
         if (!dailyMap[date]) {
           dailyMap[date] = {
@@ -178,10 +190,12 @@ export default function ClosingPage() {
         instapay: 0,
         cash: 0,
         wallet: 0,
+        totalPayments: 0,
         totalRevenue: 0,
         netProfit: 0
       })
 
+      newTotals.totalPayments = newTotals.cash + newTotals.visa + newTotals.instapay + newTotals.wallet
       newTotals.totalRevenue = newTotals.floor + newTotals.pt
       newTotals.netProfit = newTotals.totalRevenue - newTotals.expenses
 
@@ -221,10 +235,11 @@ export default function ClosingPage() {
         'فيزا',
         'إنستاباي',
         'محفظة',
+        'Total',
         'مصاريف',
         'تفاصيل المصاريف',
         'إجمالي السلف',
-        ...staffList.map(staff => staff.name)
+        ...(staffList || []).map(staff => staff.name)
       ])
 
       headerRow.font = { bold: true, size: 12, name: 'Arial' }
@@ -244,6 +259,7 @@ export default function ClosingPage() {
 
       dailyData.forEach((day, index) => {
         const totalStaffLoans = Object.values(day.staffLoans).reduce((a, b) => a + b, 0)
+        const dayTotalPayments = day.cash + day.visa + day.instapay + day.wallet
         const row = mainSheet.addRow([
           new Date(day.date).toLocaleDateString('ar-EG'),
           day.floor > 0 ? day.floor : 0,
@@ -252,10 +268,11 @@ export default function ClosingPage() {
           day.visa > 0 ? day.visa : 0,
           day.instapay > 0 ? day.instapay : 0,
           day.wallet > 0 ? day.wallet : 0,
+          dayTotalPayments,
           day.expenses > 0 ? day.expenses : 0,
           day.expenseDetails || '-',
           totalStaffLoans > 0 ? totalStaffLoans : 0,
-          ...staffList.map(staff => day.staffLoans[staff.name] || 0)
+          ...(staffList || []).map(staff => day.staffLoans[staff.name] || 0)
         ])
 
         if (index % 2 === 0) {
@@ -290,11 +307,12 @@ export default function ClosingPage() {
         totals.visa,
         totals.instapay,
         totals.wallet,
+        totals.totalPayments,
         totals.expenses,
         '',
         totalStaffLoansAll,
-        ...staffList.map(staff => {
-          const total = dailyData.reduce((sum, day) => 
+        ...(staffList || []).map(staff => {
+          const total = dailyData.reduce((sum, day) =>
             sum + (day.staffLoans[staff.name] || 0), 0
           )
           return total
@@ -355,19 +373,21 @@ export default function ClosingPage() {
       mainSheet.addRow(['فيزا', totals.visa])
       mainSheet.addRow(['إنستاباي', totals.instapay])
       mainSheet.addRow(['محفظة', totals.wallet])
+      mainSheet.addRow(['إجمالي المدفوعات (Total)', totals.totalPayments])
 
       mainSheet.columns = [
-        { width: 15 },
-        { width: 12 },
-        { width: 12 },
-        { width: 12 },
-        { width: 12 },
-        { width: 14 },
-        { width: 12 },
-        { width: 12 },
-        { width: 45 },
-        { width: 14 },
-        ...staffList.map(() => ({ width: 14 }))
+        { width: 15 },  // التاريخ
+        { width: 12 },  // Floor
+        { width: 12 },  // PT
+        { width: 12 },  // كاش
+        { width: 12 },  // فيزا
+        { width: 14 },  // إنستاباي
+        { width: 12 },  // محفظة
+        { width: 14 },  // Total
+        { width: 12 },  // مصاريف
+        { width: 45 },  // تفاصيل المصاريف
+        { width: 14 },  // إجمالي السلف
+        ...(staffList || []).map(() => ({ width: 14 }))
       ]
 
       if (dailyData.some(day => day.receipts.length > 0)) {
@@ -620,7 +640,7 @@ export default function ClosingPage() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 no-print">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 no-print">
             <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg shadow-lg">
               <p className="text-sm opacity-90">إجمالي الإيرادات</p>
               <p className="text-3xl font-bold">{totals.totalRevenue.toFixed(0)}</p>
@@ -632,6 +652,10 @@ export default function ClosingPage() {
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-lg">
               <p className="text-sm opacity-90">صافي الربح</p>
               <p className="text-3xl font-bold">{totals.netProfit.toFixed(0)}</p>
+            </div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-4 rounded-lg shadow-lg">
+              <p className="text-sm opacity-90">إجمالي المدفوعات</p>
+              <p className="text-3xl font-bold">{totals.totalPayments.toFixed(0)}</p>
             </div>
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg shadow-lg">
               <p className="text-sm opacity-90">عدد الأيام</p>
@@ -730,6 +754,10 @@ export default function ClosingPage() {
                           <div className="bg-white p-3 rounded-lg border-2 border-green-200">
                             <p className="text-sm text-gray-600">كاش 💵</p>
                             <p className="text-lg font-bold text-green-600">{day.cash > 0 ? day.cash.toFixed(0) : '0'}</p>
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <p className="text-xs text-gray-500">صافي الكاش بعد المصاريف</p>
+                              <p className="text-sm font-bold text-orange-600">{(day.cash - day.expenses).toFixed(0)} ج.م</p>
+                            </div>
                           </div>
                           <div className="bg-white p-3 rounded-lg border-2 border-blue-200">
                             <p className="text-sm text-gray-600">فيزا 💳</p>
@@ -912,10 +940,11 @@ export default function ClosingPage() {
                   <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-blue-50">فيزا 💳</th>
                   <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-purple-50">إنستاباي 📱</th>
                   <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-orange-50">محفظة 💰</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-yellow-100">Total 💰</th>
                   <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-orange-100">مصاريف</th>
                   <th className="border border-gray-400 px-3 py-2 text-center font-bold min-w-[300px]">تفاصيل المصاريف</th>
                   <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-yellow-50">السلف</th>
-                  {staffList.map(staff => (
+                  {(staffList || []).map(staff => (
                     <th key={staff.id} className="border border-gray-400 px-3 py-2 text-center font-bold bg-red-50 min-w-[80px]">
                       {staff.name}
                     </th>
@@ -952,6 +981,9 @@ export default function ClosingPage() {
                       <td className="border border-gray-300 px-3 py-2 text-right font-bold text-orange-700">
                         {day.wallet > 0 ? day.wallet.toFixed(0) : '-'}
                       </td>
+                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-yellow-700 bg-yellow-50">
+                        {(day.cash + day.visa + day.instapay + day.wallet).toFixed(0)}
+                      </td>
                       <td className="border border-gray-300 px-3 py-2 text-right font-bold text-red-600">
                         {day.expenses > 0 ? day.expenses.toFixed(0) : '-'}
                       </td>
@@ -961,7 +993,7 @@ export default function ClosingPage() {
                       <td className="border border-gray-300 px-3 py-2 text-right font-bold text-orange-600">
                         {Object.values(day.staffLoans).reduce((a, b) => a + b, 0).toFixed(0) || '-'}
                       </td>
-                      {staffList.map(staff => (
+                      {(staffList || []).map(staff => (
                         <td key={staff.id} className="border border-gray-300 px-3 py-2 text-right text-red-600">
                           {day.staffLoans[staff.name] ? day.staffLoans[staff.name].toFixed(0) : '-'}
                         </td>
@@ -976,7 +1008,7 @@ export default function ClosingPage() {
                     {/* تفاصيل اليوم */}
                     {expandedDay === day.date && (
                       <tr className="bg-blue-50 no-print">
-                        <td colSpan={staffList.length + 12} className="border border-gray-400 p-4">
+                        <td colSpan={(staffList?.length || 0) + 12} className="border border-gray-400 p-4">
                           <div className="space-y-4">
                             {/* الإيصالات */}
                             {day.receipts.length > 0 && (
@@ -1129,17 +1161,20 @@ export default function ClosingPage() {
                   <td className="border border-gray-400 px-3 py-3 text-right text-orange-800 text-lg">
                     {totals.wallet.toFixed(0)}
                   </td>
+                  <td className="border border-gray-400 px-3 py-3 text-right text-yellow-800 text-lg bg-yellow-200">
+                    {totals.totalPayments.toFixed(0)}
+                  </td>
                   <td className="border border-gray-400 px-3 py-3 text-right text-red-700 text-lg">
                     {totals.expenses.toFixed(0)}
                   </td>
                   <td className="border border-gray-400 px-3 py-3"></td>
                   <td className="border border-gray-400 px-3 py-3 text-right text-orange-700 text-lg">
-                    {dailyData.reduce((sum, day) => 
+                    {dailyData.reduce((sum, day) =>
                       sum + Object.values(day.staffLoans).reduce((a, b) => a + b, 0), 0
                     ).toFixed(0)}
                   </td>
-                  {staffList.map(staff => {
-                    const total = dailyData.reduce((sum, day) => 
+                  {(staffList || []).map(staff => {
+                    const total = dailyData.reduce((sum, day) =>
                       sum + (day.staffLoans[staff.name] || 0), 0
                     )
                     return (
@@ -1156,7 +1191,7 @@ export default function ClosingPage() {
                   <td colSpan={3} className="border border-gray-400 px-3 py-3 text-center text-lg">
                     صافي الربح
                   </td>
-                  <td colSpan={staffList.length + 9} className="border border-gray-400 px-3 py-3 text-right text-2xl text-green-700">
+                  <td colSpan={(staffList?.length || 0) + 9} className="border border-gray-400 px-3 py-3 text-right text-2xl text-green-700">
                     {totals.netProfit.toFixed(0)} ج.م
                   </td>
                 </tr>

@@ -37,6 +37,7 @@ model PT {
   coachName         String
   coachUserId       String?     // ✅ ربط الكوتش بحساب المستخدم
   pricePerSession   Float
+  remainingAmount   Float       @default(0)  // ✅ الباقي من الفلوس
   startDate         DateTime?
   expiryDate        DateTime?
   createdAt         DateTime    @default(now())
@@ -163,7 +164,7 @@ model Offer {
 model Staff {
   id         String       @id @default(cuid())
 
-  staffCode  Int          @unique  // ✅ رقم الموظف الفريد
+  staffCode  String       @unique  // ✅ رقم الموظف الفريد (مثل s001, s022)
   name       String
   phone      String?
   position   String?

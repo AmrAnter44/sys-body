@@ -63,18 +63,18 @@ export async function POST(request: Request) {
 
     // ✅ التحقق من عدم تكرار الرقم
     const existingStaff = await prisma.staff.findUnique({
-      where: { staffCode: parseInt(staffCode) }
+      where: { staffCode: staffCode }
     })
 
     if (existingStaff) {
-      return NextResponse.json({ 
-        error: `رقم ${staffCode} مستخدم بالفعل للموظف: ${existingStaff.name}` 
+      return NextResponse.json({
+        error: `رقم ${staffCode} مستخدم بالفعل للموظف: ${existingStaff.name}`
       }, { status: 400 })
     }
 
     const staff = await prisma.staff.create({
       data: {
-        staffCode: parseInt(staffCode),
+        staffCode: staffCode,
         name,
         phone,
         position,
@@ -110,48 +110,58 @@ export async function PUT(request: Request) {
   try {
     // ✅ التحقق من صلاحية تعديل موظف
     await requirePermission(request, 'canEditStaff')
-    
+
     const body = await request.json()
-    const { id, staffCode, ...data } = body
+    const { id, staffCode, name, phone, position, salary, notes, isActive, customPosition } = body
+
+    // ✅ تحضير البيانات للتحديث (فقط الحقول المسموحة)
+    const updateData: any = {}
+
+    if (name !== undefined) updateData.name = name
+    if (phone !== undefined) updateData.phone = phone
+    if (position !== undefined) updateData.position = position
+    if (salary !== undefined) updateData.salary = salary
+    if (notes !== undefined) updateData.notes = notes
+    if (isActive !== undefined) updateData.isActive = isActive
 
     // ✅ إذا كان في تحديث للـ staffCode، تحقق من عدم التكرار
-    if (staffCode) {
+    if (staffCode !== undefined) {
       const existingStaff = await prisma.staff.findUnique({
-        where: { staffCode: parseInt(staffCode) }
+        where: { staffCode: staffCode }
       })
 
       if (existingStaff && existingStaff.id !== id) {
-        return NextResponse.json({ 
-          error: `رقم ${staffCode} مستخدم بالفعل` 
+        return NextResponse.json({
+          error: `رقم ${staffCode} مستخدم بالفعل`
         }, { status: 400 })
       }
 
-      data.staffCode = parseInt(staffCode)
+      updateData.staffCode = staffCode
     }
 
     const staff = await prisma.staff.update({
       where: { id },
-      data,
+      data: updateData,
     })
 
     return NextResponse.json(staff)
   } catch (error: any) {
     console.error('Error updating staff:', error)
-    
+
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: 'يجب تسجيل الدخول أولاً' },
         { status: 401 }
       )
     }
-    
+
     if (error.message.includes('Forbidden')) {
       return NextResponse.json(
         { error: 'ليس لديك صلاحية تعديل الموظفين' },
         { status: 403 }
       )
     }
-    
+
     return NextResponse.json({ error: 'فشل تحديث الموظف' }, { status: 500 })
   }
 }

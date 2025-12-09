@@ -53,9 +53,13 @@ export default function FollowUpForm({
     const visitor = visitors.find(v => v.id === formData.visitorId)
     if (visitor) return { name: visitor.name, phone: visitor.phone, type: 'زائر' }
 
-    // البحث في الأعضاء المنتهيين
+    // البحث في الأعضاء المنتهيين (ID = expired-xxx)
     const expMember = expiredMembers.find((m: any) => m.id === formData.visitorId)
-    if (expMember) return { name: expMember.name, phone: expMember.phone, type: 'عضو منتهي' }
+    if (expMember) {
+      // إزالة "(عضو منتهي)" من الاسم إذا كان موجود
+      const cleanName = expMember.name.replace(' (عضو منتهي)', '').trim()
+      return { name: cleanName, phone: expMember.phone, type: 'عضو منتهي' }
+    }
 
     // البحث في Day Use
     const dayUse = dayUseRecords.find(r => `dayuse-${r.id}` === formData.visitorId)

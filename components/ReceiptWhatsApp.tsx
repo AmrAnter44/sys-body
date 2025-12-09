@@ -27,8 +27,110 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
   const details = JSON.parse(receipt.itemDetails);
 
   const prepareReceiptMessage = (data: any) => {
-    // هنا نفس دالتك القديمة لتجهيز نص الرسالة
-    return `إيصال #${data.receiptNumber}\nالعميل: ${data.memberName}\nالمبلغ: ${data.amount} ج.م\nطريقة الدفع: ${data.paymentMethod}\nتاريخ: ${data.date}`;
+    const details = data.details;
+    const date = new Date(data.date);
+    const formattedDate = date.toLocaleDateString('ar-EG');
+    const formattedTime = date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+    // الترويسة
+    let message = `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `*ايصال رقم #${data.receiptNumber}*\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // نوع الإيصال
+    const typeName = data.type === 'Member' ? 'اشتراك عضوية' : data.type === 'PT' ? 'تدريب شخصي' : data.type === 'DayUse' ? 'Day Use' : data.type === 'Expense' ? 'مصروف' : data.type;
+    message += `*النوع:* ${typeName}\n\n`;
+
+    // تفاصيل العميل/العضو
+    if (details.memberNumber) {
+      message += `*رقم العضو:* ${details.memberNumber}\n`;
+    }
+    if (details.memberName || details.clientName || details.name) {
+      message += `*الاسم:* ${details.memberName || details.clientName || details.name}\n`;
+    }
+    if (details.phone || details.memberPhone || details.clientPhone) {
+      message += `*الهاتف:* ${details.phone || details.memberPhone || details.clientPhone}\n`;
+    }
+    message += `\n`;
+
+    // تفاصيل الاشتراك (للأعضاء)
+    if (data.type === 'Member' && details.subscriptionDays) {
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `*تفاصيل الاشتراك*\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
+      if (details.startDate) {
+        message += `• من: ${new Date(details.startDate).toLocaleDateString('ar-EG')}\n`;
+      }
+      if (details.expiryDate) {
+        message += `• الى: ${new Date(details.expiryDate).toLocaleDateString('ar-EG')}\n`;
+      }
+      message += `• المدة: ${details.subscriptionDays} يوم\n`;
+
+      // الخدمات الإضافية
+      const extras = [];
+      if (details.freePTSessions > 0) extras.push(`${details.freePTSessions} جلسة PT`);
+      if (details.inBodyScans > 0) extras.push(`${details.inBodyScans} InBody`);
+      if (details.invitations > 0) extras.push(`${details.invitations} دعوة`);
+      if (extras.length > 0) {
+        message += `*هدايا:* ${extras.join(' + ')}\n`;
+      }
+      message += `\n`;
+    }
+
+    // تفاصيل PT
+    if (data.type === 'PT') {
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `*تفاصيل التدريب*\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
+      if (details.ptNumber) {
+        message += `• رقم PT: ${details.ptNumber}\n`;
+      }
+      if (details.sessions) {
+        message += `• عدد الجلسات: ${details.sessions}\n`;
+      }
+      if (details.pricePerSession) {
+        message += `• سعر الجلسة: ${details.pricePerSession} ج.م\n`;
+      }
+      message += `\n`;
+    }
+
+    // المبالغ المالية
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `*التفاصيل المالية*\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+    if (details.subscriptionPrice > 0) {
+      message += `• سعر الاشتراك: ${details.subscriptionPrice} ج.م\n`;
+    }
+    if (details.totalPrice > 0 && data.type === 'PT') {
+      message += `• الاجمالي: ${details.totalPrice} ج.م\n`;
+    }
+
+    message += `*المدفوع:* ${data.amount} ج.م\n`;
+
+    if (details.remainingAmount > 0) {
+      message += `*المتبقي:* ${details.remainingAmount} ج.م\n`;
+    }
+
+    // طريقة الدفع
+    const paymentName = data.paymentMethod === 'cash' ? 'كاش' : data.paymentMethod === 'visa' ? 'فيزا' : data.paymentMethod === 'instapay' ? 'InstaPay' : data.paymentMethod === 'wallet' ? 'محفظة' : data.paymentMethod;
+    message += `*طريقة الدفع:* ${paymentName}\n`;
+    message += `\n`;
+
+    // التاريخ والموظف
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `*التاريخ:* ${formattedDate}\n`;
+    message += `*الوقت:* ${formattedTime}\n`;
+    if (details.staffName || data.staffName) {
+      message += `*الموظف:* ${details.staffName || data.staffName}\n`;
+    }
+    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // ملاحظة الشكر
+    message += `شكرا لثقتكم بنا\n`;
+    message += `نتمنى لكم تجربة رائعة`;
+
+    return message;
   };
 
   const handleSendWhatsApp = () => {

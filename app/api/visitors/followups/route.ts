@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { visitorId, notes, contacted, nextFollowUpDate, result, salesName } = body
+    const { visitorId, notes, contacted, nextFollowUpDate, result, salesName, visitorData } = body
 
     if (!visitorId || !notes) {
       return NextResponse.json(
@@ -45,19 +45,53 @@ export async function POST(request: Request) {
       )
     }
 
-    // التحقق من وجود الزائر
-    const visitor = await prisma.visitor.findUnique({
-      where: { id: visitorId },
-    })
+    let actualVisitorId = visitorId
 
-    if (!visitor) {
-      return NextResponse.json({ error: 'الزائر غير موجود' }, { status: 404 })
+    // ✅ معالجة خاصة للأعضاء المنتهيين وDay Use والدعوات
+    if (visitorId.startsWith('expired-') || visitorId.startsWith('dayuse-') || visitorId.startsWith('invitation-')) {
+      // التحقق من وجود بيانات الزائر
+      if (!visitorData || !visitorData.phone || !visitorData.name) {
+        return NextResponse.json(
+          { error: 'بيانات الزائر (name, phone) مطلوبة' },
+          { status: 400 }
+        )
+      }
+
+      // البحث عن visitor موجود بنفس رقم الهاتف
+      const existingVisitor = await prisma.visitor.findFirst({
+        where: { phone: visitorData.phone }
+      })
+
+      if (existingVisitor) {
+        // استخدام الـ visitor الموجود
+        actualVisitorId = existingVisitor.id
+      } else {
+        // إنشاء visitor جديد
+        const newVisitor = await prisma.visitor.create({
+          data: {
+            name: visitorData.name,
+            phone: visitorData.phone,
+            source: visitorData.source || 'other',
+            status: 'pending'
+          }
+        })
+        actualVisitorId = newVisitor.id
+      }
+    } else {
+      // التحقق العادي من وجود الزائر للزوار الحقيقيين
+      const visitor = await prisma.visitor.findUnique({
+        where: { id: visitorId },
+      })
+
+      if (!visitor) {
+        return NextResponse.json({ error: 'الزائر غير موجود' }, { status: 404 })
+      }
     }
 
     // إنشاء المتابعة
     const followUp = await prisma.followUp.create({
       data: {
-        visitorId,
+        visitorId: actualVisitorId,
         notes: notes.trim(),
         contacted: contacted || false,
         nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null,
@@ -69,17 +103,17 @@ export async function POST(request: Request) {
     // تحديث حالة الزائر إذا لزم الأمر
     if (result === 'subscribed') {
       await prisma.visitor.update({
-        where: { id: visitorId },
+        where: { id: actualVisitorId },
         data: { status: 'subscribed' },
       })
     } else if (result === 'not-interested') {
       await prisma.visitor.update({
-        where: { id: visitorId },
+        where: { id: actualVisitorId },
         data: { status: 'rejected' },
       })
     } else if (contacted) {
       await prisma.visitor.update({
-        where: { id: visitorId },
+        where: { id: actualVisitorId },
         data: { status: 'contacted' },
       })
     }

@@ -43,7 +43,8 @@ export default function ReceiptsPage() {
     receiptNumber: 0,
     amount: 0,
     paymentMethod: 'cash',
-    staffName: ''
+    staffName: '',
+    createdAt: ''
   })
   const [nextReceiptNumber, setNextReceiptNumber] = useState(1000)
   const [showReceiptNumberEdit, setShowReceiptNumberEdit] = useState(false)
@@ -285,11 +286,18 @@ export default function ReceiptsPage() {
     }
 
     setEditingReceipt(receipt)
+    // تحويل التاريخ لصيغة datetime-local
+    const date = new Date(receipt.createdAt)
+    const formattedDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16)
+
     setEditFormData({
       receiptNumber: receipt.receiptNumber,
       amount: receipt.amount,
       paymentMethod: receipt.paymentMethod,
-      staffName: receipt.staffName || ''
+      staffName: receipt.staffName || '',
+      createdAt: formattedDate
     })
     setShowEditModal(true)
   }
@@ -306,7 +314,8 @@ export default function ReceiptsPage() {
           receiptNumber: editFormData.receiptNumber,
           amount: editFormData.amount,
           paymentMethod: editFormData.paymentMethod,
-          staffName: editFormData.staffName
+          staffName: editFormData.staffName,
+          createdAt: editFormData.createdAt ? new Date(editFormData.createdAt).toISOString() : undefined
         })
       })
 
@@ -404,7 +413,7 @@ export default function ReceiptsPage() {
       )}
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
           <div className="flex items-center justify-between">
             <div>
@@ -414,17 +423,7 @@ export default function ReceiptsPage() {
             <div className="text-5xl opacity-20">📊</div>
           </div>
         </div>
-        
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold">{getTotalRevenue().toLocaleString()}</div>
-              <div className="text-sm opacity-90">إجمالي الإيرادات (ج.م)</div>
-            </div>
-            <div className="text-5xl opacity-20">💰</div>
-          </div>
-        </div>
-        
+
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
           <div className="flex items-center justify-between">
             <div>
@@ -889,6 +888,22 @@ export default function ReceiptsPage() {
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="اسم الموظف المسؤول"
                 />
+              </div>
+
+              {/* تاريخ الإيصال */}
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  تاريخ الإيصال <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editFormData.createdAt}
+                  onChange={(e) => setEditFormData({ ...editFormData, createdAt: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ℹ️ يمكنك تعديل تاريخ ووقت الإيصال
+                </p>
               </div>
 
               {/* ملاحظة تحذيرية */}

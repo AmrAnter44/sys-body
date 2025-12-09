@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     console.log('🔍 بدء جلب الأعضاء...')
     
     const members = await prisma.member.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { memberNumber: 'desc' },
       include: { receipts: true }
     })
     
@@ -98,7 +98,8 @@ export async function POST(request: Request) {
       paymentMethod,
       staffName,
       isOther,
-      customCreatedAt
+      customCreatedAt,
+      skipReceipt  // ✅ خيار عدم إنشاء إيصال
     } = body
 
     console.log('📝 إضافة عضو جديد:', {
@@ -108,6 +109,28 @@ export async function POST(request: Request) {
       isOther,
       staffName: staffName || '(غير محدد)'
     })
+
+    // ✅ التحقق من الحقول المطلوبة
+    if (!name || name.trim() === '') {
+      return NextResponse.json(
+        { error: 'اسم العضو مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!phone || phone.trim() === '') {
+      return NextResponse.json(
+        { error: 'رقم الهاتف مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!subscriptionPrice || subscriptionPrice <= 0) {
+      return NextResponse.json(
+        { error: 'سعر الاشتراك مطلوب ويجب أن يكون أكبر من صفر' },
+        { status: 400 }
+      )
+    }
 
     // تحويل كل الأرقام لـ integers
     let cleanMemberNumber = null
@@ -214,9 +237,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // إنشاء إيصال دائماً
+    // إنشاء إيصال (إلا إذا طلب المستخدم عدم إنشائه)
     let receiptData = null
-    try {
+
+    if (!skipReceipt) {
+      // ✅ إنشاء الإيصال فقط إذا لم يتم تفعيل خيار عدم الإنشاء
+      try {
       let counter = await prisma.receiptCounter.findUnique({ where: { id: 1 } })
       
       if (!counter) {
@@ -300,6 +326,9 @@ export async function POST(request: Request) {
       if (receiptError instanceof Error && receiptError.message.includes('Unique constraint')) {
         console.error('❌ رقم الإيصال مكرر! المحاولة مرة أخرى...')
       }
+    }
+    } else {
+      console.log('🚫 تم تخطي إنشاء الإيصال (skipReceipt = true)')
     }
 
     return NextResponse.json({

@@ -51,9 +51,9 @@ export async function POST(request: Request) {
   try {
     // ✅ التحقق من صلاحية الوصول للإعدادات (المصروفات جزء من الإدارة)
     await requirePermission(request, 'canAccessSettings')
-    
+
     const body = await request.json()
-    const { type, amount, description, notes, staffId } = body
+    const { type, amount, description, notes, staffId, customCreatedAt } = body
 
     if (!type || !amount || !description) {
       return NextResponse.json(
@@ -62,14 +62,23 @@ export async function POST(request: Request) {
       )
     }
 
+    // ✅ تحضير البيانات مع دعم التاريخ المخصص
+    const expenseData: any = {
+      type,
+      amount,
+      description,
+      notes,
+      staffId: staffId || null,
+    }
+
+    // ✅ إضافة التاريخ المخصص إذا كان موجوداً
+    if (customCreatedAt) {
+      expenseData.createdAt = new Date(customCreatedAt)
+      console.log('⏰ استخدام تاريخ مخصص للمصروف:', new Date(customCreatedAt))
+    }
+
     const expense = await prisma.expense.create({
-      data: {
-        type,
-        amount,
-        description,
-        notes,
-        staffId: staffId || null,
-      },
+      data: expenseData,
       include: {
         staff: true
       }

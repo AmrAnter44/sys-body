@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 interface StaffBarcodeWhatsAppProps {
-  staffCode: number
+  staffCode: string
   staffName: string
   staffPhone: string
 }
@@ -13,14 +13,22 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
   const [barcodeImage, setBarcodeImage] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
-  // توليد الباركود عن طريق API مع إضافة S قبل الرقم
+  // توليد الباركود عن طريق API
   const handleGenerateBarcode = async () => {
     setLoading(true)
     try {
+      // ✅ نستخرج الرقم من staffCode (بدون s أو S)
+      // مثال: s22 -> 22, s001 -> 1, s444 -> 444
+      const numericCode = staffCode.replace(/[sS]/g, '')
+
+      // ✅ الموظفين: 9 أرقام (100000000 + الرقم)
+      // s022 -> 100000022, s444 -> 100000444, s007 -> 100000007
+      const barcodeText = (100000000 + parseInt(numericCode, 10)).toString()
+
       const res = await fetch('/api/barcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: `S${staffCode}` }), // ✅ إضافة S قبل الرقم
+        body: JSON.stringify({ text: barcodeText }),
       })
 
       const data = await res.json()
@@ -52,7 +60,10 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
     handleDownloadBarcode()
 
     setTimeout(() => {
-      const message = `Barcode الموظف #${staffCode} (${staffName})`
+      const displayCode = staffCode.toLowerCase().startsWith('s')
+        ? staffCode.toUpperCase()
+        : `S${staffCode}`
+      const message = `Barcode الموظف #${displayCode} (${staffName})`
       const phone = staffPhone.replace(/\D/g, '') // تنظيف رقم الهاتف
       const url = `https://wa.me/2${phone}?text=${encodeURIComponent(message)}`
       window.open(url, '_blank')
@@ -106,30 +117,30 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
             <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 mb-6 text-center">
               <p className="text-sm text-purple-600 mb-2">الموظف</p>
               <p className="text-xl font-bold text-purple-800">{staffName}</p>
-              <p className="text-3xl font-bold text-purple-600 mt-2">#S{staffCode}</p>
+              <p className="text-3xl font-bold text-purple-600 mt-2">
+                #{staffCode.toLowerCase().startsWith('s') ? staffCode.toUpperCase() : `S${staffCode}`}
+              </p>
             </div>
 
-            <div className="bg-white border-2 border-purple-200 rounded-lg p-6 mb-6 flex justify-center">
-              <div className="relative inline-block">
-                {/* Barcode */}
+            {/* Logo أعلى الباركود */}
+            <div className="flex justify-center mb-4">
+              <div className="bg-white rounded-lg shadow-lg p-3 border-2 border-purple-400">
                 <img
-                  src={barcodeImage}
-                  alt={`Barcode S${staffCode}`}
-                  className="max-w-full h-auto"
-                  style={{ minWidth: '300px' }}
+                  src="/icon.png"
+                  alt="Gym Logo"
+                  className="w-16 h-16 object-contain"
                 />
-
-                {/* Logo في نص الباركود */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                  <div className="bg-white rounded-lg shadow-lg p-3 border-2 border-purple-400">
-                    <img
-                      src="/icon.png"
-                      alt="Gym Logo"
-                      className="w-16 h-16 object-contain"
-                    />
-                  </div>
-                </div>
               </div>
+            </div>
+
+            {/* الباركود بدون تداخل */}
+            <div className="bg-white border-2 border-purple-200 rounded-lg p-6 mb-6 flex justify-center">
+              <img
+                src={barcodeImage}
+                alt={`Barcode S${staffCode}`}
+                className="max-w-full h-auto"
+                style={{ minWidth: '300px' }}
+              />
             </div>
 
             <div className="space-y-3">

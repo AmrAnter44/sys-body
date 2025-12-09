@@ -8,7 +8,7 @@ import StaffBarcodeWhatsApp from '../../components/StaffBarcodeWhatsApp'
 
 interface Staff {
   id: string
-  staffCode: number  // ✅ الرقم البسيط
+  staffCode: string  // ✅ الرقم مع s في البداية (مثل s001, s022)
   name: string
   phone?: string
   position?: string
@@ -68,6 +68,19 @@ export default function StaffPage() {
     salary: 0,
     notes: '',
   })
+
+  // ✅ توليد رقم عشوائي من 9 أرقام للموظف
+  const [randomStaffCode, setRandomStaffCode] = useState('')
+
+  useEffect(() => {
+    // ✅ توليد رقم عشوائي فقط عند فتح النموذج لإضافة موظف جديد
+    if (showForm && !editingStaff) {
+      const randomNum = Math.floor(Math.random() * 999) + 1
+      const nineDigitCode = (100000000 + randomNum).toString()
+      setRandomStaffCode(nineDigitCode)
+      setFormData(prev => ({ ...prev, staffCode: nineDigitCode }))
+    }
+  }, [showForm, editingStaff])
 
   const fetchStaff = async () => {
     try {
@@ -150,8 +163,21 @@ export default function StaffPage() {
   // ✅ معالجة السكان بالرقم
 const handleScan = async (staffCode: string) => {
   try {
-    // 🟢 لو الكود بيبدأ بـ s أو S شيله
-    const cleanCode = staffCode.trim().replace(/^s/i, '');
+    // 🟢 تنظيف الكود فقط (إزالة المسافات)
+    let cleanCode = staffCode.trim();
+
+    // ✅ لو الكود رقم من 9 خانات (100000000+)، فهو موظف
+    if (/^\d+$/.test(cleanCode)) {
+      const numericCode = parseInt(cleanCode, 10);
+      if (numericCode >= 100000000) {
+        // موظف: مثلاً 100000022 -> s022
+        const staffNumber = numericCode - 100000000;
+        cleanCode = `s${staffNumber.toString().padStart(3, '0')}`;
+      } else {
+        // عضو: نستخدم الرقم كما هو
+        cleanCode = cleanCode;
+      }
+    }
 
     const response = await fetch('/api/attendance', {
       method: 'POST',
@@ -227,7 +253,7 @@ const handleScan = async (staffCode: string) => {
     )
 
     setFormData({
-      staffCode: staffMember.staffCode.toString(),
+      staffCode: staffMember.staffCode,
       name: staffMember.name,
       phone: staffMember.phone || '',
       position: isStandardPosition ? staffMember.position || '' : 'other',
@@ -265,12 +291,26 @@ const handleScan = async (staffCode: string) => {
       return
     }
 
+    // ✅ التحقق من أن الرقم 9 أرقام
+    const numericCode = formData.staffCode.replace(/[sS]/g, '')
+    if (!/^\d{9}$/.test(numericCode)) {
+      setMessage('❌ رقم الموظف يجب أن يكون 9 أرقام بالضبط (مثل: 100000022)')
+      setLoading(false)
+      return
+    }
+
     try {
       const url = '/api/staff'
       const method = editingStaff ? 'PUT' : 'POST'
+
+      // ✅ نحول الرقم من 9 خانات إلى s + رقم بسيط
+      // مثال: 100000022 -> s022
+      const staffNumber = parseInt(numericCode, 10) - 100000000
+      const staffCodeWithS = `s${staffNumber.toString().padStart(3, '0')}`
+
       const body = editingStaff
-        ? { id: editingStaff.id, ...formData, position: finalPosition, staffCode: parseInt(formData.staffCode) }
-        : { ...formData, position: finalPosition, staffCode: parseInt(formData.staffCode) }
+        ? { id: editingStaff.id, ...formData, position: finalPosition, staffCode: staffCodeWithS }
+        : { ...formData, position: finalPosition, staffCode: staffCodeWithS }
 
       const response = await fetch(url, {
         method,
@@ -315,6 +355,35 @@ const handleScan = async (staffCode: string) => {
     }
   }
 
+  const handleDelete = async (staffMember: Staff) => {
+    const confirmDelete = window.confirm(
+      `هل أنت متأكد من حذف الموظف: ${staffMember.name}؟\nهذه العملية لا يمكن التراجع عنها!`
+    )
+
+    if (!confirmDelete) return
+
+    try {
+      const response = await fetch(`/api/staff?id=${staffMember.id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage('✅ تم حذف الموظف بنجاح!')
+        setTimeout(() => setMessage(''), 3000)
+        fetchStaff()
+      } else {
+        setMessage(`❌ ${data.error || 'فشل حذف الموظف'}`)
+        setTimeout(() => setMessage(''), 5000)
+      }
+    } catch (error) {
+      console.error('Error deleting staff:', error)
+      setMessage('❌ حدث خطأ أثناء حذف الموظف')
+      setTimeout(() => setMessage(''), 5000)
+    }
+  }
+
   const getPositionIcon = (position: string): string => {
     const pos = POSITIONS.find((p) => p.value === position)
     return pos ? pos.icon : '👤'
@@ -336,7 +405,7 @@ const handleScan = async (staffCode: string) => {
 
   const getStaffByPosition = () => {
     const counts: { [key: string]: number } = {}
-    staff.forEach((s) => {
+    ;(staff || []).forEach((s) => {
       if (s.position && s.isActive) {
         counts[s.position] = (counts[s.position] || 0) + 1
       }
@@ -371,7 +440,7 @@ const handleScan = async (staffCode: string) => {
               <span className="text-5xl">🔢</span>
               <span>سكانر الحضور والانصراف</span>
             </h2>
-            <p className="text-blue-100">اكتب أو اسكن رقم الموظف للتسجيل التلقائي</p>
+            <p className="text-blue-100">اكتب رقم الموظف للتسجيل التلقائي</p>
           </div>
           {lastScanTime && (
             <div className="bg-white/20 backdrop-blur px-6 py-3 rounded-xl">
@@ -393,7 +462,7 @@ const handleScan = async (staffCode: string) => {
             autoFocus
           />
           <p className="text-center text-gray-600 mt-3 text-sm">
-            💡 اكتب الرقم واضغط Enter (أو استخدم Scanner لقراءة الرقم)
+            💡 اكتب الرقم واضغط Enter أو استخدم Scanner | الموظفين: 9 أرقام (100000xxx)
           </p>
         </div>
 
@@ -548,17 +617,21 @@ const handleScan = async (staffCode: string) => {
                   رقم الموظف <span className="text-red-600">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  min="1"
                   value={formData.staffCode}
                   onChange={(e) => setFormData({ ...formData, staffCode: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-2xl font-bold"
-                  placeholder="22"
+                  placeholder={randomStaffCode || "100000022"}
+                  minLength={9}
+                  maxLength={9}
+                  pattern="\d{9}"
                   disabled={!!editingStaff}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  {editingStaff ? '⚠️ لا يمكن تغيير الرقم بعد الإنشاء' : '💡 رقم بسيط مثل: 22, 33, 44'}
+                  {editingStaff
+                    ? '⚠️ لا يمكن تغيير الرقم بعد الإنشاء'
+                    : '💡 يجب إدخال 9 أرقام بالضبط (مثال: 100000022 → s022, 100000444 → s444)'}
                 </p>
               </div>
 
@@ -802,6 +875,15 @@ const handleScan = async (staffCode: string) => {
                         >
                           ✏️ تعديل
                         </button>
+
+                        {hasPermission('canDeleteStaff') && (
+                          <button
+                            onClick={() => handleDelete(staffMember)}
+                            className="text-red-600 hover:text-red-800 font-semibold transition hover:underline"
+                          >
+                            🗑️ حذف
+                          </button>
+                        )}
 
                         {staffMember.phone && (
                           <StaffBarcodeWhatsApp

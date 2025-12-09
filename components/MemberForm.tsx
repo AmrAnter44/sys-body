@@ -36,7 +36,8 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
     expiryDate: '',
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay' | 'wallet',
     staffName: user?.name || '',
-    isOther: false
+    isOther: false,
+    skipReceipt: false  // ✅ خيار عدم إنشاء إيصال
   })
 
   useEffect(() => {
@@ -264,8 +265,12 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
       const data = await response.json()
 
       if (response.ok) {
-        setMessage('✅ تم إضافة العضو بنجاح!')
-        
+        if (formData.skipReceipt) {
+          setMessage('✅ تم إضافة العضو بنجاح! (بدون إيصال)')
+        } else {
+          setMessage('✅ تم إضافة العضو بنجاح!')
+        }
+
         if (data.receipt) {
           console.log('🖨️ طباعة الإيصال باستخدام النظام الموحد...')
           
@@ -471,9 +476,12 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">رقم الهاتف</label>
+            <label className="block text-sm font-medium mb-1">
+              رقم الهاتف <span className="text-red-600">*</span>
+            </label>
             <input
               type="tel"
+              required
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full px-3 py-2 border-2 rounded-lg"
@@ -709,11 +717,26 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
           <label className="block text-sm font-medium mb-2">طريقة الدفع</label>
           <PaymentMethodSelector
             value={formData.paymentMethod}
-            onChange={(method) => setFormData({ 
-              ...formData, 
+            onChange={(method) => setFormData({
+              ...formData,
               paymentMethod: method as 'cash' | 'visa' | 'instapay' | 'wallet'
             })}
           />
+        </div>
+
+        {/* ✅ خيار عدم إنشاء إيصال */}
+        <div className="mt-4">
+          <label className="flex items-center gap-2 cursor-pointer bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
+            <input
+              type="checkbox"
+              checked={formData.skipReceipt}
+              onChange={(e) => setFormData({ ...formData, skipReceipt: e.target.checked })}
+              className="w-5 h-5 rounded border-gray-300"
+            />
+            <span className="text-sm font-bold text-yellow-800">
+              🚫 عدم إنشاء إيصال (للأدمن فقط)
+            </span>
+          </label>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
+import { useAdminDate } from '../../contexts/AdminDateContext'
 
 interface Staff {
   id: string
@@ -24,6 +25,7 @@ interface Expense {
 export default function ExpensesPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading } = usePermissions()
+  const { customCreatedAt } = useAdminDate()
 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
@@ -31,6 +33,11 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'gym_expense' | 'staff_loan'>('all')
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; expenseId: string | null; expenseName: string }>({
+    show: false,
+    expenseId: null,
+    expenseName: ''
+  })
   
   const [formData, setFormData] = useState({
     type: 'gym_expense' as 'gym_expense' | 'staff_loan',
@@ -74,12 +81,17 @@ export default function ExpensesPage() {
 
     try {
       // إذا كانت سلفة موظف، ضع اسم الموظف في الوصف تلقائياً
-      const dataToSend = { ...formData }
+      const dataToSend: any = { ...formData }
       if (formData.type === 'staff_loan' && formData.staffId) {
         const selectedStaff = staffList.find(s => s.id === formData.staffId)
         if (selectedStaff) {
           dataToSend.description = selectedStaff.name
         }
+      }
+
+      // ✅ إضافة التاريخ المخصص إذا كان مفعّل
+      if (customCreatedAt) {
+        dataToSend.customCreatedAt = customCreatedAt.toISOString()
       }
 
       const response = await fetch('/api/expenses', {
@@ -112,15 +124,33 @@ export default function ExpensesPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من الحذف؟')) return
+  const handleDelete = (expense: Expense) => {
+    setDeleteConfirm({
+      show: true,
+      expenseId: expense.id,
+      expenseName: expense.description
+    })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.expenseId) return
 
     try {
-      await fetch(`/api/expenses?id=${id}`, { method: 'DELETE' })
+      await fetch(`/api/expenses?id=${deleteConfirm.expenseId}`, { method: 'DELETE' })
       fetchExpenses()
+      setMessage('✅ تم حذف المصروف بنجاح')
+      setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       console.error('Error:', error)
+      setMessage('❌ فشل حذف المصروف')
+      setTimeout(() => setMessage(''), 3000)
+    } finally {
+      setDeleteConfirm({ show: false, expenseId: null, expenseName: '' })
     }
+  }
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, expenseId: null, expenseName: '' })
   }
 
   const togglePaid = async (expense: Expense) => {
@@ -255,7 +285,7 @@ export default function ExpensesPage() {
                     required
                   >
                     <option value="">اختر الموظف</option>
-                    {staffList.map((staff) => (
+                    {(staffList || []).map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.name}
                       </option>
@@ -377,10 +407,10 @@ export default function ExpensesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => handleDelete(expense.id)}
-                      className="text-red-600 hover:text-red-800"
+                      onClick={() => handleDelete(expense)}
+                      className="text-red-600 hover:text-red-800 font-bold"
                     >
-                      حذف
+                      🗑️ حذف
                     </button>
                   </td>
                 </tr>
@@ -395,6 +425,84 @@ export default function ExpensesPage() {
           )}
         </div>
       )}
+
+      {/* Delete Confirmation Popup */}
+      {deleteConfirm.show && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 z-[9998] animate-fadeIn"
+            onClick={cancelDelete}
+          />
+
+          {/* Modal */}
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-full max-w-md px-4 animate-scaleIn">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 border-4 border-red-500">
+              {/* Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                  <span className="text-5xl">🗑️</span>
+                </div>
+              </div>
+
+              {/* Title */}
+              <h2 className="text-2xl font-bold text-center mb-3 text-red-600">
+                تأكيد الحذف
+              </h2>
+
+              {/* Message */}
+              <p className="text-center text-gray-700 mb-2">
+                هل أنت متأكد من حذف المصروف؟
+              </p>
+              <p className="text-center text-lg font-bold text-gray-900 mb-6 bg-gray-100 p-3 rounded-lg">
+                {deleteConfirm.expenseName}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold"
+                >
+                  ✕ إلغاء
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-bold"
+                >
+                  🗑️ حذف
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }

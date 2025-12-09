@@ -22,3 +22,37 @@ export async function GET() {
     return NextResponse.json({ nextNumber: 1001 })
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const { startNumber } = await req.json()
+
+    if (!startNumber || startNumber < 1) {
+      return NextResponse.json({ error: 'رقم غير صالح' }, { status: 400 })
+    }
+
+    // الحصول على العداد الحالي أو إنشاء واحد جديد
+    let counter = await prisma.receiptCounter.findFirst()
+
+    if (!counter) {
+      // إنشاء عداد جديد بالقيمة المحددة - 1 (لأن الرقم التالي سيكون startNumber)
+      counter = await prisma.receiptCounter.create({
+        data: { current: startNumber - 1 }
+      })
+    } else {
+      // تحديث العداد الحالي
+      counter = await prisma.receiptCounter.update({
+        where: { id: counter.id },
+        data: { current: startNumber - 1 }
+      })
+    }
+
+    return NextResponse.json({
+      message: `تم تحديث رقم الإيصال التالي إلى ${startNumber}`,
+      nextNumber: startNumber
+    })
+  } catch (error) {
+    console.error('Error updating receipt number:', error)
+    return NextResponse.json({ error: 'فشل تحديث رقم الإيصال' }, { status: 500 })
+  }
+}

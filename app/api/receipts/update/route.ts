@@ -8,13 +8,14 @@ export async function PUT(request: Request) {
     // ✅ التحقق من صلاحية تعديل الإيصالات
     await requirePermission(request, 'canEditReceipts')
     
-    const { 
-      receiptId, 
-      receiptNumber, 
-      amount, 
+    const {
+      receiptId,
+      receiptNumber,
+      amount,
       paymentMethod,
       itemDetails,
-      staffName 
+      staffName,
+      createdAt
     } = await request.json()
 
     if (!receiptId) {
@@ -51,7 +52,8 @@ export async function PUT(request: Request) {
         ...(amount && { amount: parseFloat(amount) }),
         ...(paymentMethod && { paymentMethod }),
         ...(itemDetails && { itemDetails: JSON.stringify(itemDetails) }),
-        ...(staffName !== undefined && { staffName })
+        ...(staffName !== undefined && { staffName }),
+        ...(createdAt && { createdAt: new Date(createdAt) })
       }
     })
 

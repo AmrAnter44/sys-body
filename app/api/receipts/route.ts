@@ -18,22 +18,22 @@ export async function GET(request: Request) {
     if (memberId) {
       receipts = await prisma.receipt.findMany({
         where: { memberId },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { receiptNumber: 'desc' }
       })
     } else if (ptNumber) {
       receipts = await prisma.receipt.findMany({
         where: { ptNumber: parseInt(ptNumber) },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { receiptNumber: 'desc' }
       })
     } else if (dayUseId) {
       receipts = await prisma.receipt.findMany({
         where: { dayUseId },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { receiptNumber: 'desc' }
       })
     } else {
       // جلب كل الإيصالات أو عدد محدد
       receipts = await prisma.receipt.findMany({
-        orderBy: { createdAt: 'desc' },
+        orderBy: { receiptNumber: 'desc' },
         take: limit ? parseInt(limit) : undefined
       })
     }

@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       sessionsPurchased,
       coachName,
       pricePerSession,
+      remainingAmount,
       startDate,
       expiryDate,
       paymentMethod,
@@ -64,10 +65,45 @@ export async function POST(request: Request) {
 
     console.log('📝 إضافة جلسة PT جديدة:', { ptNumber, clientName, sessionsPurchased })
 
-    // التحقق من أن رقم PT مُدخل
+    // ✅ التحقق من الحقول المطلوبة
     if (!ptNumber) {
       return NextResponse.json(
-        { error: 'رقم PT مطلوب' }, 
+        { error: 'رقم PT مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!clientName || clientName.trim() === '') {
+      return NextResponse.json(
+        { error: 'اسم العميل مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!phone || phone.trim() === '') {
+      return NextResponse.json(
+        { error: 'رقم الهاتف مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!coachName || coachName.trim() === '') {
+      return NextResponse.json(
+        { error: 'اسم الكوتش مطلوب' },
+        { status: 400 }
+      )
+    }
+
+    if (!sessionsPurchased || sessionsPurchased <= 0) {
+      return NextResponse.json(
+        { error: 'عدد الجلسات مطلوب ويجب أن يكون أكبر من صفر' },
+        { status: 400 }
+      )
+    }
+
+    if (pricePerSession === undefined || pricePerSession < 0) {
+      return NextResponse.json(
+        { error: 'سعر الجلسة مطلوب ولا يمكن أن يكون سالب' },
         { status: 400 }
       )
     }
@@ -160,6 +196,7 @@ export async function POST(request: Request) {
         coachName,
         coachUserId,  // ✅ ربط الكوتش بـ userId
         pricePerSession,
+        remainingAmount: remainingAmount || 0,  // ✅ الباقي من الفلوس
         startDate: startDate ? new Date(startDate) : null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         qrCode: barcodeText,
@@ -180,6 +217,7 @@ export async function POST(request: Request) {
       }
 
       const totalAmount = sessionsPurchased * pricePerSession
+      const paidAmount = totalAmount - (remainingAmount || 0)
 
       let subscriptionDays = null
       if (startDate && expiryDate) {
@@ -192,7 +230,7 @@ export async function POST(request: Request) {
         data: {
           receiptNumber: counter.current,
           type: 'اشتراك برايفت',
-          amount: totalAmount,
+          amount: paidAmount,  // ✅ المبلغ المدفوع فقط
           paymentMethod: paymentMethod || 'cash',
           staffName: staffName || '',
           itemDetails: JSON.stringify({
@@ -202,6 +240,8 @@ export async function POST(request: Request) {
             sessionsPurchased,
             pricePerSession,
             totalAmount,
+            paidAmount,  // ✅ المبلغ المدفوع
+            remainingAmount: remainingAmount || 0,  // ✅ المبلغ المتبقي
             coachName,
             startDate: startDate,
             expiryDate: expiryDate,
