@@ -128,9 +128,18 @@ export async function POST(request: Request) {
       }
     })
 
-    console.log('✅ تم تسجيل الجلسة بنجاح')
+    // خصم جلسة من الجلسات المتبقية
+    await prisma.pT.update({
+      where: { ptNumber: parseInt(ptNumber) },
+      data: { sessionsRemaining: pt.sessionsRemaining - 1 }
+    })
 
-    return NextResponse.json(session, { status: 201 })
+    console.log(`✅ تم تسجيل الجلسة بنجاح (الحصص المتبقية: ${pt.sessionsRemaining - 1})`)
+
+    return NextResponse.json({
+      ...session,
+      sessionsRemaining: pt.sessionsRemaining - 1
+    }, { status: 201 })
   } catch (error) {
     console.error('❌ خطأ في تسجيل حضور الجلسة:', error)
     return NextResponse.json({ error: 'فشل تسجيل حضور الجلسة' }, { status: 500 })

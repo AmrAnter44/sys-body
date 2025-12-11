@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface Visitor {
   id: string
@@ -18,12 +19,27 @@ interface Stats {
   _count: number
 }
 
+interface FollowUp {
+  id: string
+  notes: string
+  contacted: boolean
+  nextFollowUpDate?: string
+  result?: string
+  salesName?: string
+  createdAt: string
+  visitor: Visitor
+}
+
 export default function VisitorsPage() {
+  const router = useRouter()
   const [visitors, setVisitors] = useState<Visitor[]>([])
   const [stats, setStats] = useState<Stats[]>([])
+  const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [selectedVisitorForHistory, setSelectedVisitorForHistory] = useState<Visitor | null>(null)
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -66,8 +82,19 @@ export default function VisitorsPage() {
     }
   }
 
+  const fetchFollowUps = async () => {
+    try {
+      const response = await fetch('/api/visitors/followups')
+      const data = await response.json()
+      setFollowUps(data || [])
+    } catch (error) {
+      console.error('Error fetching follow-ups:', error)
+    }
+  }
+
   useEffect(() => {
     fetchVisitors()
+    fetchFollowUps()
   }, [searchTerm, statusFilter, sourceFilter])
 
   // إعادة تعيين الصفحة عند تغيير الفلاتر
@@ -135,6 +162,56 @@ export default function VisitorsPage() {
       console.error('Error deleting visitor:', error)
       setMessage('❌ فشل حذف الزائر')
     }
+  }
+
+  // تنظيف رقم التليفون
+  const normalizePhone = (phone: string) => {
+    if (!phone) return ''
+    let normalized = phone.replace(/[\s\-\(\)\+]/g, '').trim()
+    if (normalized.startsWith('2')) normalized = normalized.substring(1)
+    if (normalized.startsWith('0')) normalized = normalized.substring(1)
+    return normalized
+  }
+
+  const openHistoryModal = (visitor: Visitor) => {
+    setSelectedVisitorForHistory(visitor)
+    setShowHistoryModal(true)
+  }
+
+  const openQuickFollowUp = (visitor: Visitor) => {
+    // الانتقال لصفحة المتابعات مع تمرير بيانات الزائر
+    router.push(`/followups?visitorId=${visitor.id}`)
+  }
+
+  // Memoize history to avoid recalculation on every render
+  const visitorHistory = useMemo(() => {
+    if (!selectedVisitorForHistory) return []
+    const normalizedPhone = normalizePhone(selectedVisitorForHistory.phone)
+    return followUps.filter(fu => {
+      const fuPhone = normalizePhone(fu.visitor.phone)
+      return fuPhone === normalizedPhone
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [selectedVisitorForHistory, followUps])
+
+  const getResultBadge = (result?: string) => {
+    const badges = {
+      interested: 'bg-green-100 text-green-800',
+      'not-interested': 'bg-red-100 text-red-800',
+      postponed: 'bg-yellow-100 text-yellow-800',
+      subscribed: 'bg-blue-100 text-blue-800',
+    }
+    const labels = {
+      interested: 'مهتم',
+      'not-interested': 'غير مهتم',
+      postponed: 'مؤجل',
+      subscribed: 'اشترك',
+    }
+    if (!result) return <span className="text-gray-400">-</span>
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badges[result as keyof typeof badges] || 'bg-gray-100 text-gray-800'}`}>
+        {labels[result as keyof typeof labels] || result}
+      </span>
+    )
   }
 
   const getStatusBadge = (status: string) => {
@@ -377,7 +454,17 @@ export default function VisitorsPage() {
               {currentVisitors.map((visitor) => (
                 <tr key={visitor.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{visitor.name}</td>
-                  <td className="px-4 py-3 font-mono text-sm">{visitor.phone}</td>
+                  <td className="px-4 py-3">
+                    <a
+                      href={`https://wa.me/2${visitor.phone}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-lg font-medium text-sm bg-green-500 hover:bg-green-600 text-white transition-colors"
+                    >
+                      <span>💬</span>
+                      <span className="font-mono">{visitor.phone}</span>
+                    </a>
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {getSourceLabel(visitor.source)}
                   </td>
@@ -409,12 +496,28 @@ export default function VisitorsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleDelete(visitor.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      حذف
-                    </button>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => openQuickFollowUp(visitor)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
+                        title="إضافة متابعة جديدة"
+                      >
+                        ➕ متابعة
+                      </button>
+                      <button
+                        onClick={() => openHistoryModal(visitor)}
+                        className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded bg-purple-50 hover:bg-purple-100"
+                        title="عرض سجل المتابعات"
+                      >
+                        📋 السجل
+                      </button>
+                      <button
+                        onClick={() => handleDelete(visitor.id)}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
+                      >
+                        🗑️ حذف
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -524,6 +627,100 @@ export default function VisitorsPage() {
               <p>لا يوجد زوار حالياً</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* History Modal - سجل المتابعات */}
+      {showHistoryModal && selectedVisitorForHistory && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowHistoryModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-purple-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  <span>📋</span>
+                  <span>سجل المتابعات</span>
+                </h2>
+                <p className="text-xs opacity-90 mt-0.5">
+                  {selectedVisitorForHistory.name} - {selectedVisitorForHistory.phone}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4">
+              {visitorHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">📭</div>
+                  <p className="text-sm">لا توجد متابعات لهذا الزائر</p>
+                  <button
+                    onClick={() => {
+                      setShowHistoryModal(false)
+                      openQuickFollowUp(selectedVisitorForHistory)
+                    }}
+                    className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    ➕ إضافة أول متابعة
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                    <p className="text-sm font-bold text-purple-900">
+                      المجموع: <span className="text-2xl">{visitorHistory.length}</span>
+                    </p>
+                  </div>
+
+                  {visitorHistory.map((fu, index) => (
+                    <div
+                      key={fu.id}
+                      className={`border rounded-lg p-3 ${
+                        fu.contacted ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl font-bold text-gray-400">#{visitorHistory.length - index}</span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(fu.createdAt).toLocaleDateString('ar-EG')}
+                            </span>
+                            {fu.contacted ? (
+                              <span className="text-green-700 font-bold text-xs">✅ تم</span>
+                            ) : (
+                              <span className="text-orange-600 font-bold text-xs">⏳ لم يتم</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 flex-wrap justify-end">
+                          {fu.result && getResultBadge(fu.result)}
+                          {fu.salesName && (
+                            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
+                              {fu.salesName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2 rounded border border-gray-200 mb-2">
+                        <p className="text-sm text-gray-800">{fu.notes}</p>
+                      </div>
+
+                      {fu.nextFollowUpDate && (
+                        <div className="text-xs text-gray-600">
+                          📅 القادمة: <span className="font-bold">{new Date(fu.nextFollowUpDate).toLocaleDateString('ar-EG')}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react'
 interface FollowUpFormProps {
   visitors: any[]
   expiredMembers: any[]
+  expiringMembers: any[]
   dayUseRecords: any[]
   invitations: any[]
   initialVisitorId?: string
@@ -22,6 +23,7 @@ interface FollowUpFormProps {
 export default function FollowUpForm({
   visitors,
   expiredMembers,
+  expiringMembers,
   dayUseRecords,
   invitations,
   initialVisitorId = '',
@@ -59,6 +61,14 @@ export default function FollowUpForm({
       // إزالة "(عضو منتهي)" من الاسم إذا كان موجود
       const cleanName = expMember.name.replace(' (عضو منتهي)', '').trim()
       return { name: cleanName, phone: expMember.phone, type: 'عضو منتهي' }
+    }
+
+    // البحث في الأعضاء القريبين من الانتهاء (ID = expiring-xxx)
+    const expiringMember = expiringMembers.find((m: any) => m.id === formData.visitorId)
+    if (expiringMember) {
+      // إزالة "(باقي X يوم)" من الاسم
+      const cleanName = expiringMember.name.replace(/\s*\(باقي \d+ يوم\)/, '').trim()
+      return { name: cleanName, phone: expiringMember.phone, type: 'اشتراك قرب ينتهي' }
     }
 
     // البحث في Day Use

@@ -31,6 +31,9 @@ export default function DayUsePage() {
   })
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
+  const [showDeletePopup, setShowDeletePopup] = useState(false)
+  const [entryToDelete, setEntryToDelete] = useState<DayUseEntry | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchEntries = async () => {
     try {
@@ -71,11 +74,11 @@ export default function DayUsePage() {
 
       if (response.ok) {
         const entry = await response.json()
-        
+
         try {
           const receiptsResponse = await fetch(`/api/receipts?dayUseId=${entry.id}`)
           const receipts = await receiptsResponse.json()
-          
+
           if (receipts.length > 0) {
             const receipt = receipts[0]
             setReceiptData({
@@ -100,7 +103,7 @@ export default function DayUsePage() {
           staffName: user?.name || '',
           paymentMethod: 'cash',
         })
-        
+
         setMessage('✅ تم التسجيل بنجاح!')
         setTimeout(() => setMessage(''), 3000)
         fetchEntries()
@@ -116,6 +119,37 @@ export default function DayUsePage() {
     }
   }
 
+  const handleDeleteClick = (entry: DayUseEntry) => {
+    setEntryToDelete(entry)
+    setShowDeletePopup(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!entryToDelete) return
+
+    setDeleting(true)
+    try {
+      const response = await fetch(`/api/dayuse?id=${entryToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setMessage('✅ تم الحذف بنجاح!')
+        setTimeout(() => setMessage(''), 3000)
+        fetchEntries()
+        setShowDeletePopup(false)
+        setEntryToDelete(null)
+      } else {
+        setMessage('❌ فشل الحذف')
+      }
+    } catch (error) {
+      console.error(error)
+      setMessage('❌ حدث خطأ في الحذف')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="container mx-auto p-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
@@ -127,6 +161,12 @@ export default function DayUsePage() {
           {showForm ? 'إخفاء النموذج' : 'إضافة عملية جديدة'}
         </button>
       </div>
+
+      {message && !showForm && (
+        <div className={`mb-4 p-3 rounded-lg ${message.includes('✅') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message}
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -236,6 +276,7 @@ export default function DayUsePage() {
                 <th className="px-4 py-3 text-right">السعر</th>
                 <th className="px-4 py-3 text-right">الموظف</th>
                 <th className="px-4 py-3 text-right">التاريخ</th>
+                <th className="px-4 py-3 text-center">إجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -259,6 +300,14 @@ export default function DayUsePage() {
                   <td className="px-4 py-3">{entry.staffName}</td>
                   <td className="px-4 py-3">
                     {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => handleDeleteClick(entry)}
+                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
+                    >
+                      🗑️ حذف
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -294,6 +343,74 @@ export default function DayUsePage() {
           paymentMethod={receiptData.paymentMethod}
           onClose={() => setShowReceipt(false)}
         />
+      )}
+
+      {/* Delete Confirmation Popup */}
+      {showDeletePopup && entryToDelete && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={() => !deleting && setShowDeletePopup(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              {/* Warning Icon */}
+              <div className="mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-3">
+                  <span className="text-4xl">⚠️</span>
+                </div>
+                <h3 className="text-2xl font-bold text-red-700 mb-2">
+                  تأكيد الحذف
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  هل أنت متأكد من حذف هذا السجل؟
+                </p>
+              </div>
+
+              {/* Entry Details */}
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-6 text-right">
+                <div className="space-y-2">
+                  <p><span className="font-semibold">الاسم:</span> {entryToDelete.name}</p>
+                  <p><span className="font-semibold">الهاتف:</span> {entryToDelete.phone}</p>
+                  <p>
+                    <span className="font-semibold">نوع الخدمة:</span>{' '}
+                    {entryToDelete.serviceType === 'DayUse' ? 'يوم استخدام' :
+                     entryToDelete.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
+                  </p>
+                  <p><span className="font-semibold">السعر:</span> {entryToDelete.price} ج.م</p>
+                  <p><span className="font-semibold">التاريخ:</span> {new Date(entryToDelete.createdAt).toLocaleDateString('ar-EG')}</p>
+                </div>
+              </div>
+
+              {/* Warning Message */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-yellow-800">
+                  <strong>⚠️ تحذير:</strong> هذا الإجراء لا يمكن التراجع عنه!
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition"
+                >
+                  {deleting ? '⏳ جاري الحذف...' : '🗑️ نعم، احذف'}
+                </button>
+                <button
+                  onClick={() => setShowDeletePopup(false)}
+                  disabled={deleting}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed font-medium transition"
+                >
+                  ✖️ إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

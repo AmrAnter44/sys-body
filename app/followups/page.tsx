@@ -54,6 +54,7 @@ export default function FollowUpsPage() {
   const [resultFilter, setResultFilter] = useState('all')
   const [contactedFilter, setContactedFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
+  const [expiringDays, setExpiringDays] = useState(30) // عدد الأيام للأعضاء اللي قرب اشتراكهم ينتهي
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -77,7 +78,34 @@ export default function FollowUpsPage() {
       }))
   }, [allMembers])
 
-  // ✅ دمج المتابعات الحقيقية مع الأعضاء المنتهيين + Day Use + Invitations
+  // ✅ حساب الأعضاء اللي اشتراكهم قرب ينتهي (حسب عدد الأيام المحدد)
+  const expiringMembers = useMemo(() => {
+    const today = new Date()
+    const futureDate = new Date()
+    futureDate.setDate(today.getDate() + expiringDays)
+
+    return allMembers
+      .filter(m => {
+        if (!m.expiryDate || !m.isActive) return false
+        const expiryDate = new Date(m.expiryDate)
+        // الأعضاء النشطين اللي اشتراكهم هينتهي في خلال الأيام المحددة
+        return expiryDate > today && expiryDate <= futureDate
+      })
+      .map(m => {
+        const expiryDate = new Date(m.expiryDate!)
+        const daysLeft = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        return {
+          id: `expiring-${m.id}`,
+          name: `${m.name} (باقي ${daysLeft} يوم)`,
+          phone: m.phone,
+          source: 'expiring-member',
+          status: 'expiring',
+          daysLeft
+        }
+      })
+  }, [allMembers, expiringDays])
+
+  // ✅ دمج المتابعات الحقيقية مع الأعضاء المنتهيين + الأعضاء القريبين من الانتهاء + Day Use + Invitations
   const allFollowUps = useMemo(() => {
     // 1. الأعضاء المنتهيين
     const expiredFollowUps: FollowUp[] = expiredMembers.map(member => ({
@@ -91,7 +119,19 @@ export default function FollowUpsPage() {
       visitor: member
     }))
 
-    // 2. Day Use (استخدام InBody يوم واحد)
+    // 2. الأعضاء اللي اشتراكهم قرب ينتهي
+    const expiringFollowUps: FollowUp[] = expiringMembers.map((member: any) => ({
+      id: member.id,
+      notes: `اشتراك قرب ينتهي - باقي ${member.daysLeft} يوم فقط`,
+      contacted: false,
+      nextFollowUpDate: new Date().toISOString(),
+      result: undefined,
+      salesName: 'نظام',
+      createdAt: new Date().toISOString(),
+      visitor: member
+    }))
+
+    // 3. Day Use (استخدام InBody يوم واحد)
     const dayUseFollowUps: FollowUp[] = dayUseRecords.map(record => ({
       id: `dayuse-${record.id}`,
       notes: `استخدام ${record.serviceType} - فرصة للاشتراك`,
@@ -109,7 +149,7 @@ export default function FollowUpsPage() {
       }
     }))
 
-    // 3. Invitations (دعوات من أعضاء)
+    // 4. Invitations (دعوات من أعضاء)
     const invitationFollowUps: FollowUp[] = invitations.map(inv => ({
       id: `invitation-${inv.id}`,
       notes: `دعوة من عضو - ${inv.member?.name || 'عضو'}`,
@@ -127,8 +167,8 @@ export default function FollowUpsPage() {
       }
     }))
 
-    return [...followUps, ...expiredFollowUps, ...dayUseFollowUps, ...invitationFollowUps]
-  }, [followUps, expiredMembers, dayUseRecords, invitations])
+    return [...followUps, ...expiredFollowUps, ...expiringFollowUps, ...dayUseFollowUps, ...invitationFollowUps]
+  }, [followUps, expiredMembers, expiringMembers, dayUseRecords, invitations])
 
   const fetchFollowUps = async () => {
     try {
@@ -241,6 +281,13 @@ export default function FollowUpsPage() {
       if (expMember) {
         const cleanName = expMember.name.replace(' (عضو منتهي)', '').trim()
         visitorData = { name: cleanName, phone: expMember.phone, source: 'expired-member' }
+      }
+
+      // البحث في الأعضاء القريبين من الانتهاء
+      const expiringMember = expiringMembers.find((m: any) => m.id === formData.visitorId)
+      if (expiringMember) {
+        const cleanName = expiringMember.name.replace(/\s*\(باقي \d+ يوم\)/, '').trim()
+        visitorData = { name: cleanName, phone: expiringMember.phone, source: 'expiring-member' }
       }
 
       // البحث في Day Use
@@ -414,6 +461,7 @@ export default function FollowUpsPage() {
       'invitation': '🎁 دعوة (يوم استخدام)',
       'member-invitation': '👥 دعوة من عضو',
       'expired-member': '❌ عضو منتهي (تجديد)',
+      'expiring-member': '⏰ اشتراك قرب ينتهي',
       'facebook': 'فيسبوك',
       'instagram': 'إنستجرام',
       'friend': 'صديق',
@@ -459,6 +507,7 @@ export default function FollowUpsPage() {
       return fu.contacted && new Date(fu.createdAt).toDateString() === today
     }).length,
     expiredMembers: expiredMembers.length,
+    expiringMembers: expiringMembers.length,
     dayUse: dayUseRecords.length,
     invitations: invitations.length,
     visitors: visitors.length,
@@ -501,6 +550,32 @@ export default function FollowUpsPage() {
           </button>
         </div>
 
+        {/* Filter for Expiring Days */}
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-bold text-yellow-900 mb-2">
+                ⏰ عرض الأعضاء اللي اشتراكهم هينتهي خلال:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={expiringDays}
+                  onChange={(e) => setExpiringDays(Number(e.target.value))}
+                  className="px-4 py-2 border-2 border-yellow-400 rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 w-24"
+                />
+                <span className="text-lg font-bold text-yellow-900">يوم</span>
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-yellow-800 mb-1">عدد الأعضاء</p>
+              <p className="text-4xl font-bold text-yellow-900">{stats.expiringMembers}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg">
@@ -518,6 +593,10 @@ export default function FollowUpsPage() {
           <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 shadow-lg">
             <p className="text-xs opacity-90 mb-1">❌ منتهيين</p>
             <p className="text-3xl font-bold">{stats.expiredMembers}</p>
+          </div>
+          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">⏰ قرب ينتهي</p>
+            <p className="text-3xl font-bold">{stats.expiringMembers}</p>
           </div>
           <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-xl p-4 shadow-lg">
             <p className="text-xs opacity-90 mb-1">🎁 Day Use</p>
@@ -550,6 +629,7 @@ export default function FollowUpsPage() {
         <FollowUpForm
           visitors={visitors}
           expiredMembers={expiredMembers}
+          expiringMembers={expiringMembers}
           dayUseRecords={dayUseRecords}
           invitations={invitations}
           initialVisitorId={selectedVisitorId}
@@ -731,6 +811,7 @@ export default function FollowUpsPage() {
                 {currentFollowUps.map((followUp) => {
                   const isMember = isVisitorAMember(followUp.visitor.phone)
                   const isExpired = followUp.visitor.source === 'expired-member'
+                  const isExpiring = followUp.visitor.source === 'expiring-member'
                   const hasRenewed = isExpired && hasExpiredMemberRenewed(followUp.visitor.phone)
 
                   return (
@@ -741,6 +822,8 @@ export default function FollowUpsPage() {
                         ? 'bg-green-50 hover:bg-green-100'
                         : isExpired
                         ? 'bg-red-50 hover:bg-red-100'
+                        : isExpiring
+                        ? 'bg-yellow-50 hover:bg-yellow-100'
                         : isMember
                         ? 'bg-green-50 hover:bg-green-100'
                         : 'hover:bg-blue-50'
@@ -804,6 +887,8 @@ export default function FollowUpsPage() {
                           ? 'bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium'
                           : followUp.visitor.source === 'expired-member'
                           ? 'bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-bold'
+                          : followUp.visitor.source === 'expiring-member'
+                          ? 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-bold'
                           : 'text-gray-600'
                       }`}>
                         {getSourceLabel(followUp.visitor.source)}
@@ -1036,7 +1121,7 @@ export default function FollowUpsPage() {
           </div>
         </div>
         <p className="text-sm text-white mt-4 bg-green-700/30 p-3 rounded-lg">
-          💡 <strong>ملاحظة:</strong> السطور الخضراء = زوار أصبحوا أعضاء | السطور الحمراء = أعضاء منتهيين يحتاجون تجديد
+          💡 <strong>ملاحظة:</strong> السطور الخضراء = زوار أصبحوا أعضاء | السطور الحمراء = أعضاء منتهيين يحتاجون تجديد | السطور الصفراء = أعضاء اشتراكهم قرب ينتهي
         </p>
       </div>
 
@@ -1050,6 +1135,7 @@ export default function FollowUpsPage() {
           <li>• 🔥 <strong>المتابعات المتأخرة:</strong> ابدأ بها أولاً - العميل قد يكون قرر بالفعل</li>
           <li>• ⚡ <strong>متابعات اليوم:</strong> تواصل الآن للحصول على أفضل نتائج</li>
           <li>• 💬 <strong>زر WhatsApp:</strong> اضغط على رقم الهاتف للتواصل السريع</li>
+          <li>• ⏰ <strong>السطور الصفراء:</strong> أعضاء اشتراكهم قرب ينتهي - تواصل قبل ما يروح!</li>
           <li>• ❌ <strong>السطور الحمراء:</strong> أعضاء منتهيين - فرصة ذهبية للتجديد!</li>
           <li>• ✅ <strong>السطور الخضراء:</strong> زوار نجحت متابعتهم - تعلم من الأسلوب!</li>
         </ul>
