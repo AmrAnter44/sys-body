@@ -198,7 +198,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">💸 المصروفات</h1>
@@ -362,68 +362,153 @@ export default function ExpensesPage() {
       {loading ? (
         <div className="text-center py-12">جاري التحميل...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-right">النوع</th>
-                <th className="px-4 py-3 text-right">الموظف</th>
-                <th className="px-4 py-3 text-right">الوصف</th>
-                <th className="px-4 py-3 text-right">المبلغ</th>
-                <th className="px-4 py-3 text-right">الحالة</th>
-                <th className="px-4 py-3 text-right">التاريخ</th>
-                <th className="px-4 py-3 text-right">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredExpenses.map((expense) => (
-                <tr key={expense.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <span className={`px-3 py-1 rounded text-sm ${getTypeColor(expense.type)}`}>
-                      {getTypeLabel(expense.type)}
+        <>
+          {/* Cards للموبايل */}
+          <div className="md:hidden space-y-4">
+            {filteredExpenses.map((expense) => (
+              <div
+                key={expense.id}
+                className="bg-white rounded-lg shadow-md border-r-4 border-red-500 overflow-hidden"
+              >
+                {/* Actions في الأعلى */}
+                <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(expense.type)}`}>
+                    {getTypeLabel(expense.type)}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(expense)}
+                    className="text-red-600 hover:text-red-800 font-bold text-sm"
+                  >
+                    🗑️ حذف
+                  </button>
+                </div>
+
+                {/* محتوى الكارت */}
+                <div className="p-4 space-y-3">
+                  {/* الوصف */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">{expense.description}</h3>
+                    {expense.staff && (
+                      <p className="text-sm text-gray-600 mt-1">👤 {expense.staff.name}</p>
+                    )}
+                  </div>
+
+                  {/* المبلغ */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">💰</span>
+                    <span className="text-2xl font-bold text-orange-600">{expense.amount} ج.م</span>
+                  </div>
+
+                  {/* التاريخ */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📅</span>
+                    <span className="text-gray-700">
+                      {new Date(expense.createdAt).toLocaleDateString('ar-EG')}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {expense.staff ? expense.staff.name : '-'}
-                  </td>
-                  <td className="px-4 py-3">{expense.description}</td>
-                  <td className="px-4 py-3 font-bold text-orange-600">{expense.amount} ج.م</td>
-                  <td className="px-4 py-3">
-                    {expense.type === 'staff_loan' && (
+                  </div>
+
+                  {/* الحالة للسلف */}
+                  {expense.type === 'staff_loan' && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 text-sm">📊</span>
                       <button
                         onClick={() => togglePaid(expense)}
-                        className={`px-3 py-1 rounded text-sm ${
-                          expense.isPaid 
-                            ? 'bg-green-100 text-green-800' 
+                        className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
+                          expense.isPaid
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}
                       >
                         {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
                       </button>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {new Date(expense.createdAt).toLocaleDateString('ar-EG')}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleDelete(expense)}
-                      className="text-red-600 hover:text-red-800 font-bold"
-                    >
-                      🗑️ حذف
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </div>
+                  )}
 
-          {filteredExpenses.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              لا توجد مصروفات حالياً
-            </div>
-          )}
-        </div>
+                  {/* الملاحظات */}
+                  {expense.notes && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-semibold">📝 ملاحظات:</span> {expense.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {filteredExpenses.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-6xl mb-4">💸</div>
+                <p className="text-xl">لا توجد مصروفات حالياً</p>
+              </div>
+            )}
+          </div>
+
+          {/* الجدول للشاشات الكبيرة */}
+          <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-right">النوع</th>
+                  <th className="px-4 py-3 text-right">الموظف</th>
+                  <th className="px-4 py-3 text-right">الوصف</th>
+                  <th className="px-4 py-3 text-right">المبلغ</th>
+                  <th className="px-4 py-3 text-right">الحالة</th>
+                  <th className="px-4 py-3 text-right">التاريخ</th>
+                  <th className="px-4 py-3 text-right">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExpenses.map((expense) => (
+                  <tr key={expense.id} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 rounded text-sm ${getTypeColor(expense.type)}`}>
+                        {getTypeLabel(expense.type)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {expense.staff ? expense.staff.name : '-'}
+                    </td>
+                    <td className="px-4 py-3">{expense.description}</td>
+                    <td className="px-4 py-3 font-bold text-orange-600">{expense.amount} ج.م</td>
+                    <td className="px-4 py-3">
+                      {expense.type === 'staff_loan' && (
+                        <button
+                          onClick={() => togglePaid(expense)}
+                          className={`px-3 py-1 rounded text-sm ${
+                            expense.isPaid
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {new Date(expense.createdAt).toLocaleDateString('ar-EG')}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleDelete(expense)}
+                        className="text-red-600 hover:text-red-800 font-bold"
+                      >
+                        🗑️ حذف
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filteredExpenses.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-6xl mb-4">💸</div>
+                <p className="text-xl">لا توجد مصروفات حالياً</p>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Popup */}

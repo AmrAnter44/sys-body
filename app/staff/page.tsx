@@ -22,9 +22,8 @@ interface Attendance {
   id: string
   staffId: string
   staff: Staff
-  checkIn: string
-  checkOut: string | null
-  duration: number | null
+  date: string
+  notes: string | null
   createdAt: string
 }
 
@@ -96,7 +95,8 @@ export default function StaffPage() {
 
   const fetchTodayAttendance = async () => {
     try {
-      const response = await fetch('/api/attendance?today=true')
+      const today = new Date().toISOString().split('T')[0]  // YYYY-MM-DD
+      const response = await fetch(`/api/attendance?dateFrom=${today}&dateTo=${today}`)
       const data = await response.json()
       setTodayAttendance(data)
     } catch (error) {
@@ -215,21 +215,9 @@ const handleScan = async (staffCode: string) => {
     }
   }
 
-  // ✅ حساب مدة الحضور
-  const calculateDuration = (checkIn: string, checkOut: string | null) => {
-    const start = new Date(checkIn)
-    const end = checkOut ? new Date(checkOut) : new Date()
-    const diffMinutes = Math.floor((end.getTime() - start.getTime()) / (1000 * 60))
-    const hours = Math.floor(diffMinutes / 60)
-    const minutes = diffMinutes % 60
-    return `${hours}س ${minutes}د`
-  }
-
-  // ✅ التحقق من حالة الموظف
+  // ✅ التحقق من حضور الموظف اليوم
   const isStaffPresent = (staffId: string) => {
-    return todayAttendance.some(
-      (att) => att.staffId === staffId && !att.checkOut
-    )
+    return todayAttendance.some((att) => att.staffId === staffId)
   }
 
   const resetForm = () => {
@@ -414,7 +402,7 @@ const handleScan = async (staffCode: string) => {
   }
 
   const staffByPosition = getStaffByPosition()
-  const presentStaff = todayAttendance.filter((att) => !att.checkOut).length
+  const presentStaff = todayAttendance.length  // كل اللي سجلوا حضور اليوم
   const totalCheckedIn = todayAttendance.length
 
   // ✅ التحقق من الصلاحيات
@@ -431,7 +419,7 @@ const handleScan = async (staffCode: string) => {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       {/* ✅ قسم Scanner للحضور والانصراف */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-8 text-white">
         <div className="flex items-center justify-between mb-6">
@@ -506,10 +494,7 @@ const handleScan = async (staffCode: string) => {
                   <th className="px-4 py-3 text-right">الرقم</th>
                   <th className="px-4 py-3 text-right">الاسم</th>
                   <th className="px-4 py-3 text-right">الوظيفة</th>
-                  <th className="px-4 py-3 text-right">وقت الحضور</th>
-                  <th className="px-4 py-3 text-right">وقت الانصراف</th>
-                  <th className="px-4 py-3 text-right">المدة</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
+                  <th className="px-4 py-3 text-center">الحالة</th>
                 </tr>
               </thead>
               <tbody>
@@ -530,26 +515,9 @@ const handleScan = async (staffCode: string) => {
                         {getPositionIcon(att.staff.position || '')} {att.staff.position || '-'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      {new Date(att.checkIn).toLocaleTimeString('ar-EG')}
-                    </td>
-                    <td className="px-4 py-3">
-                      {att.checkOut
-                        ? new Date(att.checkOut).toLocaleTimeString('ar-EG')
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3 font-bold">
-                      {calculateDuration(att.checkIn, att.checkOut)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          att.checkOut
-                            ? 'bg-gray-200 text-gray-700'
-                            : 'bg-green-500 text-white animate-pulse'
-                        }`}
-                      >
-                        {att.checkOut ? '👋 انصرف' : '✅ موجود'}
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
+                        ✅ حاضر
                       </span>
                     </td>
                   </tr>
@@ -804,110 +772,222 @@ const handleScan = async (staffCode: string) => {
       {loading ? (
         <div className="text-center py-12">جاري التحميل...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-right">الرقم</th>
-                  <th className="px-4 py-3 text-right">الاسم</th>
-                  <th className="px-4 py-3 text-right">الهاتف</th>
-                  <th className="px-4 py-3 text-right">الوظيفة</th>
-                  <th className="px-4 py-3 text-right">المرتب</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staff.map((staffMember) => (
-                  <tr
-                    key={staffMember.id}
-                    className={`border-t hover:bg-gray-50 transition ${
-                      !staffMember.isActive ? 'opacity-60' : ''
-                    } ${isStaffPresent(staffMember.id) ? 'bg-green-50' : ''}`}
-                  >
-                    <td className="px-4 py-3">
-                      <span className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xl">
-                        #{staffMember.staffCode}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{staffMember.name}</span>
+        <>
+          {/* Cards للموبايل */}
+          <div className="md:hidden space-y-4">
+            {staff.map((staffMember) => (
+              <div
+                key={staffMember.id}
+                className={`bg-white rounded-lg shadow-md border-r-4 border-orange-500 overflow-hidden ${
+                  !staffMember.isActive ? 'opacity-60' : ''
+                } ${isStaffPresent(staffMember.id) ? 'bg-green-50' : ''}`}
+              >
+                {/* Actions في الأعلى */}
+                <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(staffMember)}
+                      className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                    >
+                      ✏️ تعديل
+                    </button>
+                    {hasPermission('canDeleteStaff') && (
+                      <button
+                        onClick={() => handleDelete(staffMember)}
+                        className="text-red-600 hover:text-red-800 font-semibold text-sm"
+                      >
+                        🗑️ حذف
+                      </button>
+                    )}
+                  </div>
+                  {staffMember.phone && (
+                    <StaffBarcodeWhatsApp
+                      staffCode={staffMember.staffCode}
+                      staffName={staffMember.name}
+                      staffPhone={staffMember.phone}
+                    />
+                  )}
+                </div>
+
+                {/* محتوى الكارت */}
+                <div className="p-4 space-y-3">
+                  {/* الرقم والاسم */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="bg-blue-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
+                          #{staffMember.staffCode}
+                        </span>
                         {isStaffPresent(staffMember.id) && (
                           <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
                             ✅ موجود
                           </span>
                         )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{staffMember.phone || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${getPositionColor(
-                          staffMember.position || ''
-                        )}`}
-                      >
-                        <span>{getPositionIcon(staffMember.position || '')}</span>
-                        <span>{staffMember.position || '-'}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-green-600">
+                      <h3 className="text-lg font-bold text-gray-800">{staffMember.name}</h3>
+                    </div>
+                  </div>
+
+                  {/* الوظيفة */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">💼</span>
+                    <span
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${getPositionColor(
+                        staffMember.position || ''
+                      )}`}
+                    >
+                      <span>{getPositionIcon(staffMember.position || '')}</span>
+                      <span>{staffMember.position || '-'}</span>
+                    </span>
+                  </div>
+
+                  {/* الهاتف */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📱</span>
+                    <span className="text-gray-700">{staffMember.phone || '-'}</span>
+                  </div>
+
+                  {/* المرتب */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">💰</span>
+                    <span className="font-bold text-green-600">
                       {staffMember.salary ? `${staffMember.salary} ج.م` : '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => toggleActive(staffMember)}
-                        className={`px-3 py-1 rounded-full text-sm font-semibold transition transform hover:scale-105 ${
-                          staffMember.isActive
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-red-100 text-red-800 hover:bg-red-200'
-                        }`}
-                      >
-                        {staffMember.isActive ? '✅ نشط' : '❌ غير نشط'}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2 items-center">
-                        <button
-                          onClick={() => handleEdit(staffMember)}
-                          className="text-blue-600 hover:text-blue-800 font-semibold transition hover:underline"
-                        >
-                          ✏️ تعديل
-                        </button>
+                    </span>
+                  </div>
 
-                        {hasPermission('canDeleteStaff') && (
-                          <button
-                            onClick={() => handleDelete(staffMember)}
-                            className="text-red-600 hover:text-red-800 font-semibold transition hover:underline"
-                          >
-                            🗑️ حذف
-                          </button>
-                        )}
+                  {/* الحالة */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📊</span>
+                    <button
+                      onClick={() => toggleActive(staffMember)}
+                      className={`px-3 py-1 rounded-full text-sm font-semibold transition ${
+                        staffMember.isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {staffMember.isActive ? '✅ نشط' : '❌ غير نشط'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
 
-                        {staffMember.phone && (
-                          <StaffBarcodeWhatsApp
-                            staffCode={staffMember.staffCode}
-                            staffName={staffMember.name}
-                            staffPhone={staffMember.phone}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {staff.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-6xl mb-4">😕</div>
+                <p className="text-xl">لا يوجد موظفين حالياً</p>
+                <p className="text-sm mt-2">ابدأ بإضافة موظف جديد</p>
+              </div>
+            )}
           </div>
 
-          {staff.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <div className="text-6xl mb-4">😕</div>
-              <p className="text-xl">لا يوجد موظفين حالياً</p>
-              <p className="text-sm mt-2">ابدأ بإضافة موظف جديد</p>
+          {/* الجدول للشاشات الكبيرة */}
+          <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-right">الرقم</th>
+                    <th className="px-4 py-3 text-right">الاسم</th>
+                    <th className="px-4 py-3 text-right">الهاتف</th>
+                    <th className="px-4 py-3 text-right">الوظيفة</th>
+                    <th className="px-4 py-3 text-right">المرتب</th>
+                    <th className="px-4 py-3 text-right">الحالة</th>
+                    <th className="px-4 py-3 text-right">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff.map((staffMember) => (
+                    <tr
+                      key={staffMember.id}
+                      className={`border-t hover:bg-gray-50 transition ${
+                        !staffMember.isActive ? 'opacity-60' : ''
+                      } ${isStaffPresent(staffMember.id) ? 'bg-green-50' : ''}`}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xl">
+                          #{staffMember.staffCode}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{staffMember.name}</span>
+                          {isStaffPresent(staffMember.id) && (
+                            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                              ✅ موجود
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{staffMember.phone || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${getPositionColor(
+                            staffMember.position || ''
+                          )}`}
+                        >
+                          <span>{getPositionIcon(staffMember.position || '')}</span>
+                          <span>{staffMember.position || '-'}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-green-600">
+                        {staffMember.salary ? `${staffMember.salary} ج.م` : '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => toggleActive(staffMember)}
+                          className={`px-3 py-1 rounded-full text-sm font-semibold transition transform hover:scale-105 ${
+                            staffMember.isActive
+                              ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                              : 'bg-red-100 text-red-800 hover:bg-red-200'
+                          }`}
+                        >
+                          {staffMember.isActive ? '✅ نشط' : '❌ غير نشط'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2 items-center">
+                          <button
+                            onClick={() => handleEdit(staffMember)}
+                            className="text-blue-600 hover:text-blue-800 font-semibold transition hover:underline"
+                          >
+                            ✏️ تعديل
+                          </button>
+
+                          {hasPermission('canDeleteStaff') && (
+                            <button
+                              onClick={() => handleDelete(staffMember)}
+                              className="text-red-600 hover:text-red-800 font-semibold transition hover:underline"
+                            >
+                              🗑️ حذف
+                            </button>
+                          )}
+
+                          {staffMember.phone && (
+                            <StaffBarcodeWhatsApp
+                              staffCode={staffMember.staffCode}
+                              staffName={staffMember.name}
+                              staffPhone={staffMember.phone}
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+
+            {staff.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-6xl mb-4">😕</div>
+                <p className="text-xl">لا يوجد موظفين حالياً</p>
+                <p className="text-sm mt-2">ابدأ بإضافة موظف جديد</p>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   )

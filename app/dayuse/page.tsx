@@ -151,7 +151,7 @@ export default function DayUsePage() {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">يوم استخدام / InBody</h1>
         <button
@@ -266,26 +266,46 @@ export default function DayUsePage() {
       {loading ? (
         <div className="text-center py-12">جاري التحميل...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-right">الاسم</th>
-                <th className="px-4 py-3 text-right">الهاتف</th>
-                <th className="px-4 py-3 text-right">نوع الخدمة</th>
-                <th className="px-4 py-3 text-right">السعر</th>
-                <th className="px-4 py-3 text-right">الموظف</th>
-                <th className="px-4 py-3 text-right">التاريخ</th>
-                <th className="px-4 py-3 text-center">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => (
-                <tr key={entry.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3">{entry.name}</td>
-                  <td className="px-4 py-3">{entry.phone}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-sm ${
+        <>
+          {/* Mobile Cards View */}
+          <div className="md:hidden space-y-4">
+            {entries.map((entry) => (
+              <div
+                key={entry.id}
+                className="bg-white border-r-4 border-purple-500 rounded-lg shadow-md p-4"
+              >
+                {/* Action Buttons at Top */}
+                <div className="flex justify-end gap-2 mb-3">
+                  <button
+                    onClick={() => handleDeleteClick(entry)}
+                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm font-medium shadow-sm"
+                  >
+                    🗑️ حذف
+                  </button>
+                </div>
+
+                {/* Entry Info */}
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">👤 الاسم:</span>
+                    <span className="font-bold text-gray-900">{entry.name}</span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">📱 الهاتف:</span>
+                    <a
+                      href={`https://wa.me/2${entry.phone}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-600 font-medium hover:text-green-700"
+                    >
+                      {entry.phone}
+                    </a>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">🎯 الخدمة:</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                       entry.serviceType === 'DayUse'
                         ? 'bg-blue-100 text-blue-800'
                         : entry.serviceType === 'InBody'
@@ -295,31 +315,92 @@ export default function DayUsePage() {
                       {entry.serviceType === 'DayUse' ? 'يوم استخدام' :
                        entry.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">{entry.price} ج.م</td>
-                  <td className="px-4 py-3">{entry.staffName}</td>
-                  <td className="px-4 py-3">
-                    {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => handleDeleteClick(entry)}
-                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
-                    >
-                      🗑️ حذف
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
 
-          {entries.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              لا توجد عمليات حالياً
-            </div>
-          )}
-        </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">💰 السعر:</span>
+                    <span className="font-bold text-green-600">{entry.price} ج.م</span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">👨‍💼 الموظف:</span>
+                    <span className="text-gray-700">{entry.staffName}</span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">📅 التاريخ:</span>
+                    <span className="text-gray-700">
+                      {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {entries.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-5xl mb-3">📦</div>
+                <p>لا توجد عمليات حالياً</p>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-right">الاسم</th>
+                  <th className="px-4 py-3 text-right">الهاتف</th>
+                  <th className="px-4 py-3 text-right">نوع الخدمة</th>
+                  <th className="px-4 py-3 text-right">السعر</th>
+                  <th className="px-4 py-3 text-right">الموظف</th>
+                  <th className="px-4 py-3 text-right">التاريخ</th>
+                  <th className="px-4 py-3 text-center">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry) => (
+                  <tr key={entry.id} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-3">{entry.name}</td>
+                    <td className="px-4 py-3">{entry.phone}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-sm ${
+                        entry.serviceType === 'DayUse'
+                          ? 'bg-blue-100 text-blue-800'
+                          : entry.serviceType === 'InBody'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {entry.serviceType === 'DayUse' ? 'يوم استخدام' :
+                         entry.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{entry.price} ج.م</td>
+                    <td className="px-4 py-3">{entry.staffName}</td>
+                    <td className="px-4 py-3">
+                      {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleDeleteClick(entry)}
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
+                      >
+                        🗑️ حذف
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {entries.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                لا توجد عمليات حالياً
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {receiptData && (

@@ -45,6 +45,7 @@ export default function VisitorsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState('all') // فلتر الشهر
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -97,10 +98,32 @@ export default function VisitorsPage() {
     fetchFollowUps()
   }, [searchTerm, statusFilter, sourceFilter])
 
+  // قائمة الأشهر المتاحة من بيانات الزوار
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>()
+    visitors.forEach(visitor => {
+      const date = new Date(visitor.createdAt)
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      months.add(yearMonth)
+    })
+    return Array.from(months).sort().reverse() // الأحدث أولاً
+  }, [visitors])
+
+  // فلترة الزوار حسب الشهر على الـ client-side
+  const filteredVisitors = useMemo(() => {
+    if (monthFilter === 'all') return visitors
+
+    const [year, month] = monthFilter.split('-').map(Number)
+    return visitors.filter(visitor => {
+      const visitDate = new Date(visitor.createdAt)
+      return visitDate.getFullYear() === year && visitDate.getMonth() + 1 === month
+    })
+  }, [visitors, monthFilter])
+
   // إعادة تعيين الصفحة عند تغيير الفلاتر
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, statusFilter, sourceFilter])
+  }, [searchTerm, statusFilter, sourceFilter, monthFilter])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -245,11 +268,20 @@ export default function VisitorsPage() {
     return labels[source as keyof typeof labels] || source
   }
 
+  const getMonthLabel = (yearMonth: string) => {
+    const [year, month] = yearMonth.split('-')
+    const monthNames = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ]
+    return `${monthNames[parseInt(month) - 1]} ${year}`
+  }
+
   // Pagination calculations
-  const totalPages = Math.ceil(visitors.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredVisitors.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentVisitors = visitors.slice(startIndex, endIndex)
+  const currentVisitors = filteredVisitors.slice(startIndex, endIndex)
 
   const goToPage = (page: number) => {
     setCurrentPage(page)
@@ -257,7 +289,7 @@ export default function VisitorsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       {/* Header with Stats */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
@@ -276,8 +308,13 @@ export default function VisitorsPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
-            <div className="text-sm opacity-90 mb-1">إجمالي الزوار</div>
-            <div className="text-4xl font-bold">{visitors.length}</div>
+            <div className="text-sm opacity-90 mb-1">
+              {monthFilter !== 'all' ? `زوار ${getMonthLabel(monthFilter)}` : 'إجمالي الزوار'}
+            </div>
+            <div className="text-4xl font-bold">{filteredVisitors.length}</div>
+            {monthFilter !== 'all' && (
+              <div className="text-xs opacity-75 mt-1">من أصل {visitors.length} زائر</div>
+            )}
           </div>
           {stats.map((stat) => (
             <div key={stat.status} className="bg-white p-5 rounded-xl shadow-lg border-2">
@@ -384,9 +421,9 @@ export default function VisitorsPage() {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">بحث</label>
+            <label className="block text-sm font-medium mb-1">🔍 بحث</label>
             <input
               type="text"
               value={searchTerm}
@@ -397,7 +434,30 @@ export default function VisitorsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">فلتر حسب المصدر</label>
+            <label className="block text-sm font-medium mb-1">📅 الشهر</label>
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="all">كل الأشهر ({visitors.length})</option>
+              {availableMonths.map(month => {
+                const count = visitors.filter(v => {
+                  const date = new Date(v.createdAt)
+                  const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                  return yearMonth === month
+                }).length
+                return (
+                  <option key={month} value={month}>
+                    {getMonthLabel(month)} ({count})
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">📂 المصدر</label>
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
@@ -413,7 +473,7 @@ export default function VisitorsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">فلتر حسب الحالة</label>
+            <label className="block text-sm font-medium mb-1">📊 الحالة</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -436,25 +496,48 @@ export default function VisitorsPage() {
           <p className="text-xl">جاري التحميل...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-right">الاسم</th>
-                <th className="px-4 py-3 text-right">رقم الهاتف</th>
-                <th className="px-4 py-3 text-right">المصدر</th>
-                <th className="px-4 py-3 text-right">مهتم بـ</th>
-                <th className="px-4 py-3 text-right">الحالة</th>
-                <th className="px-4 py-3 text-right">تاريخ الزيارة</th>
-                <th className="px-4 py-3 text-right">ملاحظات</th>
-                <th className="px-4 py-3 text-right">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentVisitors.map((visitor) => (
-                <tr key={visitor.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{visitor.name}</td>
-                  <td className="px-4 py-3">
+        <>
+          {/* Cards للموبايل */}
+          <div className="md:hidden space-y-4">
+            {currentVisitors.map((visitor) => (
+              <div
+                key={visitor.id}
+                className="bg-white rounded-lg shadow-md border-r-4 border-green-500 overflow-hidden"
+              >
+                {/* Actions في الأعلى */}
+                <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => openQuickFollowUp(visitor)}
+                      className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1 rounded bg-blue-50"
+                    >
+                      ➕ متابعة
+                    </button>
+                    <button
+                      onClick={() => openHistoryModal(visitor)}
+                      className="text-purple-600 hover:text-purple-800 text-xs font-medium px-2 py-1 rounded bg-purple-50"
+                    >
+                      📋 السجل
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(visitor.id)}
+                    className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 rounded bg-red-50"
+                  >
+                    🗑️ حذف
+                  </button>
+                </div>
+
+                {/* محتوى الكارت */}
+                <div className="p-4 space-y-3">
+                  {/* الاسم */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">{visitor.name}</h3>
+                  </div>
+
+                  {/* رقم الهاتف */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📱</span>
                     <a
                       href={`https://wa.me/2${visitor.phone}`}
                       target="_blank"
@@ -464,170 +547,331 @@ export default function VisitorsPage() {
                       <span>💬</span>
                       <span className="font-mono">{visitor.phone}</span>
                     </a>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {getSourceLabel(visitor.source)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {visitor.interestedIn || '-'}
-                  </td>
-                  <td className="px-4 py-3">
+                  </div>
+
+                  {/* المصدر */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📂</span>
+                    <span className="text-gray-700">{getSourceLabel(visitor.source)}</span>
+                  </div>
+
+                  {/* مهتم بـ */}
+                  {visitor.interestedIn && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 text-sm">💡</span>
+                      <span className="text-gray-700">{visitor.interestedIn}</span>
+                    </div>
+                  )}
+
+                  {/* الحالة */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📊</span>
                     <select
                       value={visitor.status}
                       onChange={(e) => handleUpdateStatus(visitor.id, e.target.value)}
-                      className="text-xs px-2 py-1 rounded border"
+                      className="text-xs px-2 py-1 rounded border flex-1"
                     >
                       <option value="pending">معلق</option>
                       <option value="contacted">تم التواصل</option>
                       <option value="subscribed">مشترك</option>
                       <option value="rejected">مرفوض</option>
                     </select>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {new Date(visitor.createdAt).toLocaleDateString('ar-EG')}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {visitor.notes ? (
-                      <p className="text-gray-600 max-w-xs truncate" title={visitor.notes}>
-                        {visitor.notes}
+                  </div>
+
+                  {/* تاريخ الزيارة */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📅</span>
+                    <span className="text-gray-700">
+                      {new Date(visitor.createdAt).toLocaleDateString('ar-EG')}
+                    </span>
+                  </div>
+
+                  {/* الملاحظات */}
+                  {visitor.notes && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-semibold">📝 ملاحظات:</span> {visitor.notes}
                       </p>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={() => openQuickFollowUp(visitor)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
-                        title="إضافة متابعة جديدة"
-                      >
-                        ➕ متابعة
-                      </button>
-                      <button
-                        onClick={() => openHistoryModal(visitor)}
-                        className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded bg-purple-50 hover:bg-purple-100"
-                        title="عرض سجل المتابعات"
-                      >
-                        📋 السجل
-                      </button>
-                      <button
-                        onClick={() => handleDelete(visitor.id)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
-                      >
-                        🗑️ حذف
-                      </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pagination Controls */}
-          {visitors.length > 0 && totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
-              {/* معلومات الصفحة */}
-              <div className="text-sm text-gray-600">
-                عرض {startIndex + 1} - {Math.min(endIndex, visitors.length)} من {visitors.length} زائر
+                  )}
+                </div>
               </div>
+            ))}
 
-              {/* أزرار التنقل */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => goToPage(1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="الصفحة الأولى"
-                >
-                  الأولى
-                </button>
-
-                <button
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="السابقة"
-                >
-                  السابقة
-                </button>
-
-                {/* أرقام الصفحات */}
-                <div className="flex gap-1">
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let pageNum
-                    if (totalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'hover:bg-gray-200'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
+            {/* Pagination للموبايل */}
+            {filteredVisitors.length > 0 && totalPages > 1 && (
+              <div className="bg-white rounded-lg shadow-md p-4 space-y-3">
+                <div className="text-sm text-gray-600 text-center">
+                  عرض {startIndex + 1} - {Math.min(endIndex, filteredVisitors.length)} من {filteredVisitors.length} زائر
                 </div>
 
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="التالية"
-                >
-                  التالية
-                </button>
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-gray-100 hover:bg-gray-200"
+                  >
+                    السابقة
+                  </button>
 
-                <button
-                  onClick={() => goToPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="الصفحة الأخيرة"
-                >
-                  الأخيرة
-                </button>
+                  <span className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-medium">
+                    {currentPage} / {totalPages}
+                  </span>
+
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-gray-100 hover:bg-gray-200"
+                  >
+                    التالية
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <label className="text-gray-600">عدد العناصر:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="border border-gray-300 rounded-lg px-3 py-1"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
+            )}
 
-              {/* اختيار عدد العناصر في الصفحة */}
-              <div className="flex items-center gap-2 text-sm">
-                <label className="text-gray-600">عدد العناصر:</label>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value))
-                    setCurrentPage(1)
-                  }}
-                  className="border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+            {filteredVisitors.length === 0 && (
+              <div className="text-center py-12 text-gray-500 bg-white rounded-lg shadow-md">
+                <div className="text-5xl mb-3">🚶</div>
+                {monthFilter !== 'all' ? (
+                  <>
+                    <p>لا يوجد زوار في {getMonthLabel(monthFilter)}</p>
+                    <button
+                      onClick={() => setMonthFilter('all')}
+                      className="mt-3 text-orange-600 hover:text-orange-700 font-medium"
+                    >
+                      عرض كل الأشهر
+                    </button>
+                  </>
+                ) : (
+                  <p>لا يوجد زوار حالياً</p>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {visitors.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <div className="text-5xl mb-3">🚶</div>
-              <p>لا يوجد زوار حالياً</p>
-            </div>
-          )}
-        </div>
+          {/* الجدول للشاشات الكبيرة */}
+          <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-right">الاسم</th>
+                  <th className="px-4 py-3 text-right">رقم الهاتف</th>
+                  <th className="px-4 py-3 text-right">المصدر</th>
+                  <th className="px-4 py-3 text-right">مهتم بـ</th>
+                  <th className="px-4 py-3 text-right">الحالة</th>
+                  <th className="px-4 py-3 text-right">تاريخ الزيارة</th>
+                  <th className="px-4 py-3 text-right">ملاحظات</th>
+                  <th className="px-4 py-3 text-right">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentVisitors.map((visitor) => (
+                  <tr key={visitor.id} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">{visitor.name}</td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://wa.me/2${visitor.phone}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg font-medium text-sm bg-green-500 hover:bg-green-600 text-white transition-colors"
+                      >
+                        <span>💬</span>
+                        <span className="font-mono">{visitor.phone}</span>
+                      </a>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {getSourceLabel(visitor.source)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {visitor.interestedIn || '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={visitor.status}
+                        onChange={(e) => handleUpdateStatus(visitor.id, e.target.value)}
+                        className="text-xs px-2 py-1 rounded border"
+                      >
+                        <option value="pending">معلق</option>
+                        <option value="contacted">تم التواصل</option>
+                        <option value="subscribed">مشترك</option>
+                        <option value="rejected">مرفوض</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {new Date(visitor.createdAt).toLocaleDateString('ar-EG')}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {visitor.notes ? (
+                        <p className="text-gray-600 max-w-xs truncate" title={visitor.notes}>
+                          {visitor.notes}
+                        </p>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => openQuickFollowUp(visitor)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
+                          title="إضافة متابعة جديدة"
+                        >
+                          ➕ متابعة
+                        </button>
+                        <button
+                          onClick={() => openHistoryModal(visitor)}
+                          className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded bg-purple-50 hover:bg-purple-100"
+                          title="عرض سجل المتابعات"
+                        >
+                          📋 السجل
+                        </button>
+                        <button
+                          onClick={() => handleDelete(visitor.id)}
+                          className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
+                        >
+                          🗑️ حذف
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination Controls */}
+            {filteredVisitors.length > 0 && totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
+                {/* معلومات الصفحة */}
+                <div className="text-sm text-gray-600">
+                  عرض {startIndex + 1} - {Math.min(endIndex, filteredVisitors.length)} من {filteredVisitors.length} زائر
+                </div>
+
+                {/* أزرار التنقل */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                    title="الصفحة الأولى"
+                  >
+                    الأولى
+                  </button>
+
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                    title="السابقة"
+                  >
+                    السابقة
+                  </button>
+
+                  {/* أرقام الصفحات */}
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                      let pageNum
+                      if (totalPages <= 5) {
+                        pageNum = i + 1
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i
+                      } else {
+                        pageNum = currentPage - 2 + i
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white'
+                              : 'hover:bg-gray-200'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                    title="التالية"
+                  >
+                    التالية
+                  </button>
+
+                  <button
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+                    title="الصفحة الأخيرة"
+                  >
+                    الأخيرة
+                  </button>
+                </div>
+
+                {/* اختيار عدد العناصر في الصفحة */}
+                <div className="flex items-center gap-2 text-sm">
+                  <label className="text-gray-600">عدد العناصر:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {filteredVisitors.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-5xl mb-3">🚶</div>
+                {monthFilter !== 'all' ? (
+                  <>
+                    <p>لا يوجد زوار في {getMonthLabel(monthFilter)}</p>
+                    <button
+                      onClick={() => setMonthFilter('all')}
+                      className="mt-3 text-orange-600 hover:text-orange-700 font-medium"
+                    >
+                      عرض كل الأشهر
+                    </button>
+                  </>
+                ) : (
+                  <p>لا يوجد زوار حالياً</p>
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* History Modal - سجل المتابعات */}

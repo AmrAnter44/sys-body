@@ -102,7 +102,7 @@ export default function InvitationsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-3">
@@ -173,81 +173,135 @@ export default function InvitationsPage() {
         )}
       </div>
 
-      {/* الجدول */}
+      {/* القائمة / البطاقات */}
       {loading ? (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">⏳</div>
           <p className="text-xl">جاري التحميل...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-4 py-3 text-right">التاريخ</th>
-                  <th className="px-4 py-3 text-right">اسم الضيف</th>
-                  <th className="px-4 py-3 text-right">هاتف الضيف</th>
-                  <th className="px-4 py-3 text-right">العضو المستضيف</th>
-                  <th className="px-4 py-3 text-right">رقم العضوية</th>
-                  <th className="px-4 py-3 text-right">ملاحظات</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentInvitations.map((invitation) => (
-                  <tr key={invitation.id} className="border-t hover:bg-gray-50">
-                    <td className="px-4 py-3">
+        <div>
+          {/* Cards للموبايل */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {currentInvitations.map((invitation) => (
+              <div key={invitation.id} className="bg-white rounded-lg shadow-md p-4 border-r-4 border-purple-500">
+                {/* الهيدر */}
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {formatDateYMD(invitation.createdAt)} • {new Date(invitation.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <h3 className="font-bold text-lg text-purple-700">{invitation.guestName}</h3>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(invitation.id)}
+                    className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded hover:bg-red-50"
+                  >
+                    🗑️ حذف
+                  </button>
+                </div>
+
+                {/* التفاصيل */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">📱</span>
+                    <span className="font-mono text-sm">{invitation.guestPhone}</span>
+                  </div>
+
+                  <div className="border-t pt-2">
+                    <p className="text-xs text-gray-500 mb-1">العضو المستضيف:</p>
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-mono text-sm">
-                          {formatDateYMD(invitation.createdAt)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(invitation.createdAt).toLocaleTimeString('ar-EG', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                        <p className="font-semibold">{invitation.member.name}</p>
+                        <p className="text-xs text-gray-500">{invitation.member.phone}</p>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-purple-700">
-                        {invitation.guestName}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-mono">{invitation.guestPhone}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{invitation.member.name}</p>
-                      <p className="text-xs text-gray-500">{invitation.member.phone}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold text-sm">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold text-xs">
                         #{invitation.member.memberNumber}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {invitation.notes ? (
-                        <p className="text-sm text-gray-600 max-w-xs truncate" title={invitation.notes}>
-                          {invitation.notes}
-                        </p>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(invitation.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
-                        حذف
-                      </button>
-                    </td>
+                    </div>
+                  </div>
+
+                  {invitation.notes && (
+                    <div className="border-t pt-2">
+                      <p className="text-xs text-gray-500 mb-1">ملاحظات:</p>
+                      <p className="text-sm text-gray-700">{invitation.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table للشاشات الكبيرة */}
+          <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-right">التاريخ</th>
+                    <th className="px-4 py-3 text-right">اسم الضيف</th>
+                    <th className="px-4 py-3 text-right">هاتف الضيف</th>
+                    <th className="px-4 py-3 text-right">العضو المستضيف</th>
+                    <th className="px-4 py-3 text-right">رقم العضوية</th>
+                    <th className="px-4 py-3 text-right">ملاحظات</th>
+                    <th className="px-4 py-3 text-right">إجراءات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {currentInvitations.map((invitation) => (
+                    <tr key={invitation.id} className="border-t hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-mono text-sm">
+                            {formatDateYMD(invitation.createdAt)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(invitation.createdAt).toLocaleTimeString('ar-EG', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-purple-700">
+                          {invitation.guestName}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-mono">{invitation.guestPhone}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{invitation.member.name}</p>
+                        <p className="text-xs text-gray-500">{invitation.member.phone}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold text-sm">
+                          #{invitation.member.memberNumber}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {invitation.notes ? (
+                          <p className="text-sm text-gray-600 max-w-xs truncate" title={invitation.notes}>
+                            {invitation.notes}
+                          </p>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDelete(invitation.id)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          حذف
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Pagination Controls */}
