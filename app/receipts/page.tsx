@@ -391,7 +391,7 @@ export default function ReceiptsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">🧾 الإيصالات</h1>
@@ -511,10 +511,12 @@ export default function ReceiptsPage() {
             >
               <option value="all">الكل</option>
               <option value="Member">عضو جديد</option>
+              <option value="عضوية">عضوية</option>
               <option value="تجديد عضويه">تجديد عضوية</option>
               <option value="اشتراك برايفت">PT جديد</option>
               <option value="تجديد برايفت">تجديد PT</option>
-              <option value="DayUse">Day Use</option>
+              <option value="يوم استخدام">يوم استخدام</option>
+              <option value="تأجير لوجر">تأجير لوجر</option>
               <option value="InBody">InBody</option>
               <option value="Payment">دفع متبقي</option>
             </select>
@@ -550,24 +552,165 @@ export default function ReceiptsPage() {
         )}
       </div>
 
-      {/* Receipts Table */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-right font-bold">رقم الإيصال</th>
-                <th className="px-6 py-4 text-right font-bold">النوع</th>
-                <th className="px-6 py-4 text-right font-bold">العميل</th>
-                <th className="px-6 py-4 text-right font-bold">المبلغ</th>
-                <th className="px-6 py-4 text-right font-bold">طريقة الدفع</th>
-                <th className="px-6 py-4 text-right font-bold">الموظف</th>
-                <th className="px-6 py-4 text-right font-bold">التاريخ</th>
-                <th className="px-6 py-4 text-right font-bold">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentReceipts.map((receipt) => {
+      {/* Receipts Display */}
+      <>
+        {/* Mobile Cards View */}
+        <div className="md:hidden space-y-4 mb-6">
+          {currentReceipts.map((receipt) => {
+            let details: any = {}
+            try {
+              details = JSON.parse(receipt.itemDetails)
+            } catch {}
+
+            const clientName = details.memberName || details.clientName || details.name || '-'
+
+            return (
+              <div
+                key={receipt.id}
+                className="bg-white border-r-4 border-blue-500 rounded-lg shadow-md p-4"
+              >
+                {/* Action Buttons at Top */}
+                <div className="flex justify-end gap-2 mb-3">
+                  <ReceiptWhatsApp
+                    receipt={receipt}
+                    onDetailsClick={() => setSelectedReceipt(receipt)}
+                  />
+
+                  <button
+                    onClick={() => handlePrint(receipt)}
+                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm transition shadow-md"
+                    title="طباعة"
+                  >
+                    🖨️
+                  </button>
+
+                  {canEdit && (
+                    <button
+                      onClick={() => handleOpenEdit(receipt)}
+                      className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm transition shadow-md"
+                      title="تعديل"
+                    >
+                      ✏️
+                    </button>
+                  )}
+
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(receipt.id)}
+                      className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm transition shadow-md"
+                      title="حذف"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+
+                {/* Receipt Info */}
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[90px]">🔢 رقم الإيصال:</span>
+                    <span className="font-bold text-blue-600">#{receipt.receiptNumber}</span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[90px]">📋 النوع:</span>
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                      {getTypeLabel(receipt.type)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[90px]">👤 العميل:</span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{clientName}</p>
+                      {details.phone && (
+                        <p className="text-xs text-gray-600">{details.phone}</p>
+                      )}
+                      {details.memberNumber && (
+                        <p className="text-xs text-blue-600">عضوية #{details.memberNumber}</p>
+                      )}
+                      {details.ptNumber && (
+                        <p className="text-xs text-green-600">PT #{details.ptNumber}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[90px]">💰 المبلغ:</span>
+                    <span className="font-bold text-green-600 text-lg">{receipt.amount.toLocaleString()} ج.م</span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[90px]">💳 طريقة الدفع:</span>
+                    <span className="text-sm">{getPaymentMethodLabel(receipt.paymentMethod)}</span>
+                  </div>
+
+                  {receipt.staffName && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[90px]">👨‍💼 الموظف:</span>
+                      <span className="text-sm text-gray-600">{receipt.staffName}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 text-sm min-w-[90px]">📅 التاريخ:</span>
+                    <span className="text-sm text-gray-600">
+                      {new Date(receipt.createdAt).toLocaleString('ar-EG', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {filteredReceipts.length === 0 && !loading && (
+            <div className="text-center py-20 text-gray-500">
+              <div className="text-6xl mb-4">🧾</div>
+              <p className="text-xl font-medium mb-2">
+                {searchTerm || filterType !== 'all' || filterPayment !== 'all'
+                  ? 'لا توجد نتائج للبحث'
+                  : 'لا توجد إيصالات'}
+              </p>
+              {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('')
+                    setFilterType('all')
+                    setFilterPayment('all')
+                  }}
+                  className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  مسح الفلاتر
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-right font-bold">رقم الإيصال</th>
+                  <th className="px-6 py-4 text-right font-bold">النوع</th>
+                  <th className="px-6 py-4 text-right font-bold">العميل</th>
+                  <th className="px-6 py-4 text-right font-bold">المبلغ</th>
+                  <th className="px-6 py-4 text-right font-bold">طريقة الدفع</th>
+                  <th className="px-6 py-4 text-right font-bold">الموظف</th>
+                  <th className="px-6 py-4 text-right font-bold">التاريخ</th>
+                  <th className="px-6 py-4 text-right font-bold">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentReceipts.map((receipt) => {
                 let details: any = {}
                 try {
                   details = JSON.parse(receipt.itemDetails)
@@ -659,6 +802,30 @@ export default function ReceiptsPage() {
               })}
             </tbody>
           </table>
+        </div>
+
+          {filteredReceipts.length === 0 && !loading && (
+            <div className="text-center py-20 text-gray-500">
+              <div className="text-6xl mb-4">🧾</div>
+              <p className="text-xl font-medium mb-2">
+                {searchTerm || filterType !== 'all' || filterPayment !== 'all'
+                  ? 'لا توجد نتائج للبحث'
+                  : 'لا توجد إيصالات'}
+              </p>
+              {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('')
+                    setFilterType('all')
+                    setFilterPayment('all')
+                  }}
+                  className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  مسح الفلاتر
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Pagination Controls */}
@@ -757,30 +924,7 @@ export default function ReceiptsPage() {
             </div>
           </div>
         )}
-
-        {filteredReceipts.length === 0 && !loading && (
-          <div className="text-center py-20 text-gray-500">
-            <div className="text-6xl mb-4">🧾</div>
-            <p className="text-xl font-medium mb-2">
-              {searchTerm || filterType !== 'all' || filterPayment !== 'all' 
-                ? 'لا توجد نتائج للبحث' 
-                : 'لا توجد إيصالات'}
-            </p>
-            {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
-              <button
-                onClick={() => {
-                  setSearchTerm('')
-                  setFilterType('all')
-                  setFilterPayment('all')
-                }}
-                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-              >
-                مسح الفلاتر
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      </>
 
       {/* Detail Modal */}
       {selectedReceipt && (

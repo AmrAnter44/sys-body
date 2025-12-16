@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/member-checkin/auto-checkout",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

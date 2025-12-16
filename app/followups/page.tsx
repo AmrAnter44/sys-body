@@ -54,6 +54,7 @@ export default function FollowUpsPage() {
   const [resultFilter, setResultFilter] = useState('all')
   const [contactedFilter, setContactedFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
+  const [sourceFilter, setSourceFilter] = useState('all') // ✅ فلتر المصدر
   const [expiringDays, setExpiringDays] = useState(30) // عدد الأيام للأعضاء اللي قرب اشتراكهم ينتهي
 
   // Pagination
@@ -407,7 +408,24 @@ export default function FollowUpsPage() {
         const priority = getFollowUpPriority(fu)
         const matchesPriority = priorityFilter === 'all' || priority === priorityFilter
 
-        return matchesSearch && matchesResult && matchesContacted && matchesPriority
+        // ✅ فلترة حسب المصدر
+        let matchesSource = true
+        if (sourceFilter !== 'all') {
+          if (sourceFilter === 'expired-member') {
+            matchesSource = fu.visitor.source === 'expired-member'
+          } else if (sourceFilter === 'expiring-member') {
+            matchesSource = fu.visitor.source === 'expiring-member'
+          } else if (sourceFilter === 'member-invitation') {
+            matchesSource = fu.visitor.source === 'member-invitation'
+          } else if (sourceFilter === 'dayuse') {
+            matchesSource = fu.visitor.source === 'invitation'
+          } else if (sourceFilter === 'visitors') {
+            // زوار عاديين (walk-in, social-media, etc.)
+            matchesSource = !['expired-member', 'expiring-member', 'member-invitation', 'invitation'].includes(fu.visitor.source)
+          }
+        }
+
+        return matchesSearch && matchesResult && matchesContacted && matchesPriority && matchesSource
       })
       .sort((a, b) => {
         const aIsMember = isVisitorAMember(a.visitor.phone)
@@ -416,12 +434,12 @@ export default function FollowUpsPage() {
         if (!aIsMember && bIsMember) return -1
         return 0
       })
-  }, [allFollowUps, searchTerm, resultFilter, contactedFilter, priorityFilter])
+  }, [allFollowUps, searchTerm, resultFilter, contactedFilter, priorityFilter, sourceFilter])
 
   // إعادة تعيين الصفحة للأولى عند تغيير الفلاتر
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, resultFilter, contactedFilter, priorityFilter])
+  }, [searchTerm, resultFilter, contactedFilter, priorityFilter, sourceFilter])
 
   // حساب الصفحات
   const totalPages = Math.ceil(filteredFollowUps.length / itemsPerPage)
@@ -528,7 +546,7 @@ export default function FollowUpsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
@@ -728,7 +746,7 @@ export default function FollowUpsPage() {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">🔍 بحث</label>
             <input
@@ -738,6 +756,22 @@ export default function FollowUpsPage() {
               className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="ابحث باسم الزائر، رقم الهاتف، أو البائع..."
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">📂 المصدر</label>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">الكل</option>
+              <option value="expired-member">❌ أعضاء منتهيين</option>
+              <option value="expiring-member">⏰ أعضاء قرب ينتهي</option>
+              <option value="member-invitation">👥 دعوات أعضاء</option>
+              <option value="dayuse">🎁 Day Use</option>
+              <option value="visitors">👤 زوار</option>
+            </select>
           </div>
 
           <div>
@@ -782,6 +816,70 @@ export default function FollowUpsPage() {
             </select>
           </div>
         </div>
+
+        {/* Quick Filter Buttons */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => setSourceFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              sourceFilter === 'all'
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            الكل ({allFollowUps.length})
+          </button>
+          <button
+            onClick={() => setSourceFilter('expired-member')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              sourceFilter === 'expired-member'
+                ? 'bg-red-600 text-white shadow-lg'
+                : 'bg-red-50 text-red-700 hover:bg-red-100'
+            }`}
+          >
+            ❌ أعضاء منتهيين ({stats.expiredMembers})
+          </button>
+          <button
+            onClick={() => setSourceFilter('expiring-member')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              sourceFilter === 'expiring-member'
+                ? 'bg-yellow-600 text-white shadow-lg'
+                : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+            }`}
+          >
+            ⏰ أعضاء قرب ينتهي ({stats.expiringMembers})
+          </button>
+          <button
+            onClick={() => setSourceFilter('member-invitation')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              sourceFilter === 'member-invitation'
+                ? 'bg-cyan-600 text-white shadow-lg'
+                : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
+            }`}
+          >
+            👥 دعوات أعضاء ({stats.invitations})
+          </button>
+          <button
+            onClick={() => setSourceFilter('dayuse')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              sourceFilter === 'dayuse'
+                ? 'bg-pink-600 text-white shadow-lg'
+                : 'bg-pink-50 text-pink-700 hover:bg-pink-100'
+            }`}
+          >
+            🎁 Day Use ({stats.dayUse})
+          </button>
+          <button
+            onClick={() => setSourceFilter('visitors')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              sourceFilter === 'visitors'
+                ? 'bg-indigo-600 text-white shadow-lg'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+          >
+            👤 زوار ({stats.visitors})
+          </button>
+        </div>
       </div>
 
       {/* Follow-Ups Table */}
@@ -791,9 +889,193 @@ export default function FollowUpsPage() {
           <p className="text-xl">جاري التحميل...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <>
+          {/* Mobile Cards View */}
+          <div className="md:hidden space-y-4 mb-6">
+            {currentFollowUps.map((followUp) => {
+              const isMember = isVisitorAMember(followUp.visitor.phone)
+              const isExpired = followUp.visitor.source === 'expired-member'
+              const isExpiring = followUp.visitor.source === 'expiring-member'
+              const hasRenewed = isExpired && hasExpiredMemberRenewed(followUp.visitor.phone)
+
+              return (
+                <div
+                  key={followUp.id}
+                  className={`bg-white rounded-lg shadow-md p-4 ${
+                    hasRenewed
+                      ? 'border-r-4 border-green-500'
+                      : isExpired
+                      ? 'border-r-4 border-red-500'
+                      : isExpiring
+                      ? 'border-r-4 border-yellow-500'
+                      : isMember
+                      ? 'border-r-4 border-green-500'
+                      : 'border-r-4 border-blue-500'
+                  }`}
+                >
+                  {/* Action Buttons at Top */}
+                  <div className="flex justify-between items-start gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      {getPriorityBadge(followUp)}
+                      {hasRenewed && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
+                          ✓ تم التجديد
+                        </span>
+                      )}
+                      {isMember && !isExpired && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
+                          ✓ عضو
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {!hasRenewed && !isMember && isExpired && (
+                        <button
+                          onClick={() => openQuickFollowUp(followUp.visitor)}
+                          className="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded bg-red-50 hover:bg-red-100"
+                        >
+                          ➕
+                        </button>
+                      )}
+                      {!isMember && !isExpired && (
+                        <button
+                          onClick={() => openQuickFollowUp(followUp.visitor)}
+                          className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1 rounded bg-blue-50 hover:bg-blue-100"
+                        >
+                          ➕
+                        </button>
+                      )}
+                      <button
+                        onClick={() => openHistoryModal(followUp.visitor)}
+                        className="text-purple-600 hover:text-purple-800 text-xs font-medium px-2 py-1 rounded bg-purple-50 hover:bg-purple-100"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Follow-up Info */}
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">👤 الاسم:</span>
+                      <span className={`font-bold ${
+                        hasRenewed ? 'text-green-700' : isExpired ? 'text-red-700' : isMember ? 'text-green-700' : 'text-gray-900'
+                      }`}>
+                        {followUp.visitor.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">📱 الهاتف:</span>
+                      <a
+                        href={`https://wa.me/2${followUp.visitor.phone}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg font-medium text-sm ${
+                          hasRenewed
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : isExpired
+                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                            : isMember
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-green-500 hover:bg-green-600 text-white'
+                        }`}
+                      >
+                        <span>💬</span>
+                        <span>{followUp.visitor.phone}</span>
+                      </a>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">📂 المصدر:</span>
+                      <span className={`${
+                        followUp.visitor.source === 'invitation'
+                          ? 'bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium'
+                          : followUp.visitor.source === 'member-invitation'
+                          ? 'bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium'
+                          : followUp.visitor.source === 'expired-member'
+                          ? 'bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-bold'
+                          : followUp.visitor.source === 'expiring-member'
+                          ? 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-bold'
+                          : 'text-gray-600 text-sm'
+                      }`}>
+                        {getSourceLabel(followUp.visitor.source)}
+                      </span>
+                    </div>
+
+                    {followUp.salesName && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500 text-sm min-w-[70px]">🧑‍💼 البائع:</span>
+                        <span className="text-orange-600 font-semibold text-sm">{followUp.salesName}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">📝 الملاحظات:</span>
+                      <p className="text-sm text-gray-700 flex-1">{followUp.notes}</p>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">📊 النتيجة:</span>
+                      {getResultBadge(followUp.result)}
+                    </div>
+
+                    {followUp.nextFollowUpDate && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500 text-sm min-w-[70px]">📅 القادمة:</span>
+                        <span className="text-sm font-medium">
+                          {new Date(followUp.nextFollowUpDate).toLocaleDateString('ar-EG')}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">📅 التاريخ:</span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(followUp.createdAt).toLocaleDateString('ar-EG')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 text-sm min-w-[70px]">📞 التواصل:</span>
+                      {followUp.contacted ? (
+                        <span className="text-green-600 text-sm">✅ تم التواصل</span>
+                      ) : (
+                        <span className="text-orange-600 text-sm">⏳ لم يتم التواصل</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            {filteredFollowUps.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                {searchTerm || resultFilter !== 'all' || contactedFilter !== 'all' || priorityFilter !== 'all' ? (
+                  <>
+                    <div className="text-5xl mb-3">🔍</div>
+                    <p>لا توجد نتائج تطابق البحث</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-5xl mb-3">📝</div>
+                    <p>لا توجد متابعات مسجلة حتى الآن</p>
+                    <button
+                      onClick={() => setShowForm(true)}
+                      className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                    >
+                      ➕ إضافة أول متابعة
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
                 <tr>
                   <th className="px-4 py-3 text-right">الأولوية</th>
@@ -974,6 +1256,29 @@ export default function FollowUpsPage() {
             </table>
           </div>
 
+            {filteredFollowUps.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                {searchTerm || resultFilter !== 'all' || contactedFilter !== 'all' || priorityFilter !== 'all' ? (
+                  <>
+                    <div className="text-5xl mb-3">🔍</div>
+                    <p>لا توجد نتائج تطابق البحث</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-5xl mb-3">📝</div>
+                    <p>لا توجد متابعات مسجلة حتى الآن</p>
+                    <button
+                      onClick={() => setShowForm(true)}
+                      className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                    >
+                      ➕ إضافة أول متابعة
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Pagination Controls */}
           {filteredFollowUps.length > 0 && (
             <div className="mt-6 bg-white rounded-lg shadow-md p-6">
@@ -1073,29 +1378,7 @@ export default function FollowUpsPage() {
               </div>
             </div>
           )}
-
-          {filteredFollowUps.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              {searchTerm || resultFilter !== 'all' || contactedFilter !== 'all' || priorityFilter !== 'all' ? (
-                <>
-                  <div className="text-5xl mb-3">🔍</div>
-                  <p>لا توجد نتائج تطابق البحث</p>
-                </>
-              ) : (
-                <>
-                  <div className="text-5xl mb-3">📝</div>
-                  <p>لا توجد متابعات مسجلة حتى الآن</p>
-                  <button
-                    onClick={() => setShowForm(true)}
-                    className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-                  >
-                    ➕ إضافة أول متابعة
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        </>
       )}
 
       {/* Success Rate */}

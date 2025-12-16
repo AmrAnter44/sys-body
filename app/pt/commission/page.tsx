@@ -53,12 +53,24 @@ export default function CoachCommissionPage() {
   const [loading, setLoading] = useState(true)
   const [coachEarnings, setCoachEarnings] = useState<CoachEarnings | null>(null)
 
-  // تحديد الشهر الحالي
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  // تحديد الفترة الزمنية (أول يوم في الشهر الحالي إلى آخر يوم)
+  const today = new Date()
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+
+  const [dateFrom, setDateFrom] = useState(firstDay.toISOString().split('T')[0])
+  const [dateTo, setDateTo] = useState(lastDay.toISOString().split('T')[0])
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  // اختيار الكوتش تلقائياً إذا كان واحد فقط (حالة الكوتش المسجل دخوله)
+  useEffect(() => {
+    if (coaches.length === 1 && !selectedCoach) {
+      setSelectedCoach(coaches[0].name)
+    }
+  }, [coaches])
 
   const fetchData = async () => {
     try {
@@ -83,36 +95,37 @@ export default function CoachCommissionPage() {
 
   // دالة حساب النسبة حسب الدخل الشهري
   const calculatePercentage = (income: number): number => {
-    if (income < 10000) return 20
-    if (income < 15000) return 30
-    if (income < 20000) return 35
-    if (income < 25000) return 40
-    if (income < 30000) return 45
-    return 50
+    if (income < 5000) return 25
+    if (income < 11000) return 30
+    if (income < 15000) return 35
+    if (income < 20000) return 40
+    return 45
   }
 
   // دالة حساب أرباح الكوتش من PT
-  const calculateCoachEarnings = (coachName: string, month: string): CoachEarnings => {
+  const calculateCoachEarnings = (coachName: string, startDate: string, endDate: string): CoachEarnings => {
     // فلترة جلسات الكوتش
     const coachSessions = ptSessions.filter((session) => session.coachName === coachName)
 
-    // فلترة حسب الشهر
-    const monthSessions = coachSessions.filter((session) => {
+    // فلترة حسب الفترة الزمنية
+    const periodSessions = coachSessions.filter((session) => {
       if (!session.createdAt) return false
       const sessionDate = new Date(session.createdAt)
-      const sessionMonth = sessionDate.toISOString().slice(0, 7)
-      return sessionMonth === month
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999) // نهاية اليوم
+      return sessionDate >= start && sessionDate <= end
     })
 
     // حساب الإحصائيات
-    const totalSessions = monthSessions.reduce((sum, s) => sum + s.sessionsPurchased, 0)
-    const remainingSessions = monthSessions.reduce((sum, s) => sum + s.sessionsRemaining, 0)
+    const totalSessions = periodSessions.reduce((sum, s) => sum + s.sessionsPurchased, 0)
+    const remainingSessions = periodSessions.reduce((sum, s) => sum + s.sessionsRemaining, 0)
     const completedSessions = totalSessions - remainingSessions
-    const totalRevenue = monthSessions.reduce(
+    const totalRevenue = periodSessions.reduce(
       (sum, s) => sum + s.sessionsPurchased * s.pricePerSession,
       0
     )
-    const clients = new Set(monthSessions.map((s) => s.clientName)).size
+    const clients = new Set(periodSessions.map((s) => s.clientName)).size
 
     return {
       coachName,
@@ -135,7 +148,7 @@ export default function CoachCommissionPage() {
     if (!coach) return
 
     // حساب أرباح الكوتش من PT
-    const earnings = calculateCoachEarnings(selectedCoach, selectedMonth)
+    const earnings = calculateCoachEarnings(selectedCoach, dateFrom, dateTo)
     setCoachEarnings(earnings)
 
     // تحديد الدخل (مخصص أو من PT)
@@ -170,17 +183,16 @@ export default function CoachCommissionPage() {
 
   // دالة تحديد لون النسبة حسب المستوى
   const getPercentageBgColor = (percentage: number): string => {
-    if (percentage <= 20) return 'from-red-500 to-red-600'
-    if (percentage <= 30) return 'from-orange-500 to-orange-600'
-    if (percentage <= 35) return 'from-yellow-500 to-yellow-600'
-    if (percentage <= 40) return 'from-blue-500 to-blue-600'
-    if (percentage <= 45) return 'from-purple-500 to-purple-600'
+    if (percentage <= 25) return 'from-orange-500 to-orange-600'
+    if (percentage <= 30) return 'from-yellow-500 to-yellow-600'
+    if (percentage <= 35) return 'from-blue-500 to-blue-600'
+    if (percentage <= 40) return 'from-purple-500 to-purple-600'
     return 'from-green-500 to-green-600'
   }
 
   // إحصائيات عامة للكوتشات
   const allCoachesStats = coaches.map((coach) => {
-    const earnings = calculateCoachEarnings(coach.name, selectedMonth)
+    const earnings = calculateCoachEarnings(coach.name, dateFrom, dateTo)
     return {
       coachName: coach.name,
       earnings,
@@ -202,17 +214,31 @@ export default function CoachCommissionPage() {
         </div>
       </div>
 
-      {/* اختيار الشهر */}
+      {/* اختيار الفترة الزمنية */}
       <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-        <label className="block text-sm font-bold mb-2 text-gray-700">
-          📅 اختر الشهر لحساب التحصيل
+        <label className="block text-sm font-bold mb-3 text-gray-700">
+          📅 اختر الفترة الزمنية لحساب التحصيل
         </label>
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">من تاريخ</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">إلى تاريخ</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -238,24 +264,30 @@ export default function CoachCommissionPage() {
               {/* اختيار الكوتش */}
               <div>
                 <label className="block text-sm font-bold mb-3 text-gray-700">
-                  👤 اختر الكوتش <span className="text-red-600">*</span>
+                  👤 {coaches.length === 1 ? 'الكوتش' : 'اختر الكوتش'} <span className="text-red-600">*</span>
                 </label>
-                <select
-                  value={selectedCoach}
-                  onChange={(e) => {
-                    setSelectedCoach(e.target.value)
-                    setResult(null)
-                    setCoachEarnings(null)
-                  }}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                >
-                  <option value="">-- اختر كوتش --</option>
-                  {coaches.map((coach) => (
-                    <option key={coach.id} value={coach.name}>
-                      {coach.name} {coach.phone && `(${coach.phone})`}
-                    </option>
-                  ))}
-                </select>
+                {coaches.length === 1 ? (
+                  <div className="w-full px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-lg text-lg font-bold text-blue-700">
+                    {coaches[0].name} {coaches[0].phone && `(${coaches[0].phone})`}
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCoach}
+                    onChange={(e) => {
+                      setSelectedCoach(e.target.value)
+                      setResult(null)
+                      setCoachEarnings(null)
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                  >
+                    <option value="">-- اختر كوتش --</option>
+                    {coaches.map((coach) => (
+                      <option key={coach.id} value={coach.name}>
+                        {coach.name} {coach.phone && `(${coach.phone})`}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* خيار استخدام دخل مخصص */}
@@ -299,28 +331,24 @@ export default function CoachCommissionPage() {
                 </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>أقل من 10,000 ج.م</span>
-                    <span className="font-bold text-red-600">20%</span>
+                    <span>أقل من 5,000 ج.م</span>
+                    <span className="font-bold text-orange-600">25%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>10,000 - 14,999 ج.م</span>
-                    <span className="font-bold text-orange-600">30%</span>
+                    <span>5,000 - 10,999 ج.م</span>
+                    <span className="font-bold text-yellow-600">30%</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
+                    <span>11,000 - 14,999 ج.م</span>
+                    <span className="font-bold text-blue-600">35%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
                     <span>15,000 - 19,999 ج.م</span>
-                    <span className="font-bold text-yellow-600">35%</span>
+                    <span className="font-bold text-purple-600">40%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>20,000 - 24,999 ج.م</span>
-                    <span className="font-bold text-blue-600">40%</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>25,000 - 29,999 ج.م</span>
-                    <span className="font-bold text-purple-600">45%</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>30,000 ج.م أو أكثر</span>
-                    <span className="font-bold text-green-600">50%</span>
+                    <span>20,000 ج.م أو أكثر</span>
+                    <span className="font-bold text-green-600">45%</span>
                   </div>
                 </div>
               </div>
@@ -537,14 +565,12 @@ export default function CoachCommissionPage() {
               <div>
                 <p className="text-gray-600 text-sm mb-1">حالة الدخل</p>
                 <p className="text-lg font-bold text-green-600">
-                  {result.monthlyIncome >= 30000
+                  {result.monthlyIncome >= 20000
                     ? '🔥 ممتاز'
-                    : result.monthlyIncome >= 20000
-                    ? '✅ جيد جداً'
                     : result.monthlyIncome >= 15000
-                    ? '👍 جيد'
+                    ? '✅ جيد جداً'
                     : result.monthlyIncome >= 10000
-                    ? '📈 متوسط'
+                    ? '👍 جيد'
                     : '💪 يحتاج تحسين'}
                 </p>
               </div>
@@ -559,7 +585,10 @@ export default function CoachCommissionPage() {
         <div className="mt-6 bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <span>📋</span>
-            <span>ملخص أداء جميع الكوتشات - {selectedMonth}</span>
+            <span>
+              ملخص أداء جميع الكوتشات - من {new Date(dateFrom).toLocaleDateString('ar-EG')} إلى{' '}
+              {new Date(dateTo).toLocaleDateString('ar-EG')}
+            </span>
           </h2>
 
           <div className="overflow-x-auto">

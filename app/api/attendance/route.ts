@@ -6,8 +6,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const staffId = searchParams.get('staffId')
-    const today = searchParams.get('today')
-    const date = searchParams.get('date')
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
 
     let whereClause: any = {}
 
@@ -15,26 +15,19 @@ export async function GET(request: Request) {
       whereClause.staffId = staffId
     }
 
-    if (today === 'true') {
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
-      const todayEnd = new Date()
-      todayEnd.setHours(23, 59, 59, 999)
+    // فلترة حسب التاريخ
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom)
+      fromDate.setHours(0, 0, 0, 0)
+      whereClause.checkIn = { gte: fromDate }
+    }
 
+    if (dateTo) {
+      const toDate = new Date(dateTo)
+      toDate.setHours(23, 59, 59, 999)
       whereClause.checkIn = {
-        gte: todayStart,
-        lte: todayEnd,
-      }
-    } else if (date) {
-      const targetDate = new Date(date)
-      const startOfDay = new Date(targetDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(targetDate)
-      endOfDay.setHours(23, 59, 59, 999)
-
-      whereClause.checkIn = {
-        gte: startOfDay,
-        lte: endOfDay,
+        ...whereClause.checkIn,
+        lte: toDate,
       }
     }
 
@@ -53,7 +46,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - تسجيل حضور أو انصراف
+// POST - تسجيل حضور وانصراف (Toggle)
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -63,128 +56,105 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'رقم الموظف مطلوب' }, { status: 400 })
     }
 
-    // ✅ البحث عن الموظف بالرقم
+    // البحث عن الموظف بالرقم
     const staff = await prisma.staff.findUnique({
       where: { staffCode: staffCode },
     })
 
     if (!staff) {
-      return NextResponse.json({ 
-        error: `❌ الموظف رقم ${staffCode} غير موجود`,
-        action: 'error' 
-      }, { status: 404 })
+      return NextResponse.json(
+        {
+          error: `❌ الموظف رقم ${staffCode} غير موجود`,
+          action: 'error',
+        },
+        { status: 404 }
+      )
     }
 
     if (!staff.isActive) {
-      return NextResponse.json({ 
-        error: `❌ الموظف ${staff.name} غير نشط`,
-        action: 'error'
-      }, { status: 400 })
-    }
-
-    // البحث عن آخر سجل حضور اليوم
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    const lastAttendance = await prisma.attendance.findFirst({
-      where: {
-        staffId: staff.id,
-        checkIn: {
-          gte: todayStart,
-        },
-      },
-      orderBy: { checkIn: 'desc' },
-    })
-
-    // ✅ سيناريو 1: لا يوجد حضور اليوم
-    if (!lastAttendance) {
-      const newAttendance = await prisma.attendance.create({
-        data: {
-          staffId: staff.id,
-          checkIn: new Date(),
-        },
-        include: {
-          staff: true,
-        },
-      })
-
-      return NextResponse.json({
-        action: 'check-in',
-        message: `✅ مرحباً ${staff.name}! تم تسجيل حضورك`,
-        staffCode: staff.staffCode,
-        staffName: staff.name,
-        time: new Date().toLocaleTimeString('ar-EG'),
-        attendance: newAttendance,
-      })
-    }
-
-    // ✅ سيناريو 2: آخر سجل تم الانصراف منه
-    if (lastAttendance.checkOut) {
-      const newAttendance = await prisma.attendance.create({
-        data: {
-          staffId: staff.id,
-          checkIn: new Date(),
-          notes: 'عودة بعد الانصراف',
-        },
-        include: {
-          staff: true,
-        },
-      })
-
-      return NextResponse.json({
-        action: 'check-in',
-        message: `✅ مرحباً مرة أخرى ${staff.name}!`,
-        staffCode: staff.staffCode,
-        staffName: staff.name,
-        time: new Date().toLocaleTimeString('ar-EG'),
-        attendance: newAttendance,
-      })
-    }
-
-    // ✅ سيناريو 3: تسجيل انصراف
-    const checkOutTime = new Date()
-    const duration = Math.floor(
-      (checkOutTime.getTime() - lastAttendance.checkIn.getTime()) / (1000 * 60)
-    )
-
-    if (duration < 1) {
       return NextResponse.json(
-        { 
-          error: 'يرجى الانتظار دقيقة على الأقل!',
+        {
+          error: `❌ الموظف ${staff.name} غير نشط`,
           action: 'error',
         },
         { status: 400 }
       )
     }
 
-    const updatedAttendance = await prisma.attendance.update({
-      where: { id: lastAttendance.id },
+    const now = new Date()
+
+    // البحث عن سجل حضور نشط (لم يتم تسجيل انصراف له)
+    const activeRecord = await prisma.attendance.findFirst({
+      where: {
+        staffId: staff.id,
+        checkOut: null,
+      },
+      orderBy: {
+        checkIn: 'desc',
+      },
+    })
+
+    // حساب الفرق بالساعات إذا كان هناك سجل نشط
+    if (activeRecord) {
+      const hoursSinceCheckIn = (now.getTime() - activeRecord.checkIn.getTime()) / (1000 * 60 * 60)
+
+      // إذا كان السجل النشط خلال آخر 12 ساعة -> تسجيل انصراف
+      if (hoursSinceCheckIn <= 12) {
+        const durationMinutes = Math.round((now.getTime() - activeRecord.checkIn.getTime()) / (1000 * 60))
+
+        const updatedAttendance = await prisma.attendance.update({
+          where: { id: activeRecord.id },
+          data: {
+            checkOut: now,
+            duration: durationMinutes,
+          },
+          include: {
+            staff: true,
+          },
+        })
+
+        // تنسيق مدة العمل
+        const hours = Math.floor(durationMinutes / 60)
+        const minutes = durationMinutes % 60
+        const durationText = hours > 0 ? `${hours} ساعة و ${minutes} دقيقة` : `${minutes} دقيقة`
+
+        return NextResponse.json({
+          action: 'check-out',
+          message: `👋 مع السلامة ${staff.name}!\nمدة العمل: ${durationText}`,
+          staffCode: staff.staffCode,
+          staffName: staff.name,
+          attendance: updatedAttendance,
+          duration: durationMinutes,
+          durationText,
+        })
+      }
+      // إذا كان السجل أكبر من 12 ساعة -> اعتباره سجل قديم وإنشاء سجل جديد
+      // (لا نحدثه، بل نتركه كما هو ونفتح سجل جديد)
+    }
+
+    // إنشاء سجل حضور جديد
+    const newAttendance = await prisma.attendance.create({
       data: {
-        checkOut: checkOutTime,
-        duration,
+        staffId: staff.id,
+        checkIn: now,
       },
       include: {
         staff: true,
       },
     })
 
-    const hours = Math.floor(duration / 60)
-    const minutes = duration % 60
-
     return NextResponse.json({
-      action: 'check-out',
-      message: `👋 مع السلامة ${staff.name}!`,
+      action: 'check-in',
+      message: `✅ مرحباً ${staff.name}! تم تسجيل حضورك`,
       staffCode: staff.staffCode,
       staffName: staff.name,
-      time: checkOutTime.toLocaleTimeString('ar-EG'),
-      duration: `${hours} ساعة و ${minutes} دقيقة`,
-      totalMinutes: duration,
-      attendance: updatedAttendance,
+      attendance: newAttendance,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error recording attendance:', error)
+
     return NextResponse.json(
-      { error: 'فشل تسجيل الحضور/الانصراف', action: 'error' },
+      { error: 'فشل تسجيل الحضور', action: 'error' },
       { status: 500 }
     )
   }

@@ -36,6 +36,19 @@ export default function MembersPage() {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // سجل الحضور
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [attendanceSummary, setAttendanceSummary] = useState<any[]>([])
+  const [attendanceStartDate, setAttendanceStartDate] = useState(() => {
+    const date = new Date()
+    date.setDate(date.getDate() - 30) // آخر 30 يوم
+    return date.toISOString().split('T')[0]
+  })
+  const [attendanceEndDate, setAttendanceEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0]
+  })
+
   const [searchId, setSearchId] = useState('')
   const [searchName, setSearchName] = useState('')
   const [searchPhone, setSearchPhone] = useState('')
@@ -72,7 +85,7 @@ export default function MembersPage() {
           subscriptionPrice: parseInt(member.subscriptionPrice?.toString() || '0'),
           remainingAmount: parseInt(member.remainingAmount?.toString() || '0')
         }))
-        
+
         setMembers(cleanedMembers)
         setFilteredMembers(cleanedMembers)
       } else {
@@ -86,6 +99,28 @@ export default function MembersPage() {
       setFilteredMembers([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAttendanceSummary = async () => {
+    setAttendanceLoading(true)
+    try {
+      const response = await fetch(
+        `/api/members/attendance-summary?startDate=${attendanceStartDate}&endDate=${attendanceEndDate}`
+      )
+      const data = await response.json()
+
+      if (data.success) {
+        setAttendanceSummary(data.summary || [])
+      } else {
+        console.error('Error fetching attendance summary')
+        setAttendanceSummary([])
+      }
+    } catch (error) {
+      console.error('Error fetching attendance summary:', error)
+      setAttendanceSummary([])
+    } finally {
+      setAttendanceLoading(false)
     }
   }
 
@@ -212,14 +247,26 @@ export default function MembersPage() {
 
   return (
     <div className="container mx-auto p-6" dir="rtl">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h1 className="text-3xl font-bold">إدارة الأعضاء</h1>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-        >
-          {showForm ? 'إخفاء النموذج' : 'إضافة عضو جديد'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowAttendanceModal(true)
+              fetchAttendanceSummary()
+            }}
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <span>📊</span>
+            <span>سجل الحضور</span>
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            {showForm ? 'إخفاء النموذج' : 'إضافة عضو جديد'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -815,6 +862,138 @@ export default function MembersPage() {
               <p className="text-xl">لا يوجد أعضاء حالياً</p>
             </>
           )}
+        </div>
+      )}
+
+      {/* Modal سجل الحضور */}
+      {showAttendanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-green-700 p-6 text-white flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">📊</span>
+                <h2 className="text-2xl font-bold">سجل حضور الأعضاء</h2>
+              </div>
+              <button
+                onClick={() => setShowAttendanceModal(false)}
+                className="text-white hover:bg-white hover:text-green-600 rounded-full w-10 h-10 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="p-6 bg-gray-50 border-b">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">من تاريخ</label>
+                  <input
+                    type="date"
+                    value={attendanceStartDate}
+                    onChange={(e) => setAttendanceStartDate(e.target.value)}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">إلى تاريخ</label>
+                  <input
+                    type="date"
+                    value={attendanceEndDate}
+                    onChange={(e) => setAttendanceEndDate(e.target.value)}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={fetchAttendanceSummary}
+                    disabled={attendanceLoading}
+                    className="w-full bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-semibold"
+                  >
+                    {attendanceLoading ? 'جاري التحميل...' : 'تطبيق الفلتر'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {attendanceLoading ? (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-4">⏳</div>
+                  <p className="text-gray-600">جاري تحميل البيانات...</p>
+                </div>
+              ) : attendanceSummary.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📭</div>
+                  <p className="text-xl text-gray-600">لا توجد سجلات حضور في هذه الفترة</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center justify-between bg-blue-50 p-4 rounded-lg">
+                    <div>
+                      <p className="text-sm text-gray-600">عدد الأعضاء الذين حضروا</p>
+                      <p className="text-3xl font-bold text-blue-600">{attendanceSummary.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">إجمالي مرات الحضور</p>
+                      <p className="text-3xl font-bold text-green-600">
+                        {attendanceSummary.reduce((sum, item) => sum + item.count, 0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-right">الترتيب</th>
+                          <th className="px-4 py-3 text-right">رقم العضوية</th>
+                          <th className="px-4 py-3 text-right">الاسم</th>
+                          <th className="px-4 py-3 text-right">رقم الهاتف</th>
+                          <th className="px-4 py-3 text-right">عدد مرات الحضور</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendanceSummary.map((item, index) => (
+                          <tr key={item.member?.id || index} className="border-t hover:bg-gray-50">
+                            <td className="px-4 py-3">
+                              <span className="font-bold text-lg">
+                                {index === 0 && '🥇'}
+                                {index === 1 && '🥈'}
+                                {index === 2 && '🥉'}
+                                {index > 2 && `#${index + 1}`}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-blue-600 font-bold">
+                              #{item.member?.memberNumber || '-'}
+                            </td>
+                            <td className="px-4 py-3 font-semibold">{item.member?.name || 'غير معروف'}</td>
+                            <td className="px-4 py-3 font-mono">{item.member?.phone || '-'}</td>
+                            <td className="px-4 py-3">
+                              <span className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold text-xl">
+                                {item.count}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t flex justify-end">
+              <button
+                onClick={() => setShowAttendanceModal(false)}
+                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

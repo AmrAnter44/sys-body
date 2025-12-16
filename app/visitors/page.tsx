@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDeleteModal from '../../components/ConfirmDeleteModal'
 
 interface Visitor {
   id: string
@@ -40,6 +41,11 @@ export default function VisitorsPage() {
   const [message, setMessage] = useState('')
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [selectedVisitorForHistory, setSelectedVisitorForHistory] = useState<Visitor | null>(null)
+
+  // Delete confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [visitorToDelete, setVisitorToDelete] = useState<Visitor | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -173,17 +179,27 @@ export default function VisitorsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الزائر؟')) return
+  const handleDelete = (visitor: Visitor) => {
+    setVisitorToDelete(visitor)
+    setShowDeleteModal(true)
+  }
 
+  const confirmDelete = async () => {
+    if (!visitorToDelete) return
+
+    setDeleteLoading(true)
     try {
-      await fetch(`/api/visitors?id=${id}`, { method: 'DELETE' })
+      await fetch(`/api/visitors?id=${visitorToDelete.id}`, { method: 'DELETE' })
       fetchVisitors()
       setMessage('✅ تم حذف الزائر بنجاح!')
       setTimeout(() => setMessage(''), 3000)
+      setShowDeleteModal(false)
+      setVisitorToDelete(null)
     } catch (error) {
       console.error('Error deleting visitor:', error)
       setMessage('❌ فشل حذف الزائر')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -521,7 +537,7 @@ export default function VisitorsPage() {
                     </button>
                   </div>
                   <button
-                    onClick={() => handleDelete(visitor.id)}
+                    onClick={() => handleDelete(visitor)}
                     className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 rounded bg-red-50"
                   >
                     🗑️ حذف
@@ -743,7 +759,7 @@ export default function VisitorsPage() {
                           📋 السجل
                         </button>
                         <button
-                          onClick={() => handleDelete(visitor.id)}
+                          onClick={() => handleDelete(visitor)}
                           className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
                         >
                           🗑️ حذف
@@ -967,6 +983,20 @@ export default function VisitorsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setVisitorToDelete(null)
+        }}
+        onConfirm={confirmDelete}
+        title="حذف زائر"
+        message="هل أنت متأكد من حذف هذا الزائر؟"
+        itemName={visitorToDelete ? `${visitorToDelete.name} (${visitorToDelete.phone})` : ''}
+        loading={deleteLoading}
+      />
     </div>
   )
 }

@@ -63,7 +63,7 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
       const displayCode = staffCode.toLowerCase().startsWith('s')
         ? staffCode.toUpperCase()
         : `S${staffCode}`
-      const message = `Barcode الموظف #${displayCode} (${staffName})`
+      const message = `Barcode الموظف #${displayCode} (${staffName})\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
       const phone = staffPhone.replace(/\D/g, '') // تنظيف رقم الهاتف
       const url = `https://wa.me/2${phone}?text=${encodeURIComponent(message)}`
       window.open(url, '_blank')

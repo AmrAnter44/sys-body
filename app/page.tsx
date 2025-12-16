@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 export default function HomePage() {
   const router = useRouter()
@@ -15,7 +16,13 @@ export default function HomePage() {
     activePT: 0,
     todayRevenue: 0,
     totalReceipts: 0,
+    currentlyInside: 0,
+    todayCheckIns: 0,
   })
+
+  const [revenueChartData, setRevenueChartData] = useState<any[]>([])
+  const [attendanceChartData, setAttendanceChartData] = useState<any[]>([])
+  const [receiptTypesData, setReceiptTypesData] = useState<any[]>([])
 
   useEffect(() => {
     checkAuth()
@@ -46,88 +53,106 @@ export default function HomePage() {
       // جلب الأعضاء
       const membersRes = await fetch('/api/members')
       const members = await membersRes.json()
-      
+
       // جلب جلسات PT
       const ptRes = await fetch('/api/pt')
       const ptSessions = await ptRes.json()
-      
+
       // جلب الإيصالات
-      const receiptsRes = await fetch('/api/receipts?limit=100')
+      const receiptsRes = await fetch('/api/receipts')
       const receipts = await receiptsRes.json()
-      
+
+      // 🆕 جلب إحصائيات الحضور
+      const currentRes = await fetch('/api/member-checkin/current')
+      const currentData = await currentRes.json()
+
+      const statsRes = await fetch('/api/member-checkin/stats')
+      const statsData = await statsRes.json()
+
       // حساب إيرادات اليوم
       const today = new Date().toDateString()
       const todayReceipts = receipts.filter((r: any) => {
         return new Date(r.createdAt).toDateString() === today
       })
       const todayRevenue = todayReceipts.reduce((sum: number, r: any) => sum + r.amount, 0)
-      
+
       // حساب PT النشطة
       const activePT = ptSessions.filter((pt: any) => pt.sessionsRemaining > 0).length
-      
+
       setStats({
         members: Array.isArray(members) ? members.length : 0,
         activePT,
         todayRevenue,
         totalReceipts: receipts.length,
+        currentlyInside: currentData.count || 0,
+        todayCheckIns: statsData.stats?.totalCheckIns || 0,
       })
+
+      // 📊 تجهيز بيانات جراف الإيرادات (آخر 7 أيام)
+      const last7Days = []
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        const dateStr = date.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })
+        const dateKey = date.toDateString()
+
+        const dayReceipts = receipts.filter((r: any) => {
+          return new Date(r.createdAt).toDateString() === dateKey
+        })
+        const dayRevenue = dayReceipts.reduce((sum: number, r: any) => sum + r.amount, 0)
+
+        last7Days.push({
+          date: dateStr,
+          إيرادات: dayRevenue
+        })
+      }
+      setRevenueChartData(last7Days)
+
+      // 📊 تجهيز بيانات جراف الحضور (آخر 7 أيام)
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 6)
+      const endDate = new Date()
+
+      const historyRes = await fetch(`/api/member-checkin/history?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`)
+      const historyData = await historyRes.json()
+
+      if (historyData.stats?.dailyStats) {
+        const formattedData = historyData.stats.dailyStats.map((item: any) => ({
+          date: new Date(item.date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }),
+          حضور: item.count
+        }))
+        setAttendanceChartData(formattedData)
+      }
+
+      // 📊 تجهيز بيانات أنواع الإيصالات
+      const typeGroups: any = {}
+      receipts.forEach((r: any) => {
+        const type = r.type || 'أخرى'
+        if (!typeGroups[type]) {
+          typeGroups[type] = 0
+        }
+        typeGroups[type] += r.amount
+      })
+
+      const pieData = Object.entries(typeGroups).map(([name, value]) => ({
+        name,
+        value: value as number
+      }))
+      setReceiptTypesData(pieData)
+
     } catch (error) {
       console.error('Error fetching stats:', error)
     }
   }
 
   const handleLogout = async () => {
-  if (!confirm('هل تريد تسجيل الخروج؟')) return
-  
-  await fetch('/api/auth/logout', { method: 'POST' })
-  window.location.href = '/login'
-}
+    if (!confirm('هل تريد تسجيل الخروج؟')) return
 
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
+  }
 
-  const modules = [
-    {
-      title: 'الأعضاء',
-      icon: '👥',
-      description: 'إدارة اشتراكات الأعضاء والإيصالات',
-      href: '/members',
-      color: 'bg-blue-500',
-    },
-    {
-      title: 'التدريب الشخصي',
-      icon: '💪',
-      description: 'متابعة جلسات المدربين الشخصيين',
-      href: '/pt',
-      color: 'bg-green-500',
-    },
-    {
-      title: 'يوم استخدام / InBody',
-      icon: '📊',
-      description: 'إدارة الزيارات اليومية وفحوصات InBody',
-      href: '/dayuse',
-      color: 'bg-purple-500',
-    },
-    {
-      title: 'الزوار',
-      icon: '🚶',
-      description: 'تسجيل معلومات الزوار المحتملين',
-      href: '/visitors',
-      color: 'bg-orange-500',
-    },
-    {
-      title: 'الإيصالات',
-      icon: '🧾',
-      description: 'متابعة جميع الإيصالات الصادرة',
-      href: '/receipts',
-      color: 'bg-indigo-500',
-    },
-    {
-      title: 'سجل الدعوات',
-      icon: '🎟️',
-      description: 'متابعة جميع دعوات الأعضاء المستخدمة',
-      href: '/invitations',
-      color: 'bg-pink-500',
-    },
-  ]
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
 
   // لو لسه بيتحقق من الـ Authentication
   if (loading) {
@@ -160,7 +185,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
@@ -170,7 +195,6 @@ export default function HomePage() {
             <div className="text-4xl">👥</div>
           </div>
         </div>
-        
 
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
@@ -191,7 +215,7 @@ export default function HomePage() {
             <div className="text-4xl">💰</div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
@@ -201,30 +225,107 @@ export default function HomePage() {
             <div className="text-4xl">🧾</div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {modules.map((module) => (
-          <Link
-            key={module.href}
-            href={module.href}
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition transform hover:scale-105"
-          >
-            <div className={`${module.color} w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-4`}>
-              {module.icon}
+        {/* 🆕 إحصائيات الحضور */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-lg shadow-md border-2 border-green-400">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-green-700 text-sm font-semibold">موجودين الآن</p>
+              <p className="text-3xl font-bold text-green-800">{stats.currentlyInside}</p>
             </div>
-            <h3 className="text-xl font-bold mb-2">{module.title}</h3>
-            <p className="text-gray-600">{module.description}</p>
-          </Link>
-        ))}
+            <div className="text-4xl">🏋️</div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-lg shadow-md border-2 border-blue-400">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-700 text-sm font-semibold">حضور اليوم</p>
+              <p className="text-3xl font-bold text-blue-800">{stats.todayCheckIns}</p>
+            </div>
+            <div className="text-4xl">📊</div>
+          </div>
+        </div>
       </div>
 
-<button
-  onClick={handleLogout}
-  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mt-20"
->
-  🚪 تسجيل الخروج
-</button>
+      {/* 📊 الجرافات */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* جراف الإيرادات */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">💰 الإيرادات - آخر 7 أيام</h2>
+          </div>
+          {revenueChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={revenueChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="إيرادات"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  dot={{ fill: '#3b82f6', r: 5 }}
+                  activeDot={{ r: 7 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              جاري تحميل البيانات...
+            </div>
+          )}
+        </div>
+
+        {/* جراف الحضور */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">🏋️ حضور الأعضاء - آخر 7 أيام</h2>
+          </div>
+          {attendanceChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={attendanceChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Bar
+                  dataKey="حضور"
+                  fill="#10b981"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              جاري تحميل البيانات...
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={handleLogout}
+        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mt-4"
+      >
+        🚪 تسجيل الخروج
+      </button>
     </div>
     
   )

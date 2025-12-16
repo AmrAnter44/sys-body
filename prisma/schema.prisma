@@ -7,10 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// باقي الـ models بدون تغيير
 model Member {
   id                String       @id @default(cuid())
-  memberNumber      Int?         @unique  // ✅ optional للدعم Other
+  memberNumber      Int?         @unique
   name              String
   phone             String
   profileImage      String?
@@ -26,6 +25,24 @@ model Member {
   createdAt         DateTime     @default(now())
   invitationRecords Invitation[]
   receipts          Receipt[]
+  checkIns          MemberCheckIn[]
+}
+
+model MemberCheckIn {
+  id                    String    @id @default(cuid())
+  memberId              String
+  checkInTime           DateTime  @default(now())
+  expectedCheckOutTime  DateTime
+  actualCheckOutTime    DateTime?
+  isActive              Boolean   @default(true)
+  checkInMethod         String    @default("scan")
+
+  member                Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([isActive])
+  @@index([checkInTime])
+  @@unique([memberId, isActive])
 }
 
 model PT {
@@ -35,18 +52,15 @@ model PT {
   sessionsPurchased Int
   sessionsRemaining Int
   coachName         String
-  coachUserId       String?     // ✅ ربط الكوتش بحساب المستخدم
   pricePerSession   Float
-  remainingAmount   Float       @default(0)  // ✅ الباقي من الفلوس
   startDate         DateTime?
   expiryDate        DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-
-  // ✅ QR Code للاشتراك بالكامل (يستخدم لجميع الحصص)
+  coachUserId       String?
   qrCode            String?     @unique
-  qrCodeImage       String?     // base64 image
-
+  qrCodeImage       String?
+  remainingAmount   Int?
   sessions          PTSession[]
   receipts          Receipt[]
 
@@ -62,12 +76,9 @@ model PTSession {
   sessionDate DateTime
   notes       String?
   createdAt   DateTime  @default(now())
-
-  // ✅ حقول تسجيل الحضور (QR Code الآن في PT model)
   attended    Boolean   @default(false)
   attendedAt  DateTime?
-  attendedBy  String?   // اسم من سجل الحضور (الكوتش)
-
+  attendedBy  String?
   pt          PT        @relation(fields: [ptNumber], references: [ptNumber], onDelete: Cascade)
 
   @@index([ptNumber])
@@ -128,12 +139,12 @@ model Receipt {
   itemDetails   String
   paymentMethod String        @default("cash")
   createdAt     DateTime      @default(now())
-  staffName    String?   // ✅ حقل جديد
+  staffName     String?
   memberId      String?
   ptNumber      Int?
   dayUseId      String?
   dayUse        DayUseInBody? @relation(fields: [dayUseId], references: [id])
-  pt            PT?           @relation(fields: [ptNumber], references: [ptNumber], onDelete: SetNull)
+  pt            PT?           @relation(fields: [ptNumber], references: [ptNumber])
   member        Member?       @relation(fields: [memberId], references: [id])
 }
 
@@ -148,23 +159,22 @@ model MemberCounter {
 }
 
 model Offer {
-  id              String   @id @default(cuid())
-  name            String
-  duration        Int      // عدد الأيام
-  price           Float
-  freePTSessions  Int      @default(0)
-  inBodyScans     Int      @default(0)
-  invitations     Int      @default(0)
-  icon            String   @default("📅")
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  duration       Int
+  price          Float
+  freePTSessions Int      @default(0)
+  inBodyScans    Int      @default(0)
+  invitations    Int      @default(0)
+  icon           String   @default("📅")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Staff {
   id         String       @id @default(cuid())
-
-  staffCode  String       @unique  // ✅ رقم الموظف الفريد (مثل s001, s022)
+  staffCode  String       @unique
   name       String
   phone      String?
   position   String?
@@ -173,24 +183,22 @@ model Staff {
   isActive   Boolean      @default(true)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+  attendance Attendance[]
   expenses   Expense[]
-  attendance Attendance[] // ✅ علاقة الحضور
-
-  // ✅ علاقة الموظف بحساب المستخدم (للكوتشات)
   user       User?
 
   @@index([staffCode])
 }
 
 model Attendance {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   staffId   String
   checkIn   DateTime
   checkOut  DateTime?
-  duration  Int?     // بالدقائق
+  duration  Int?
   notes     String?
-  createdAt DateTime @default(now())
-  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  staff     Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@index([staffId])
   @@index([checkIn])
@@ -219,100 +227,75 @@ model Invitation {
   member     Member   @relation(fields: [memberId], references: [id])
 }
 
-
-
-// schema.prisma
-
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      String   @default("STAFF") // "ADMIN" | "MANAGER" | "STAFF" | "COACH"
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // ✅ ربط المستخدم بالموظف (للكوتشات)
-  staffId   String?  @unique
-  staff     Staff?   @relation(fields: [staffId], references: [id])
-
-  permissions Permission?
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  password     String
+  role         String        @default("STAFF")
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  staffId      String?       @unique
   activityLogs ActivityLog[]
+  permissions  Permission?
+  staff        Staff?        @relation(fields: [staffId], references: [id])
 }
 
 model Permission {
-  id       String  @id @default(cuid())
-  userId   String  @unique
-  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // صلاحيات الأعضاء
-  canViewMembers    Boolean @default(false)
-  canCreateMembers  Boolean @default(false)
-  canEditMembers    Boolean @default(false)
-  canDeleteMembers  Boolean @default(false)
-
-  // صلاحيات PT
-  canViewPT              Boolean @default(false)
-  canCreatePT            Boolean @default(false)
-  canEditPT              Boolean @default(false)
-  canDeletePT            Boolean @default(false)
-  canRegisterPTAttendance Boolean @default(false) // ✅ للكوتشات فقط
-
-  // صلاحيات الموظفين
-  canViewStaff      Boolean @default(false)
-  canCreateStaff    Boolean @default(false)
-  canEditStaff      Boolean @default(false)
-  canDeleteStaff    Boolean @default(false)
-
-  // صلاحيات الإيصالات
-  canViewReceipts   Boolean @default(false)
-  canEditReceipts   Boolean @default(false)
-  canDeleteReceipts Boolean @default(false)
-
-  // صلاحيات المصروفات
-  canViewExpenses   Boolean @default(false)
-  canCreateExpense  Boolean @default(false)
-  canEditExpense    Boolean @default(false)
-  canDeleteExpense  Boolean @default(false)
-
-  // صلاحيات الزوار
-  canViewVisitors   Boolean @default(false)
-  canCreateVisitor  Boolean @default(false)
-  canEditVisitor    Boolean @default(false)
-  canDeleteVisitor  Boolean @default(false)
-
-  // صلاحيات المتابعات
-  canViewFollowUps  Boolean @default(false)
-  canCreateFollowUp Boolean @default(false)
-  canEditFollowUp   Boolean @default(false)
-  canDeleteFollowUp Boolean @default(false)
-
-  // صلاحيات يوم الاستخدام
-  canViewDayUse     Boolean @default(false)
-  canCreateDayUse   Boolean @default(false)
-  canEditDayUse     Boolean @default(false)
-  canDeleteDayUse   Boolean @default(false)
-
-  // صلاحيات التقارير والإعدادات
-  canViewReports    Boolean @default(false)
-  canViewFinancials Boolean @default(false)
-  canViewAttendance Boolean @default(false)
-  canAccessClosing  Boolean @default(false)
-  canAccessSettings Boolean @default(false)
-  canAccessAdmin    Boolean @default(false)
+  id                      String  @id @default(cuid())
+  userId                  String  @unique
+  canViewMembers          Boolean @default(false)
+  canCreateMembers        Boolean @default(false)
+  canEditMembers          Boolean @default(false)
+  canDeleteMembers        Boolean @default(false)
+  canViewPT               Boolean @default(false)
+  canCreatePT             Boolean @default(false)
+  canEditPT               Boolean @default(false)
+  canDeletePT             Boolean @default(false)
+  canRegisterPTAttendance Boolean @default(false)
+  canViewStaff            Boolean @default(false)
+  canCreateStaff          Boolean @default(false)
+  canEditStaff            Boolean @default(false)
+  canDeleteStaff          Boolean @default(false)
+  canViewReceipts         Boolean @default(false)
+  canEditReceipts         Boolean @default(false)
+  canDeleteReceipts       Boolean @default(false)
+  canViewExpenses         Boolean @default(false)
+  canCreateExpense        Boolean @default(false)
+  canEditExpense          Boolean @default(false)
+  canDeleteExpense        Boolean @default(false)
+  canViewVisitors         Boolean @default(false)
+  canCreateVisitor        Boolean @default(false)
+  canEditVisitor          Boolean @default(false)
+  canDeleteVisitor        Boolean @default(false)
+  canViewFollowUps        Boolean @default(false)
+  canCreateFollowUp       Boolean @default(false)
+  canEditFollowUp         Boolean @default(false)
+  canDeleteFollowUp       Boolean @default(false)
+  canViewDayUse           Boolean @default(false)
+  canCreateDayUse         Boolean @default(false)
+  canEditDayUse           Boolean @default(false)
+  canDeleteDayUse         Boolean @default(false)
+  canViewReports          Boolean @default(false)
+  canViewFinancials       Boolean @default(false)
+  canViewAttendance       Boolean @default(false)
+  canAccessClosing        Boolean @default(false)
+  canAccessSettings       Boolean @default(false)
+  canAccessAdmin          Boolean @default(false)
+  user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ActivityLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String   // "CREATE_MEMBER", "DELETE_RECEIPT", etc.
-  resource  String   // "Member", "Receipt", "Staff"
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  resource   String
   resourceId String?
-  details   String?  // JSON string
-  createdAt DateTime @default(now())
-  
+  details    String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([createdAt])
 }

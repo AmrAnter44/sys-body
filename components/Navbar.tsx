@@ -39,7 +39,8 @@ export default function Navbar() {
     { href: '/search', label: 'البحث', icon: '🔍', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
     { href: '/offers', label: 'العروض', icon: '🎁', permission: 'canAccessSettings' as keyof Permissions, roleRequired: null },
     { href: '/closing', label: 'التقفيل', icon: '💰', permission: 'canAccessClosing' as keyof Permissions, roleRequired: null },
-    { href: '/attendance-report', label: 'حضور', icon: '📊', permission: 'canViewAttendance' as keyof Permissions, roleRequired: null },
+    { href: '/attendance-report', label: 'حضور موظفين', icon: '📋', permission: 'canViewAttendance' as keyof Permissions, roleRequired: null },
+    { href: '/member-attendance', label: 'حضور أعضاء', icon: '🏋️', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
   ]
 
   // Filter links based on permissions and role
@@ -162,14 +163,14 @@ export default function Navbar() {
     const isActive = member.isActive
     const expiryDate = member.expiryDate ? new Date(member.expiryDate) : null
     const today = new Date()
-    
+
     if (!isActive || (expiryDate && expiryDate < today)) {
       playAlarmSound()
       return 'expired'
     } else if (expiryDate) {
       const diffTime = expiryDate.getTime() - today.getTime()
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
+
       if (diffDays <= 7) {
         playWarningSound()
         return 'warning'
@@ -180,6 +181,27 @@ export default function Navbar() {
     } else {
       playSuccessSound()
       return 'active'
+    }
+  }
+
+  // 🆕 دالة تسجيل دخول العضو تلقائياً
+  const handleMemberCheckIn = async (memberId: string) => {
+    try {
+      const response = await fetch('/api/member-checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId, method: 'scan' }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && !data.alreadyCheckedIn) {
+        console.log('✅ تم تسجيل دخول العضو:', data.message)
+      } else if (data.alreadyCheckedIn) {
+        console.log('ℹ️ العضو مسجل دخول بالفعل')
+      }
+    } catch (error) {
+      console.error('Error checking in member:', error)
     }
   }
 
@@ -261,8 +283,13 @@ export default function Navbar() {
       )
 
       if (member) {
+        // 🆕 تسجيل دخول العضو تلقائياً إذا كان اشتراكه نشط
+        if (member.isActive) {
+          handleMemberCheckIn(member.id)
+        }
+
         const status = checkMemberStatusAndPlaySound(member)
-        
+
         if (status === 'expired') {
           setSearchMessage({ type: 'error', text: `🚨 ${member.name} - الاشتراك منتهي!` })
         } else if (status === 'warning') {
@@ -270,7 +297,7 @@ export default function Navbar() {
         } else {
           setSearchMessage({ type: 'success', text: `✅ ${member.name} - الاشتراك صالح` })
         }
-        
+
         setQuickSearchId('')
         setTimeout(() => {
           setSearchMessage(null)

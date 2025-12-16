@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { InvitationModal, SimpleServiceModal } from '../../components/ServiceDeductionModals'
 
 interface SearchResult {
   type: 'member' | 'pt'
@@ -24,6 +25,13 @@ export default function SearchPage() {
   const memberIdRef = useRef<HTMLInputElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+
+  // حالة الـ modals
+  const [invitationModal, setInvitationModal] = useState<{isOpen: boolean, memberId: string, memberName: string}>({ isOpen: false, memberId: '', memberName: '' })
+  const [serviceModal, setServiceModal] = useState<{isOpen: boolean, type: 'freePT' | 'inBody', memberId: string, memberName: string}>({ isOpen: false, type: 'freePT', memberId: '', memberName: '' })
+
+  // حفظ آخر بحث للتحديث
+  const [lastSearchValue, setLastSearchValue] = useState<{type: 'id' | 'name', value: string}>({ type: 'id', value: '' })
 
   useEffect(() => {
     if (searchMode === 'id') {
@@ -149,7 +157,7 @@ export default function SearchPage() {
     const isActive = member.isActive
     const expiryDate = member.expiryDate ? new Date(member.expiryDate) : null
     const today = new Date()
-    
+
     if (!isActive || (expiryDate && expiryDate < today)) {
       // اشتراك منتهي - صوت إنذار
       playAlarmSound()
@@ -157,7 +165,7 @@ export default function SearchPage() {
     } else if (expiryDate) {
       const diffTime = expiryDate.getTime() - today.getTime()
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
+
       if (diffDays <= 7) {
         // اشتراك قريب من الانتهاء - صوت تحذير
         playWarningSound()
@@ -174,20 +182,46 @@ export default function SearchPage() {
     }
   }
 
-  const handleSearchById = async () => {
+  // 🆕 دالة تسجيل دخول العضو تلقائياً
+  const handleMemberCheckIn = async (memberId: string) => {
+    try {
+      const response = await fetch('/api/member-checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId, method: 'scan' }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && !data.alreadyCheckedIn) {
+        console.log('✅ تم تسجيل دخول العضو:', data.message)
+      } else if (data.alreadyCheckedIn) {
+        console.log('ℹ️ العضو مسجل دخول بالفعل')
+      }
+    } catch (error) {
+      console.error('Error checking in member:', error)
+    }
+  }
+
+  const handleSearchById = async (silent: boolean = false) => {
     if (!memberId.trim()) {
-      playAlarmSound()
+      if (!silent) playAlarmSound()
       return
     }
 
     const inputValue = memberId.trim()
+
+    // حفظ آخر قيمة بحث
+    if (!silent) {
+      setLastSearchValue({ type: 'id', value: inputValue })
+    }
 
     // ✅ فحص إذا كان الرقم 9 خانات أو أكثر - موظف
     if (/^\d{9,}$/.test(inputValue)) {
       const numericCode = parseInt(inputValue, 10)
 
       if (numericCode < 100000000) {
-        playAlarmSound()
+        if (!silent) playAlarmSound()
         setAttendanceMessage({
           type: 'error',
           text: '❌ رقم الموظف يجب أن يكون 9 أرقام (مثال: 100000022)'
@@ -216,7 +250,7 @@ export default function SearchPage() {
         const data = await response.json()
 
         if (response.ok) {
-          playSuccessSound()
+          if (!silent) playSuccessSound()
           setAttendanceMessage({
             type: 'success',
             text: data.message,
@@ -224,7 +258,7 @@ export default function SearchPage() {
           })
           setTimeout(() => setAttendanceMessage(null), 5000)
         } else {
-          playAlarmSound()
+          if (!silent) playAlarmSound()
           setAttendanceMessage({
             type: 'error',
             text: data.error || 'فشل تسجيل الحضور'
@@ -233,7 +267,7 @@ export default function SearchPage() {
         }
       } catch (error) {
         console.error('Attendance error:', error)
-        playAlarmSound()
+        if (!silent) playAlarmSound()
         setAttendanceMessage({
           type: 'error',
           text: 'حدث خطأ في تسجيل الحضور'
@@ -274,11 +308,18 @@ export default function SearchPage() {
       setLastSearchTime(new Date())
 
       if (foundResults.length > 0) {
+        const member = foundResults[0].data
+
+        // 🆕 تسجيل دخول العضو تلقائياً إذا كان اشتراكه نشط
+        if (member.isActive) {
+          handleMemberCheckIn(member.id)
+        }
+
         // فحص حالة العضو وتشغيل الصوت المناسب
-        checkMemberStatusAndPlaySound(foundResults[0].data)
+        if (!silent) checkMemberStatusAndPlaySound(member)
       } else {
         // لم يتم العثور على نتائج - صوت إنذار
-        playAlarmSound()
+        if (!silent) playAlarmSound()
       }
 
       setMemberId('')
@@ -289,15 +330,15 @@ export default function SearchPage() {
 
     } catch (error) {
       console.error('Search error:', error)
-      playAlarmSound()
+      if (!silent) playAlarmSound()
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSearchByName = async () => {
+  const handleSearchByName = async (silent: boolean = false) => {
     if (!searchName.trim() && !searchPhone.trim()) {
-      playAlarmSound()
+      if (!silent) playAlarmSound()
       setAttendanceMessage({
         type: 'error',
         text: 'يرجى إدخال الاسم أو رقم الهاتف للبحث'
@@ -350,21 +391,52 @@ export default function SearchPage() {
       setLastSearchTime(new Date())
 
       if (foundResults.length > 0) {
+        // 🆕 تسجيل دخول العضو تلقائياً إذا كانت النتيجة عضو ولديه اشتراك نشط
+        if (foundResults[0].type === 'member' && foundResults[0].data.isActive) {
+          handleMemberCheckIn(foundResults[0].data.id)
+        }
+
         // 🆕 فحص حالة أول نتيجة
-        if (foundResults[0].type === 'member') {
-          checkMemberStatusAndPlaySound(foundResults[0].data)
-        } else {
-          // PT دائماً صوت نجاح
-          playSuccessSound()
+        if (!silent) {
+          if (foundResults[0].type === 'member') {
+            checkMemberStatusAndPlaySound(foundResults[0].data)
+          } else {
+            // PT دائماً صوت نجاح
+            playSuccessSound()
+          }
         }
       } else {
         // 🆕 لم يتم العثور على نتائج - صوت إنذار
-        playAlarmSound()
+        if (!silent) playAlarmSound()
       }
 
     } catch (error) {
       console.error('Search error:', error)
-      playAlarmSound()
+      if (!silent) playAlarmSound()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // دالة لإعادة تحديث آخر نتائج بحث بدون صوت
+  const refreshResults = async () => {
+    if (results.length === 0) return
+
+    setLoading(true)
+    try {
+      // جلب البيانات الجديدة بناءً على آخر نتائج
+      if (results[0].type === 'member') {
+        const memberId = results[0].data.id
+        const membersRes = await fetch('/api/members')
+        const members = await membersRes.json()
+        const updatedMember = members.find((m: any) => m.id === memberId)
+
+        if (updatedMember) {
+          setResults([{ type: 'member', data: updatedMember }])
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing results:', error)
     } finally {
       setLoading(false)
     }
@@ -523,7 +595,7 @@ export default function SearchPage() {
                 autoFocus
               />
               <button
-                onClick={handleSearchById}
+                onClick={() => handleSearchById()}
                 disabled={loading || !memberId.trim()}
                 className="px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 lg:px-8 lg:py-6 bg-green-600 text-white text-sm sm:text-base md:text-lg lg:text-xl font-bold rounded-lg sm:rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition whitespace-nowrap"
               >
@@ -582,7 +654,7 @@ export default function SearchPage() {
           </div>
 
           <button
-            onClick={handleSearchByName}
+            onClick={() => handleSearchByName()}
             disabled={loading || (!searchName.trim() && !searchPhone.trim())}
             className="w-full px-4 py-2.5 sm:py-3 md:px-6 md:py-4 bg-green-600 text-white text-sm sm:text-base md:text-lg lg:text-xl font-bold rounded-lg sm:rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
           >
@@ -751,6 +823,80 @@ export default function SearchPage() {
                           </div>
                         )}
 
+                        {/* عرض الخدمات المجانية المتبقية */}
+                        {result.data.isActive && (result.data.invitations > 0 || result.data.freePTSessions > 0 || result.data.inBodyScans > 0) && (
+                          <div className="mb-3 sm:mb-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-400 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-2xl">🎁</span>
+                              <p className="text-sm sm:text-base font-bold text-purple-800">الخدمات المجانية المتبقية</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {/* الدعوات */}
+                              {result.data.invitations > 0 && (
+                                <div className="bg-white rounded-lg p-3 border-2 border-purple-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xl">🎟️</span>
+                                      <div>
+                                        <p className="text-xs text-gray-600">الدعوات</p>
+                                        <p className="text-xl font-bold text-purple-600">{result.data.invitations}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => setInvitationModal({ isOpen: true, memberId: result.data.id, memberName: result.data.name })}
+                                      className="bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 text-xs font-bold"
+                                    >
+                                      استخدام
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* جلسات PT المجانية */}
+                              {result.data.freePTSessions > 0 && (
+                                <div className="bg-white rounded-lg p-3 border-2 border-green-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xl">💪</span>
+                                      <div>
+                                        <p className="text-xs text-gray-600">PT مجاني</p>
+                                        <p className="text-xl font-bold text-green-600">{result.data.freePTSessions}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => setServiceModal({ isOpen: true, type: 'freePT', memberId: result.data.id, memberName: result.data.name })}
+                                      className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 text-xs font-bold"
+                                    >
+                                      خصم -1
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* InBody المجاني */}
+                              {result.data.inBodyScans > 0 && (
+                                <div className="bg-white rounded-lg p-3 border-2 border-blue-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xl">⚖️</span>
+                                      <div>
+                                        <p className="text-xs text-gray-600">InBody</p>
+                                        <p className="text-xl font-bold text-blue-600">{result.data.inBodyScans}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => setServiceModal({ isOpen: true, type: 'inBody', memberId: result.data.id, memberName: result.data.name })}
+                                      className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-xs font-bold"
+                                    >
+                                      خصم -1
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 gap-2 sm:gap-3">
                           <button
                             onClick={() => handleViewMemberDetails(result.data.id)}
@@ -812,6 +958,30 @@ export default function SearchPage() {
         </div>
       )}
 
+      {/* Modals */}
+      <InvitationModal
+        isOpen={invitationModal.isOpen}
+        memberId={invitationModal.memberId}
+        memberName={invitationModal.memberName}
+        onClose={() => setInvitationModal({ isOpen: false, memberId: '', memberName: '' })}
+        onSuccess={() => {
+          // تحديث البيانات بدون صوت
+          refreshResults()
+        }}
+      />
+
+      <SimpleServiceModal
+        isOpen={serviceModal.isOpen}
+        serviceType={serviceModal.type}
+        memberId={serviceModal.memberId}
+        memberName={serviceModal.memberName}
+        onClose={() => setServiceModal({ isOpen: false, type: 'freePT', memberId: '', memberName: '' })}
+        onSuccess={() => {
+          // تحديث البيانات بدون صوت
+          refreshResults()
+        }}
+      />
+
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -823,7 +993,7 @@ export default function SearchPage() {
             transform: translateY(0);
           }
         }
-        
+
         @keyframes slideDown {
           from {
             opacity: 0;
@@ -834,11 +1004,11 @@ export default function SearchPage() {
             transform: translateY(0);
           }
         }
-        
+
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out;
         }
-        
+
         .animate-slideDown {
           animation: slideDown 0.4s ease-out;
         }

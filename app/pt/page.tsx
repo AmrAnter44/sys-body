@@ -339,22 +339,22 @@ export default function PTPage() {
             {isCoach ? 'عرض جلسات التدريب الشخصي' : 'إضافة وتعديل وحذف جلسات التدريب الشخصي'}
           </p>
         </div>
-        {!isCoach && (
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            <button
-              onClick={() => router.push('/pt/commission')}
-              className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
-            >
-              <span>💰</span>
-              <span>حاسبة التحصيل</span>
-            </button>
-            <button
-              onClick={() => router.push('/pt/sessions/history')}
-              className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
-            >
-              <span>📊</span>
-              <span>سجل الحضور</span>
-            </button>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <button
+            onClick={() => router.push('/pt/commission')}
+            className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
+          >
+            <span>💰</span>
+            <span>حاسبة التحصيل</span>
+          </button>
+          <button
+            onClick={() => router.push('/pt/sessions/history')}
+            className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
+          >
+            <span>📊</span>
+            <span>سجل الحضور</span>
+          </button>
+          {!isCoach && (
             <button
               onClick={() => {
                 resetForm()
@@ -364,8 +364,8 @@ export default function PTPage() {
             >
               {showForm ? 'إخفاء النموذج' : '➕ إضافة جلسة PT جديدة'}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {message && (
@@ -824,7 +824,7 @@ export default function PTPage() {
                                   <button
                                     onClick={() => {
                                       const checkInUrl = `${window.location.origin}/pt/check-in`
-                                      const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️`
+                                      const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
                                       const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
                                       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
                                       window.open(whatsappUrl, '_blank')
@@ -1007,7 +1007,7 @@ export default function PTPage() {
                             <button
                               onClick={() => {
                                 const checkInUrl = `${window.location.origin}/pt/check-in`
-                                const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️`
+                                const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
                                 const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
                                 const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
                                 window.open(whatsappUrl, '_blank')
@@ -1197,7 +1197,7 @@ export default function PTPage() {
                 <button
                   onClick={() => {
                     const checkInUrl = `${window.location.origin}/pt/check-in`
-                    const text = `مرحباً ${selectedSession.clientName}! 👋\n\n✅ لتسجيل حضور PT:\n${checkInUrl}\n\nالحصص المتبقية: ${selectedSession.sessionsRemaining} من ${selectedSession.sessionsPurchased}\nالكوتش: ${selectedSession.coachName}\n\nبالتوفيق! 🏋️`
+                    const text = `مرحباً ${selectedSession.clientName}! 👋\n\n✅ لتسجيل حضور PT:\n${checkInUrl}\n\nالحصص المتبقية: ${selectedSession.sessionsRemaining} من ${selectedSession.sessionsPurchased}\nالكوتش: ${selectedSession.coachName}\n\nبالتوفيق! 🏋️\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
                     const phone = selectedSession.phone.startsWith('0') ? '2' + selectedSession.phone : selectedSession.phone
                     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
                     window.open(whatsappUrl, '_blank')

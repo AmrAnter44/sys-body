@@ -5,9 +5,68 @@ import { requirePermission } from '../../../lib/auth'
 // GET - جلب كل الموظفين
 export async function GET(request: Request) {
   try {
-    // ✅ التحقق من صلاحية عرض الموظفين
-    await requirePermission(request, 'canViewStaff')
-    
+    // ✅ محاولة التحقق من صلاحية عرض الموظفين
+    let user
+    try {
+      user = await requirePermission(request, 'canViewStaff')
+    } catch (permError: any) {
+      // إذا لم يكن لديه صلاحية canViewStaff، نتحقق إذا كان كوتش يريد رؤية بياناته فقط
+      const { verifyAuth } = await import('../../../lib/auth')
+      user = await verifyAuth(request)
+
+      if (!user) {
+        throw new Error('Unauthorized')
+      }
+
+      // الكوتشات يمكنهم رؤية بياناتهم الخاصة فقط
+      if (user.role === 'COACH') {
+        // جلب معلومات المستخدم مع staffId
+        const userWithStaff = await prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { staffId: true }
+        })
+
+        if (!userWithStaff?.staffId) {
+          return NextResponse.json(
+            { error: 'حساب الكوتش غير مرتبط ببيانات موظف' },
+            { status: 403 }
+          )
+        }
+
+        // جلب بيانات الموظف الخاصة بهذا الكوتش فقط
+        const staffRecord = await prisma.staff.findUnique({
+          where: { id: userWithStaff.staffId },
+          include: {
+            expenses: {
+              where: { type: 'staff_loan', isPaid: false }
+            },
+            attendance: {
+              where: {
+                checkIn: {
+                  gte: new Date(new Date().setHours(0, 0, 0, 0))
+                }
+              },
+              orderBy: { checkIn: 'desc' }
+            }
+          }
+        })
+
+        if (!staffRecord) {
+          return NextResponse.json(
+            { error: 'بيانات الموظف غير موجودة' },
+            { status: 404 }
+          )
+        }
+
+        // إرجاع بيانات الكوتش فقط في array
+        return NextResponse.json([staffRecord])
+      }
+
+      // إذا لم يكن كوتش، نرمي الخطأ الأصلي
+      throw permError
+    }
+
+    // ✅ إذا كان لديه صلاحية canViewStaff، نجلب كل الموظفين
     const staff = await prisma.staff.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
@@ -28,21 +87,21 @@ export async function GET(request: Request) {
     return NextResponse.json(staff)
   } catch (error: any) {
     console.error('Error fetching staff:', error)
-    
+
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: 'يجب تسجيل الدخول أولاً' },
         { status: 401 }
       )
     }
-    
+
     if (error.message.includes('Forbidden')) {
       return NextResponse.json(
         { error: 'ليس لديك صلاحية عرض الموظفين' },
         { status: 403 }
       )
     }
-    
+
     return NextResponse.json({ error: 'فشل جلب الموظفين' }, { status: 500 })
   }
 }

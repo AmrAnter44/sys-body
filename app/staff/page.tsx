@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
 import StaffBarcodeWhatsApp from '../../components/StaffBarcodeWhatsApp'
+import ConfirmDeleteModal from '../../components/ConfirmDeleteModal'
 
 interface Staff {
   id: string
@@ -22,7 +23,9 @@ interface Attendance {
   id: string
   staffId: string
   staff: Staff
-  date: string
+  checkIn: string
+  checkOut: string | null
+  duration: number | null
   notes: string | null
   createdAt: string
 }
@@ -50,6 +53,11 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [showOtherPosition, setShowOtherPosition] = useState(false)
+
+  // Delete confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [staffToDelete, setStaffToDelete] = useState<Staff | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   
   // ✅ حالة Scanner
   const [scannerInput, setScannerInput] = useState('')
@@ -85,9 +93,17 @@ export default function StaffPage() {
     try {
       const response = await fetch('/api/staff')
       const data = await response.json()
-      setStaff(data)
+
+      // ✅ التحقق من أن البيانات array
+      if (response.ok && Array.isArray(data)) {
+        setStaff(data)
+      } else {
+        console.error('Invalid staff data:', data)
+        setStaff([])
+      }
     } catch (error) {
       console.error('Error:', error)
+      setStaff([])
     } finally {
       setLoading(false)
     }
@@ -220,6 +236,24 @@ const handleScan = async (staffCode: string) => {
     return todayAttendance.some((att) => att.staffId === staffId)
   }
 
+  // ✅ التحقق إذا كان الموظف داخل حالياً (لم يسجل انصراف)
+  const isStaffCurrentlyInside = (staffId: string) => {
+    return todayAttendance.some((att) => att.staffId === staffId && att.checkOut === null)
+  }
+
+  // ✅ الحصول على معلومات حضور الموظف
+  const getStaffAttendanceInfo = (staffId: string) => {
+    return todayAttendance.find((att) => att.staffId === staffId)
+  }
+
+  // ✅ تنسيق مدة العمل
+  const formatDuration = (minutes: number | null) => {
+    if (!minutes) return '-'
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return hours > 0 ? `${hours} س ${mins} د` : `${mins} د`
+  }
+
   const resetForm = () => {
     setFormData({
       staffCode: '',
@@ -343,15 +377,17 @@ const handleScan = async (staffCode: string) => {
     }
   }
 
-  const handleDelete = async (staffMember: Staff) => {
-    const confirmDelete = window.confirm(
-      `هل أنت متأكد من حذف الموظف: ${staffMember.name}؟\nهذه العملية لا يمكن التراجع عنها!`
-    )
+  const handleDelete = (staffMember: Staff) => {
+    setStaffToDelete(staffMember)
+    setShowDeleteModal(true)
+  }
 
-    if (!confirmDelete) return
+  const confirmDelete = async () => {
+    if (!staffToDelete) return
 
+    setDeleteLoading(true)
     try {
-      const response = await fetch(`/api/staff?id=${staffMember.id}`, {
+      const response = await fetch(`/api/staff?id=${staffToDelete.id}`, {
         method: 'DELETE',
       })
 
@@ -361,6 +397,8 @@ const handleScan = async (staffCode: string) => {
         setMessage('✅ تم حذف الموظف بنجاح!')
         setTimeout(() => setMessage(''), 3000)
         fetchStaff()
+        setShowDeleteModal(false)
+        setStaffToDelete(null)
       } else {
         setMessage(`❌ ${data.error || 'فشل حذف الموظف'}`)
         setTimeout(() => setMessage(''), 5000)
@@ -369,6 +407,8 @@ const handleScan = async (staffCode: string) => {
       console.error('Error deleting staff:', error)
       setMessage('❌ حدث خطأ أثناء حذف الموظف')
       setTimeout(() => setMessage(''), 5000)
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -402,8 +442,8 @@ const handleScan = async (staffCode: string) => {
   }
 
   const staffByPosition = getStaffByPosition()
-  const presentStaff = todayAttendance.length  // كل اللي سجلوا حضور اليوم
-  const totalCheckedIn = todayAttendance.length
+  const presentStaff = todayAttendance.filter((att) => att.checkOut === null).length  // الموجودين الآن (لم ينصرفوا)
+  const totalCheckedIn = todayAttendance.length  // إجمالي من سجلوا حضور اليوم
 
   // ✅ التحقق من الصلاحيات
   if (permissionsLoading) {
@@ -494,12 +534,14 @@ const handleScan = async (staffCode: string) => {
                   <th className="px-4 py-3 text-right">الرقم</th>
                   <th className="px-4 py-3 text-right">الاسم</th>
                   <th className="px-4 py-3 text-right">الوظيفة</th>
+                  <th className="px-4 py-3 text-right">وقت الدخول</th>
                   <th className="px-4 py-3 text-center">الحالة</th>
+                  <th className="px-4 py-3 text-center">المدة</th>
                 </tr>
               </thead>
               <tbody>
                 {todayAttendance.map((att) => (
-                  <tr key={att.id} className="border-t hover:bg-gray-50">
+                  <tr key={att.id} className={`border-t hover:bg-gray-50 ${att.checkOut === null ? 'bg-green-50' : 'bg-gray-50'}`}>
                     <td className="px-4 py-3">
                       <span className="bg-blue-500 text-white px-3 py-1 rounded-lg font-bold">
                         #{att.staff.staffCode}
@@ -515,10 +557,22 @@ const handleScan = async (staffCode: string) => {
                         {getPositionIcon(att.staff.position || '')} {att.staff.position || '-'}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {new Date(att.checkIn).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                    </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
-                        ✅ حاضر
-                      </span>
+                      {att.checkOut === null ? (
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
+                          🟢 داخل
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-500 text-white">
+                          🔴 خارج
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center font-bold text-blue-600">
+                      {formatDuration(att.duration)}
                     </td>
                   </tr>
                 ))}
@@ -780,7 +834,7 @@ const handleScan = async (staffCode: string) => {
                 key={staffMember.id}
                 className={`bg-white rounded-lg shadow-md border-r-4 border-orange-500 overflow-hidden ${
                   !staffMember.isActive ? 'opacity-60' : ''
-                } ${isStaffPresent(staffMember.id) ? 'bg-green-50' : ''}`}
+                } ${isStaffCurrentlyInside(staffMember.id) ? 'bg-green-50' : ''}`}
               >
                 {/* Actions في الأعلى */}
                 <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b">
@@ -818,9 +872,9 @@ const handleScan = async (staffCode: string) => {
                         <span className="bg-blue-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
                           #{staffMember.staffCode}
                         </span>
-                        {isStaffPresent(staffMember.id) && (
+                        {isStaffCurrentlyInside(staffMember.id) && (
                           <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                            ✅ موجود
+                            🟢 داخل
                           </span>
                         )}
                       </div>
@@ -903,7 +957,7 @@ const handleScan = async (staffCode: string) => {
                       key={staffMember.id}
                       className={`border-t hover:bg-gray-50 transition ${
                         !staffMember.isActive ? 'opacity-60' : ''
-                      } ${isStaffPresent(staffMember.id) ? 'bg-green-50' : ''}`}
+                      } ${isStaffCurrentlyInside(staffMember.id) ? 'bg-green-50' : ''}`}
                     >
                       <td className="px-4 py-3">
                         <span className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xl">
@@ -913,9 +967,9 @@ const handleScan = async (staffCode: string) => {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{staffMember.name}</span>
-                          {isStaffPresent(staffMember.id) && (
+                          {isStaffCurrentlyInside(staffMember.id) && (
                             <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                              ✅ موجود
+                              🟢 داخل
                             </span>
                           )}
                         </div>
@@ -989,6 +1043,20 @@ const handleScan = async (staffCode: string) => {
           </div>
         </>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setStaffToDelete(null)
+        }}
+        onConfirm={confirmDelete}
+        title="حذف موظف"
+        message="هل أنت متأكد من حذف هذا الموظف؟"
+        itemName={staffToDelete ? `${staffToDelete.name} (#${staffToDelete.staffCode})` : ''}
+        loading={deleteLoading}
+      />
     </div>
   )
 }

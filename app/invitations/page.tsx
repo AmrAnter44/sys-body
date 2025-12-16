@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { formatDateYMD } from '../../lib/dateFormatter'
+import ConfirmDeleteModal from '../../components/ConfirmDeleteModal'
 
 interface Invitation {
   id: string
@@ -24,6 +25,11 @@ export default function InvitationsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(20)
 
+  // Delete confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [invitationToDelete, setInvitationToDelete] = useState<Invitation | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
   const fetchInvitations = async () => {
     try {
       const response = await fetch('/api/invitations')
@@ -45,14 +51,24 @@ export default function InvitationsPage() {
     setCurrentPage(1)
   }, [searchTerm, dateFilter])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الدعوة؟')) return
+  const handleDelete = (invitation: Invitation) => {
+    setInvitationToDelete(invitation)
+    setShowDeleteModal(true)
+  }
 
+  const confirmDelete = async () => {
+    if (!invitationToDelete) return
+
+    setDeleteLoading(true)
     try {
-      await fetch(`/api/invitations?id=${id}`, { method: 'DELETE' })
+      await fetch(`/api/invitations?id=${invitationToDelete.id}`, { method: 'DELETE' })
       fetchInvitations()
+      setShowDeleteModal(false)
+      setInvitationToDelete(null)
     } catch (error) {
       console.error('Error deleting invitation:', error)
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -194,7 +210,7 @@ export default function InvitationsPage() {
                     <h3 className="font-bold text-lg text-purple-700">{invitation.guestName}</h3>
                   </div>
                   <button
-                    onClick={() => handleDelete(invitation.id)}
+                    onClick={() => handleDelete(invitation)}
                     className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded hover:bg-red-50"
                   >
                     🗑️ حذف
@@ -291,7 +307,7 @@ export default function InvitationsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => handleDelete(invitation.id)}
+                          onClick={() => handleDelete(invitation)}
                           className="text-red-600 hover:text-red-800 text-sm"
                         >
                           حذف
@@ -425,6 +441,20 @@ export default function InvitationsPage() {
           <strong>💡 ملاحظة:</strong> هذا السجل يحتوي على جميع الدعوات التي استخدمها الأعضاء لإحضار ضيوف إلى الجيم.
         </p>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setInvitationToDelete(null)
+        }}
+        onConfirm={confirmDelete}
+        title="حذف دعوة"
+        message="هل أنت متأكد من حذف هذه الدعوة؟"
+        itemName={invitationToDelete ? `${invitationToDelete.guestName} (${invitationToDelete.guestPhone})` : ''}
+        loading={deleteLoading}
+      />
     </div>
   )
 }

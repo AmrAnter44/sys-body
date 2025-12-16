@@ -128,7 +128,11 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
 
     // ملاحظة الشكر
     message += `شكرا لثقتكم بنا\n`;
-    message += `نتمنى لكم تجربة رائعة`;
+    message += `نتمنى لكم تجربة رائعة\n\n`;
+
+    // رابط الموقع
+    message += `🌐 *الموقع الإلكتروني:*\n`;
+    message += `https://www.xgym.website/`;
 
     return message;
   };
@@ -170,18 +174,6 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
     }
   };
 
-  const handleAutoSend = () => {
-    const phoneNumber = details.phone || details.memberPhone || details.clientPhone;
-
-    if (!phoneNumber) {
-      alert('⚠️ رقم الهاتف غير متوفر في تفاصيل الإيصال');
-      return;
-    }
-
-    setPhone(phoneNumber);
-    setShowSendModal(true);
-  };
-
   return (
     <>
       <div className="flex gap-2">
@@ -194,14 +186,20 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
           </button>
         )}
 
-        {(details.phone || details.memberPhone || details.clientPhone) && (
-          <button
-            onClick={handleAutoSend}
-            className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-1"
-          >
-            📲
-          </button>
-        )}
+        {/* زر الواتساب يظهر دائماً - إذا كان هناك رقم محفوظ سيتم ملؤه تلقائياً، وإلا سيُطلب إدخاله يدوياً */}
+        <button
+          onClick={() => {
+            const phoneNumber = details.phone || details.memberPhone || details.clientPhone;
+            if (phoneNumber) {
+              setPhone(phoneNumber);
+            }
+            setShowSendModal(true);
+          }}
+          className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-1"
+          title={details.phone || details.memberPhone || details.clientPhone ? 'إرسال عبر واتساب' : 'إرسال عبر واتساب (أدخل الرقم يدوياً)'}
+        >
+          📲
+        </button>
       </div>
 
       {showSendModal && (

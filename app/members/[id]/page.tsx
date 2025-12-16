@@ -106,6 +106,18 @@ export default function MemberDetailPage() {
 
   const [activeModal, setActiveModal] = useState<string | null>(null)
 
+  // سجل الحضور
+  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([])
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [attendanceStartDate, setAttendanceStartDate] = useState(() => {
+    const date = new Date()
+    date.setDate(date.getDate() - 30) // آخر 30 يوم
+    return date.toISOString().split('T')[0]
+  })
+  const [attendanceEndDate, setAttendanceEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0]
+  })
+
   const fetchMember = async () => {
     try {
       const response = await fetch('/api/members')
@@ -140,6 +152,28 @@ export default function MemberDetailPage() {
     }
   }
 
+  const fetchAttendanceHistory = async () => {
+    setAttendanceLoading(true)
+    try {
+      const response = await fetch(
+        `/api/member-checkin/history?memberId=${memberId}&startDate=${attendanceStartDate}&endDate=${attendanceEndDate}`
+      )
+      const data = await response.json()
+
+      if (data.success) {
+        setAttendanceHistory(data.checkIns || [])
+      } else {
+        console.error('Error fetching attendance history')
+        setAttendanceHistory([])
+      }
+    } catch (error) {
+      console.error('Error fetching attendance history:', error)
+      setAttendanceHistory([])
+    } finally {
+      setAttendanceLoading(false)
+    }
+  }
+
   const fetchLastReceipt = async (memberId: string) => {
     try {
       const response = await fetch(`/api/receipts?memberId=${memberId}`)
@@ -157,6 +191,7 @@ export default function MemberDetailPage() {
 
   useEffect(() => {
     fetchMember()
+    fetchAttendanceHistory()
   }, [memberId])
 
   const handlePayment = async () => {
@@ -1479,6 +1514,136 @@ export default function MemberDetailPage() {
           </div>
         </div>
       )}
+
+      {/* سجل الحضور */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📊</span>
+            <div>
+              <h2 className="text-2xl font-bold">سجل الحضور</h2>
+              <p className="text-sm text-gray-600">تاريخ حضور العضو في الجيم</p>
+            </div>
+          </div>
+          <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-bold">
+            {attendanceHistory.length} مرة
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2">من تاريخ</label>
+              <input
+                type="date"
+                value={attendanceStartDate}
+                onChange={(e) => setAttendanceStartDate(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2">إلى تاريخ</label>
+              <input
+                type="date"
+                value={attendanceEndDate}
+                onChange={(e) => setAttendanceEndDate(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={fetchAttendanceHistory}
+                disabled={attendanceLoading}
+                className="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-semibold"
+              >
+                {attendanceLoading ? 'جاري التحميل...' : 'تطبيق الفلتر'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {attendanceLoading ? (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-4">⏳</div>
+            <p className="text-gray-600">جاري تحميل البيانات...</p>
+          </div>
+        ) : attendanceHistory.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📭</div>
+            <p className="text-xl text-gray-600">لا توجد سجلات حضور في هذه الفترة</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-right">#</th>
+                  <th className="px-4 py-3 text-right">تاريخ الدخول</th>
+                  <th className="px-4 py-3 text-right">وقت الدخول</th>
+                  <th className="px-4 py-3 text-right">الخروج المتوقع</th>
+                  <th className="px-4 py-3 text-right">الخروج الفعلي</th>
+                  <th className="px-4 py-3 text-right">الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceHistory.map((checkIn, index) => {
+                  const checkInTime = new Date(checkIn.checkInTime)
+                  const expectedCheckOut = new Date(checkIn.expectedCheckOutTime)
+                  const actualCheckOut = checkIn.actualCheckOutTime ? new Date(checkIn.actualCheckOutTime) : null
+
+                  return (
+                    <tr key={checkIn.id} className="border-t hover:bg-gray-50">
+                      <td className="px-4 py-3 font-bold text-gray-600">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3 font-mono">
+                        {checkInTime.toLocaleDateString('ar-EG')}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-blue-600 font-bold">
+                        {checkInTime.toLocaleTimeString('ar-EG', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm text-gray-600">
+                        {expectedCheckOut.toLocaleTimeString('ar-EG', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm">
+                        {actualCheckOut ? (
+                          <span className="text-green-600">
+                            {actualCheckOut.toLocaleTimeString('ar-EG', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">لم يخرج بعد</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {checkIn.isActive ? (
+                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold">
+                            ✓ داخل الآن
+                          </span>
+                        ) : (
+                          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
+                            خرج
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* نموذج التجديد */}
       {showRenewalForm && (
