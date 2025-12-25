@@ -1,5 +1,6 @@
 // lib/auth.ts - نظام المصادقة والصلاحيات المحدث
 import jwt from 'jsonwebtoken'
+import { Permissions } from '../types/permissions'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
@@ -8,27 +9,8 @@ export interface UserPayload {
   name: string
   email: string
   role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'COACH'
-  permissions?: {
-    canViewMembers: boolean
-    canCreateMembers: boolean
-    canEditMembers: boolean
-    canDeleteMembers: boolean
-    canViewPT: boolean
-    canCreatePT: boolean
-    canEditPT: boolean
-    canDeletePT: boolean
-    canRegisterPTAttendance: boolean
-    canViewStaff: boolean
-    canCreateStaff: boolean
-    canEditStaff: boolean
-    canDeleteStaff: boolean
-    canViewReceipts: boolean
-    canEditReceipts: boolean
-    canDeleteReceipts: boolean
-    canViewReports: boolean
-    canViewFinancials: boolean
-    canAccessSettings: boolean
-  }
+  staffId?: string | null
+  permissions?: Permissions
 }
 
 // ✅ التحقق من المصادقة

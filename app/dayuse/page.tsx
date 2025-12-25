@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { ReceiptToPrint } from '../../components/ReceiptToPrint'
 import PaymentMethodSelector from '../../components/Paymentmethodselector'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface DayUseEntry {
   id: string
@@ -16,6 +17,7 @@ interface DayUseEntry {
 }
 
 export default function DayUsePage() {
+  const { t } = useLanguage()
   const { user } = usePermissions()
   const [entries, setEntries] = useState<DayUseEntry[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -104,16 +106,16 @@ export default function DayUsePage() {
           paymentMethod: 'cash',
         })
 
-        setMessage('✅ تم التسجيل بنجاح!')
+        setMessage(t('dayUse.messages.success'))
         setTimeout(() => setMessage(''), 3000)
         fetchEntries()
         setShowForm(false)
       } else {
-        setMessage('❌ فشل التسجيل')
+        setMessage(t('dayUse.messages.failed'))
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ')
+      setMessage(t('dayUse.messages.error'))
     } finally {
       setLoading(false)
     }
@@ -134,17 +136,17 @@ export default function DayUsePage() {
       })
 
       if (response.ok) {
-        setMessage('✅ تم الحذف بنجاح!')
+        setMessage(t('dayUse.messages.deleteSuccess'))
         setTimeout(() => setMessage(''), 3000)
         fetchEntries()
         setShowDeletePopup(false)
         setEntryToDelete(null)
       } else {
-        setMessage('❌ فشل الحذف')
+        setMessage(t('dayUse.messages.deleteFailed'))
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ في الحذف')
+      setMessage(t('dayUse.messages.deleteError'))
     } finally {
       setDeleting(false)
     }
@@ -153,12 +155,12 @@ export default function DayUsePage() {
   return (
     <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">يوم استخدام / InBody</h1>
+        <h1 className="text-3xl font-bold">{t('dayUse.title')}</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
         >
-          {showForm ? 'إخفاء النموذج' : 'إضافة عملية جديدة'}
+          {showForm ? t('dayUse.hideForm') : t('dayUse.addNewOperation')}
         </button>
       </div>
 
@@ -170,7 +172,7 @@ export default function DayUsePage() {
 
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-xl font-semibold mb-4">إضافة عملية جديدة</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('dayUse.addOperationTitle')}</h2>
           
           {message && (
             <div className={`mb-4 p-3 rounded-lg ${message.includes('✅') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -181,44 +183,44 @@ export default function DayUsePage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الاسم</label>
+                <label className="block text-sm font-medium mb-1">{t('dayUse.name')}</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="اسم الزائر"
+                  placeholder={t('dayUse.namePlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">رقم الهاتف</label>
+                <label className="block text-sm font-medium mb-1">{t('dayUse.phone')}</label>
                 <input
                   type="tel"
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="01xxxxxxxxx"
+                  placeholder={t('dayUse.phonePlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">نوع الخدمة</label>
+                <label className="block text-sm font-medium mb-1">{t('dayUse.serviceType')}</label>
                 <select
                   value={formData.serviceType}
                   onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
-                  <option value="DayUse">يوم استخدام</option>
-                  <option value="InBody">InBody</option>
-                  <option value="LockerRental">تأجير لوجر</option>
+                  <option value="DayUse">{t('dayUse.dayUse')}</option>
+                  <option value="InBody">{t('dayUse.inBody')}</option>
+                  <option value="LockerRental">{t('dayUse.lockerRental')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">السعر</label>
+                <label className="block text-sm font-medium mb-1">{t('dayUse.price')}</label>
                 <input
                   type="number"
                   required
@@ -226,19 +228,19 @@ export default function DayUsePage() {
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="0.00"
+                  placeholder={t('dayUse.pricePlaceholder')}
                 />
               </div>
 
               <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">اسم الموظف</label>
+                <label className="block text-sm font-medium mb-1">{t('dayUse.staffName')}</label>
                 <input
                   type="text"
                   required
                   value={formData.staffName}
                   readOnly
                   className="w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed"
-                  placeholder="اسم الموظف"
+                  placeholder={t('dayUse.staffNamePlaceholder')}
                 />
               </div>
             </div>
@@ -257,14 +259,14 @@ export default function DayUsePage() {
               disabled={loading}
               className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'جاري الحفظ...' : 'إضافة'}
+              {loading ? t('dayUse.saving') : t('dayUse.add')}
             </button>
           </form>
         </div>
       )}
 
       {loading ? (
-        <div className="text-center py-12">جاري التحميل...</div>
+        <div className="text-center py-12">{t('dayUse.loading')}</div>
       ) : (
         <>
           {/* Mobile Cards View */}
@@ -280,19 +282,19 @@ export default function DayUsePage() {
                     onClick={() => handleDeleteClick(entry)}
                     className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm font-medium shadow-sm"
                   >
-                    🗑️ حذف
+                    🗑️ {t('dayUse.delete')}
                   </button>
                 </div>
 
                 {/* Entry Info */}
                 <div className="space-y-3">
                   <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[80px]">👤 الاسم:</span>
+                    <span className="text-gray-500 text-sm min-w-[80px]">👤 {t('dayUse.nameLabel')}</span>
                     <span className="font-bold text-gray-900">{entry.name}</span>
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[80px]">📱 الهاتف:</span>
+                    <span className="text-gray-500 text-sm min-w-[80px]">📱 {t('dayUse.phoneLabel')}</span>
                     <a
                       href={`https://wa.me/2${entry.phone}`}
                       target="_blank"
@@ -304,7 +306,7 @@ export default function DayUsePage() {
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[80px]">🎯 الخدمة:</span>
+                    <span className="text-gray-500 text-sm min-w-[80px]">🎯 {t('dayUse.serviceLabel')}</span>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                       entry.serviceType === 'DayUse'
                         ? 'bg-blue-100 text-blue-800'
@@ -312,23 +314,23 @@ export default function DayUsePage() {
                         ? 'bg-green-100 text-green-800'
                         : 'bg-orange-100 text-orange-800'
                     }`}>
-                      {entry.serviceType === 'DayUse' ? 'يوم استخدام' :
-                       entry.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
+                      {entry.serviceType === 'DayUse' ? t('dayUse.dayUse') :
+                       entry.serviceType === 'InBody' ? t('dayUse.inBody') : t('dayUse.lockerRental')}
                     </span>
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[80px]">💰 السعر:</span>
-                    <span className="font-bold text-green-600">{entry.price} ج.م</span>
+                    <span className="text-gray-500 text-sm min-w-[80px]">💰 {t('dayUse.priceLabel')}</span>
+                    <span className="font-bold text-green-600">{entry.price} {t('dayUse.egp')}</span>
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[80px]">👨‍💼 الموظف:</span>
+                    <span className="text-gray-500 text-sm min-w-[80px]">👨‍💼 {t('dayUse.staffLabel')}</span>
                     <span className="text-gray-700">{entry.staffName}</span>
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[80px]">📅 التاريخ:</span>
+                    <span className="text-gray-500 text-sm min-w-[80px]">📅 {t('dayUse.dateLabel')}</span>
                     <span className="text-gray-700">
                       {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
                     </span>
@@ -340,7 +342,7 @@ export default function DayUsePage() {
             {entries.length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-5xl mb-3">📦</div>
-                <p>لا توجد عمليات حالياً</p>
+                <p>{t('dayUse.noOperationsYet')}</p>
               </div>
             )}
           </div>
@@ -350,13 +352,13 @@ export default function DayUsePage() {
             <table className="w-full">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-right">الاسم</th>
-                  <th className="px-4 py-3 text-right">الهاتف</th>
-                  <th className="px-4 py-3 text-right">نوع الخدمة</th>
-                  <th className="px-4 py-3 text-right">السعر</th>
-                  <th className="px-4 py-3 text-right">الموظف</th>
-                  <th className="px-4 py-3 text-right">التاريخ</th>
-                  <th className="px-4 py-3 text-center">إجراءات</th>
+                  <th className="px-4 py-3 text-right">{t('dayUse.name')}</th>
+                  <th className="px-4 py-3 text-right">{t('dayUse.phone')}</th>
+                  <th className="px-4 py-3 text-right">{t('dayUse.serviceType')}</th>
+                  <th className="px-4 py-3 text-right">{t('dayUse.price')}</th>
+                  <th className="px-4 py-3 text-right">{t('dayUse.staffName')}</th>
+                  <th className="px-4 py-3 text-right">{t('dayUse.dateLabel')}</th>
+                  <th className="px-4 py-3 text-center">{t('dayUse.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -372,11 +374,11 @@ export default function DayUsePage() {
                           ? 'bg-green-100 text-green-800'
                           : 'bg-orange-100 text-orange-800'
                       }`}>
-                        {entry.serviceType === 'DayUse' ? 'يوم استخدام' :
-                         entry.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
+                        {entry.serviceType === 'DayUse' ? t('dayUse.dayUse') :
+                         entry.serviceType === 'InBody' ? t('dayUse.inBody') : t('dayUse.lockerRental')}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{entry.price} ج.م</td>
+                    <td className="px-4 py-3">{entry.price} {t('dayUse.egp')}</td>
                     <td className="px-4 py-3">{entry.staffName}</td>
                     <td className="px-4 py-3">
                       {new Date(entry.createdAt).toLocaleDateString('ar-EG')}
@@ -386,7 +388,7 @@ export default function DayUsePage() {
                         onClick={() => handleDeleteClick(entry)}
                         className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
                       >
-                        🗑️ حذف
+                        🗑️ {t('dayUse.delete')}
                       </button>
                     </td>
                   </tr>
@@ -396,7 +398,7 @@ export default function DayUsePage() {
 
             {entries.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                لا توجد عمليات حالياً
+                {t('dayUse.noOperationsYet')}
               </div>
             )}
           </div>
@@ -409,7 +411,7 @@ export default function DayUsePage() {
             onClick={() => setShowReceipt(true)}
             className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
           >
-            🖨️ طباعة آخر إيصال
+            🖨️ {t('dayUse.printLastReceipt')}
           </button>
         </div>
       )}
@@ -443,32 +445,32 @@ export default function DayUsePage() {
                   <span className="text-4xl">⚠️</span>
                 </div>
                 <h3 className="text-2xl font-bold text-red-700 mb-2">
-                  تأكيد الحذف
+                  {t('dayUse.deleteModal.title')}
                 </h3>
                 <p className="text-gray-600 text-sm">
-                  هل أنت متأكد من حذف هذا السجل؟
+                  {t('dayUse.deleteModal.message')}
                 </p>
               </div>
 
               {/* Entry Details */}
               <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-6 text-right">
                 <div className="space-y-2">
-                  <p><span className="font-semibold">الاسم:</span> {entryToDelete.name}</p>
-                  <p><span className="font-semibold">الهاتف:</span> {entryToDelete.phone}</p>
+                  <p><span className="font-semibold">{t('dayUse.deleteModal.nameLabel')}</span> {entryToDelete.name}</p>
+                  <p><span className="font-semibold">{t('dayUse.deleteModal.phoneLabel')}</span> {entryToDelete.phone}</p>
                   <p>
-                    <span className="font-semibold">نوع الخدمة:</span>{' '}
-                    {entryToDelete.serviceType === 'DayUse' ? 'يوم استخدام' :
-                     entryToDelete.serviceType === 'InBody' ? 'InBody' : 'تأجير لوجر'}
+                    <span className="font-semibold">{t('dayUse.deleteModal.serviceTypeLabel')}</span>{' '}
+                    {entryToDelete.serviceType === 'DayUse' ? t('dayUse.dayUse') :
+                     entryToDelete.serviceType === 'InBody' ? t('dayUse.inBody') : t('dayUse.lockerRental')}
                   </p>
-                  <p><span className="font-semibold">السعر:</span> {entryToDelete.price} ج.م</p>
-                  <p><span className="font-semibold">التاريخ:</span> {new Date(entryToDelete.createdAt).toLocaleDateString('ar-EG')}</p>
+                  <p><span className="font-semibold">{t('dayUse.deleteModal.priceLabel')}</span> {entryToDelete.price} {t('dayUse.egp')}</p>
+                  <p><span className="font-semibold">{t('dayUse.deleteModal.dateLabel')}</span> {new Date(entryToDelete.createdAt).toLocaleDateString('ar-EG')}</p>
                 </div>
               </div>
 
               {/* Warning Message */}
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                 <p className="text-xs text-yellow-800">
-                  <strong>⚠️ تحذير:</strong> هذا الإجراء لا يمكن التراجع عنه!
+                  {t('dayUse.deleteModal.warning')}
                 </p>
               </div>
 
@@ -479,14 +481,14 @@ export default function DayUsePage() {
                   disabled={deleting}
                   className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition"
                 >
-                  {deleting ? '⏳ جاري الحذف...' : '🗑️ نعم، احذف'}
+                  {deleting ? `⏳ ${t('dayUse.deleteModal.deleting')}` : `🗑️ ${t('dayUse.deleteModal.confirmDelete')}`}
                 </button>
                 <button
                   onClick={() => setShowDeletePopup(false)}
                   disabled={deleting}
                   className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed font-medium transition"
                 >
-                  ✖️ إلغاء
+                  ✖️ {t('dayUse.deleteModal.cancel')}
                 </button>
               </div>
             </div>

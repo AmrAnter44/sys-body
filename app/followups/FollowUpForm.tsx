@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface FollowUpFormProps {
   visitors: any[]
@@ -30,6 +31,7 @@ export default function FollowUpForm({
   onSubmit,
   onClose
 }: FollowUpFormProps) {
+  const { t, direction } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     visitorId: initialVisitorId,
@@ -53,14 +55,14 @@ export default function FollowUpForm({
 
     // البحث في الزوار
     const visitor = visitors.find(v => v.id === formData.visitorId)
-    if (visitor) return { name: visitor.name, phone: visitor.phone, type: 'زائر' }
+    if (visitor) return { name: visitor.name, phone: visitor.phone, type: t('followups.form.types.visitor') }
 
     // البحث في الأعضاء المنتهيين (ID = expired-xxx)
     const expMember = expiredMembers.find((m: any) => m.id === formData.visitorId)
     if (expMember) {
       // إزالة "(عضو منتهي)" من الاسم إذا كان موجود
       const cleanName = expMember.name.replace(' (عضو منتهي)', '').trim()
-      return { name: cleanName, phone: expMember.phone, type: 'عضو منتهي' }
+      return { name: cleanName, phone: expMember.phone, type: t('followups.form.types.expiredMember') }
     }
 
     // البحث في الأعضاء القريبين من الانتهاء (ID = expiring-xxx)
@@ -68,16 +70,16 @@ export default function FollowUpForm({
     if (expiringMember) {
       // إزالة "(باقي X يوم)" من الاسم
       const cleanName = expiringMember.name.replace(/\s*\(باقي \d+ يوم\)/, '').trim()
-      return { name: cleanName, phone: expiringMember.phone, type: 'اشتراك قرب ينتهي' }
+      return { name: cleanName, phone: expiringMember.phone, type: t('followups.form.types.expiringMember') }
     }
 
     // البحث في Day Use
     const dayUse = dayUseRecords.find(r => `dayuse-${r.id}` === formData.visitorId)
-    if (dayUse) return { name: dayUse.name, phone: dayUse.phone, type: 'Day Use' }
+    if (dayUse) return { name: dayUse.name, phone: dayUse.phone, type: t('followups.form.types.dayUse') }
 
     // البحث في Invitations
     const invitation = invitations.find(inv => `invitation-${inv.id}` === formData.visitorId)
-    if (invitation) return { name: invitation.guestName, phone: invitation.guestPhone, type: 'دعوة' }
+    if (invitation) return { name: invitation.guestName, phone: invitation.guestPhone, type: t('followups.form.types.invitation') }
 
     return null
   }
@@ -111,11 +113,12 @@ export default function FollowUpForm({
       <div
         className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        dir={direction}
       >
         <div className="sticky top-0 bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <span>📝</span>
-            <span>متابعة جديدة</span>
+            <span>{t('followups.form.title')}</span>
           </h2>
           <button
             onClick={onClose}
@@ -148,53 +151,57 @@ export default function FollowUpForm({
             </div>
           ) : (
             <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-center">
-              <p className="text-red-600 font-medium">⚠️ لم يتم اختيار عضو</p>
-              <p className="text-red-500 text-sm mt-1">الرجاء إغلاق النافذة واختيار عضو من القائمة</p>
+              <p className="text-red-600 font-medium">{t('followups.form.noMemberSelected')}</p>
+              <p className="text-red-500 text-sm mt-1">{t('followups.form.pleaseSelectMember')}</p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">اسم البائع *</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('followups.form.salesName')} {t('followups.form.required')}
+            </label>
             <input
               type="text"
               required
               value={formData.salesName}
               onChange={(e) => setFormData({ ...formData, salesName: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              placeholder="اسم البائع"
+              placeholder={t('followups.form.salesNamePlaceholder')}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">الملاحظات *</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('followups.form.notes')} {t('followups.form.required')}
+            </label>
             <textarea
               required
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               rows={3}
-              placeholder="ماذا حدث؟"
+              placeholder={t('followups.form.notesPlaceholder')}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">النتيجة</label>
+              <label className="block text-sm font-medium mb-1">{t('followups.form.result')}</label>
               <select
                 value={formData.result}
                 onChange={(e) => setFormData({ ...formData, result: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
-                <option value="">اختر</option>
-                <option value="interested">✅ مهتم</option>
-                <option value="not-interested">❌ غير مهتم</option>
-                <option value="postponed">⏸️ مؤجل</option>
-                <option value="subscribed">🎉 اشترك</option>
+                <option value="">{t('followups.form.selectResult')}</option>
+                <option value="interested">{t('followups.form.interested')}</option>
+                <option value="not-interested">{t('followups.form.notInterested')}</option>
+                <option value="postponed">{t('followups.form.postponed')}</option>
+                <option value="subscribed">{t('followups.form.subscribed')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">المتابعة القادمة</label>
+              <label className="block text-sm font-medium mb-1">{t('followups.form.nextFollowUpDate')}</label>
               <input
                 type="date"
                 value={formData.nextFollowUpDate}
@@ -211,7 +218,7 @@ export default function FollowUpForm({
               onChange={(e) => setFormData({ ...formData, contacted: e.target.checked })}
               className="rounded w-4 h-4"
             />
-            <span className="text-sm font-medium">تم التواصل بالفعل</span>
+            <span className="text-sm font-medium">{t('followups.form.contactedCheckbox')}</span>
           </label>
 
           <button
@@ -219,7 +226,7 @@ export default function FollowUpForm({
             disabled={loading}
             className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-semibold"
           >
-            {loading ? 'جاري الحفظ...' : '✅ حفظ'}
+            {loading ? t('followups.form.saving') : t('followups.form.save')}
           </button>
         </form>
       </div>

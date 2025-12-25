@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import ExcelJS from 'exceljs'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface DailyData {
   date: string
@@ -31,7 +32,7 @@ export default function ClosingPage() {
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
   const [selectedDay, setSelectedDay] = useState(new Date().toISOString().split('T')[0])
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
-  
+
   const [totals, setTotals] = useState({
     floor: 0,
     pt: 0,
@@ -44,6 +45,8 @@ export default function ClosingPage() {
     totalRevenue: 0,
     netProfit: 0
   })
+
+  const { t, direction } = useLanguage()
 
   const fetchData = async () => {
     try {
@@ -62,7 +65,7 @@ export default function ClosingPage() {
       const now = new Date()
       const filterDate = (dateString: string) => {
         const d = new Date(dateString)
-        
+
         if (viewMode === 'daily') {
           // في الوضع اليومي، نعرض اليوم المحدد فقط
           const selectedDate = new Date(selectedDay)
@@ -86,7 +89,7 @@ export default function ClosingPage() {
         const month = String(receiptDate.getMonth() + 1).padStart(2, '0')
         const day = String(receiptDate.getDate()).padStart(2, '0')
         const date = `${year}-${month}-${day}`
-        
+
         if (!dailyMap[date]) {
           dailyMap[date] = {
             date,
@@ -132,7 +135,7 @@ export default function ClosingPage() {
         const month = String(expenseDate.getMonth() + 1).padStart(2, '0')
         const day = String(expenseDate.getDate()).padStart(2, '0')
         const date = `${year}-${month}-${day}`
-        
+
         if (!dailyMap[date]) {
           dailyMap[date] = {
             date,
@@ -152,7 +155,7 @@ export default function ClosingPage() {
 
         dailyMap[date].expensesList.push(expense)
         dailyMap[date].expenses += expense.amount
-        
+
         if (expense.type === 'staff_loan' && expense.staff) {
           const staffName = expense.staff.name
           if (!dailyMap[date].staffLoans[staffName]) {
@@ -167,7 +170,7 @@ export default function ClosingPage() {
         dailyMap[date].expenseDetails += `${expense.amount}${expense.description}`
       })
 
-      const sortedData = Object.values(dailyMap).sort((a, b) => 
+      const sortedData = Object.values(dailyMap).sort((a, b) =>
         new Date(b.date).getTime() - new Date(a.date).getTime()
       )
 
@@ -222,23 +225,23 @@ export default function ClosingPage() {
       workbook.creator = 'X-GYM'
       workbook.created = new Date()
 
-      const mainSheet = workbook.addWorksheet('التقفيل المالي', {
-        views: [{ rightToLeft: true }],
+      const mainSheet = workbook.addWorksheet(t('closing.excel.mainSheet'), {
+        views: [{ rightToLeft: direction === 'rtl' }],
         properties: { defaultColWidth: 12 }
       })
 
       const headerRow = mainSheet.addRow([
-        'التاريخ',
-        'Floor',
-        'PT',
-        'كاش',
-        'فيزا',
-        'إنستاباي',
-        'محفظة',
-        'Total',
-        'مصاريف',
-        'تفاصيل المصاريف',
-        'إجمالي السلف',
+        t('closing.table.date'),
+        t('closing.table.floor'),
+        t('closing.table.pt'),
+        t('closing.table.cash'),
+        t('closing.table.visa'),
+        t('closing.table.instapay'),
+        t('closing.table.wallet'),
+        t('closing.table.total'),
+        t('closing.table.expenses'),
+        t('closing.table.expenseDetails'),
+        t('closing.table.totalLoans'),
         ...(staffList || []).map(staff => staff.name)
       ])
 
@@ -261,7 +264,7 @@ export default function ClosingPage() {
         const totalStaffLoans = Object.values(day.staffLoans).reduce((a, b) => a + b, 0)
         const dayTotalPayments = day.cash + day.visa + day.instapay + day.wallet
         const row = mainSheet.addRow([
-          new Date(day.date).toLocaleDateString('ar-EG'),
+          new Date(day.date).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US'),
           day.floor > 0 ? day.floor : 0,
           day.pt > 0 ? day.pt : 0,
           day.cash > 0 ? day.cash : 0,
@@ -283,9 +286,9 @@ export default function ClosingPage() {
           }
         }
 
-        row.alignment = { horizontal: 'right', vertical: 'middle' }
+        row.alignment = { horizontal: direction === 'rtl' ? 'right' : 'left', vertical: 'middle' }
         row.font = { name: 'Arial', size: 11 }
-        
+
         row.eachCell((cell) => {
           cell.border = {
             top: { style: 'thin' },
@@ -296,11 +299,11 @@ export default function ClosingPage() {
         })
       })
 
-      const totalStaffLoansAll = dailyData.reduce((sum, day) => 
+      const totalStaffLoansAll = dailyData.reduce((sum, day) =>
         sum + Object.values(day.staffLoans).reduce((a, b) => a + b, 0), 0
       )
       const totalsRow = mainSheet.addRow([
-        'الإجمالي',
+        t('closing.table.totalLabel'),
         totals.floor,
         totals.pt,
         totals.cash,
@@ -325,7 +328,7 @@ export default function ClosingPage() {
         pattern: 'solid',
         fgColor: { argb: 'FFFFD700' }
       }
-      totalsRow.alignment = { horizontal: 'right', vertical: 'middle' }
+      totalsRow.alignment = { horizontal: direction === 'rtl' ? 'right' : 'left', vertical: 'middle' }
       totalsRow.eachCell((cell) => {
         cell.border = {
           top: { style: 'medium' },
@@ -336,44 +339,44 @@ export default function ClosingPage() {
       })
 
       mainSheet.addRow([])
-      const profitRow = mainSheet.addRow(['صافي الربح', totals.netProfit])
+      const profitRow = mainSheet.addRow([t('closing.stats.netProfit'), totals.netProfit])
       profitRow.font = { bold: true, size: 14, name: 'Arial' }
       profitRow.fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FF90EE90' }
       }
-      profitRow.alignment = { horizontal: 'right', vertical: 'middle' }
+      profitRow.alignment = { horizontal: direction === 'rtl' ? 'right' : 'left', vertical: 'middle' }
 
       mainSheet.addRow([])
-      const summaryTitle = mainSheet.addRow(['الملخص المالي'])
+      const summaryTitle = mainSheet.addRow([t('closing.excel.summaryTitle')])
       summaryTitle.font = { bold: true, size: 13, name: 'Arial' }
       summaryTitle.fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FFD3D3D3' }
       }
-      
-      mainSheet.addRow(['إجمالي الإيرادات', totals.totalRevenue])
-      mainSheet.addRow(['إجمالي المصروفات', totals.expenses])
-      mainSheet.addRow(['صافي الربح', totals.netProfit])
-      mainSheet.addRow(['عدد الأيام', dailyData.length])
-      mainSheet.addRow(['متوسط اليوم', dailyData.length > 0 ? Math.round(totals.totalRevenue / dailyData.length) : 0])
+
+      mainSheet.addRow([t('closing.stats.totalRevenue'), totals.totalRevenue])
+      mainSheet.addRow([t('closing.stats.totalExpenses'), totals.expenses])
+      mainSheet.addRow([t('closing.stats.netProfit'), totals.netProfit])
+      mainSheet.addRow([t('closing.stats.numberOfDays'), dailyData.length])
+      mainSheet.addRow([t('closing.stats.dailyAverage'), dailyData.length > 0 ? Math.round(totals.totalRevenue / dailyData.length) : 0])
 
       mainSheet.addRow([])
-      const paymentTitle = mainSheet.addRow(['طرق الدفع'])
+      const paymentTitle = mainSheet.addRow([t('closing.paymentMethods.title')])
       paymentTitle.font = { bold: true, size: 13, name: 'Arial' }
       paymentTitle.fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FFD3D3D3' }
       }
-      
-      mainSheet.addRow(['كاش', totals.cash])
-      mainSheet.addRow(['فيزا', totals.visa])
-      mainSheet.addRow(['إنستاباي', totals.instapay])
-      mainSheet.addRow(['محفظة', totals.wallet])
-      mainSheet.addRow(['إجمالي المدفوعات (Total)', totals.totalPayments])
+
+      mainSheet.addRow([t('closing.paymentMethods.cash'), totals.cash])
+      mainSheet.addRow([t('closing.paymentMethods.visa'), totals.visa])
+      mainSheet.addRow([t('closing.paymentMethods.instapay'), totals.instapay])
+      mainSheet.addRow([t('closing.paymentMethods.wallet'), totals.wallet])
+      mainSheet.addRow([t('closing.stats.totalPayments'), totals.totalPayments])
 
       mainSheet.columns = [
         { width: 15 },  // التاريخ
@@ -391,12 +394,12 @@ export default function ClosingPage() {
       ]
 
       if (dailyData.some(day => day.receipts.length > 0)) {
-        const receiptsSheet = workbook.addWorksheet('تفاصيل الإيصالات', {
-          views: [{ rightToLeft: true }]
+        const receiptsSheet = workbook.addWorksheet(t('closing.excel.receiptsSheet'), {
+          views: [{ rightToLeft: direction === 'rtl' }]
         })
 
         const receiptsHeader = receiptsSheet.addRow([
-          'التاريخ', 'الوقت', 'رقم الإيصال', 'النوع', 'المبلغ', 'طريقة الدفع', 'التفاصيل'
+          t('closing.receipts.date'), t('closing.receipts.time'), t('closing.receipts.receiptNumber'), t('closing.receipts.type'), t('closing.receipts.amount'), t('closing.receipts.paymentMethod'), t('closing.receipts.details')
         ])
         receiptsHeader.font = { bold: true, size: 12, name: 'Arial' }
         receiptsHeader.fill = {
@@ -412,15 +415,15 @@ export default function ClosingPage() {
             const details = JSON.parse(receipt.itemDetails)
             const detailsText = details.memberName || details.clientName || details.name || '-'
             const row = receiptsSheet.addRow([
-              new Date(receipt.createdAt).toLocaleDateString('ar-EG'),
-              new Date(receipt.createdAt).toLocaleTimeString('ar-EG'),
+              new Date(receipt.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US'),
+              new Date(receipt.createdAt).toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US'),
               receipt.receiptNumber,
-              receipt.type === 'Member' ? 'عضوية' : receipt.type === 'PT' ? 'تدريب شخصي' : receipt.type,
+              receipt.type === 'Member' ? t('closing.receiptTypes.member') : receipt.type === 'PT' ? t('closing.receiptTypes.pt') : receipt.type,
               receipt.amount,
-              receipt.paymentMethod === 'visa' ? 'فيزا' : receipt.paymentMethod === 'instapay' ? 'إنستاباي' : receipt.paymentMethod === 'wallet' ? 'محفظة' : 'كاش',
+              receipt.paymentMethod === 'visa' ? t('closing.paymentMethods.visa') : receipt.paymentMethod === 'instapay' ? t('closing.paymentMethods.instapay') : receipt.paymentMethod === 'wallet' ? t('closing.paymentMethods.wallet') : t('closing.paymentMethods.cash'),
               detailsText
             ])
-            row.alignment = { horizontal: 'right', vertical: 'middle' }
+            row.alignment = { horizontal: direction === 'rtl' ? 'right' : 'left', vertical: 'middle' }
             row.font = { name: 'Arial', size: 10 }
           })
         })
@@ -437,12 +440,12 @@ export default function ClosingPage() {
       }
 
       if (dailyData.some(day => day.expensesList.length > 0)) {
-        const expensesSheet = workbook.addWorksheet('تفاصيل المصروفات', {
-          views: [{ rightToLeft: true }]
+        const expensesSheet = workbook.addWorksheet(t('closing.excel.expensesSheet'), {
+          views: [{ rightToLeft: direction === 'rtl' }]
         })
 
         const expensesHeader = expensesSheet.addRow([
-          'التاريخ', 'الوقت', 'النوع', 'الوصف', 'الموظف', 'المبلغ', 'الحالة'
+          t('closing.expenses.date'), t('closing.expenses.time'), t('closing.expenses.type'), t('closing.expenses.description'), t('closing.expenses.staff'), t('closing.expenses.amount'), t('closing.expenses.status')
         ])
         expensesHeader.font = { bold: true, size: 12, name: 'Arial' }
         expensesHeader.fill = {
@@ -456,15 +459,15 @@ export default function ClosingPage() {
         dailyData.forEach(day => {
           day.expensesList.forEach((expense: any) => {
             const row = expensesSheet.addRow([
-              new Date(expense.createdAt).toLocaleDateString('ar-EG'),
-              new Date(expense.createdAt).toLocaleTimeString('ar-EG'),
-              expense.type === 'gym_expense' ? 'مصروف جيم' : 'سلفة',
+              new Date(expense.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US'),
+              new Date(expense.createdAt).toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US'),
+              expense.type === 'gym_expense' ? t('closing.expenses.gymExpense') : t('closing.expenses.staffLoan'),
               expense.description,
               expense.staff ? expense.staff.name : '-',
               expense.amount,
-              expense.type === 'staff_loan' ? (expense.isPaid ? 'مدفوعة' : 'غير مدفوعة') : '-'
+              expense.type === 'staff_loan' ? (expense.isPaid ? t('closing.expenses.paid') : t('closing.expenses.unpaid')) : '-'
             ])
-            row.alignment = { horizontal: 'right', vertical: 'middle' }
+            row.alignment = { horizontal: direction === 'rtl' ? 'right' : 'left', vertical: 'middle' }
             row.font = { name: 'Arial', size: 10 }
           })
         })
@@ -497,11 +500,11 @@ export default function ClosingPage() {
       link.click()
       window.URL.revokeObjectURL(url)
 
-      console.log('✅ تم تصدير ملف Excel بنجاح!')
+      console.log('✅', t('closing.excel.success'))
 
     } catch (error) {
       console.error('❌ خطأ في التصدير:', error)
-      alert('حدث خطأ أثناء التصدير. يرجى المحاولة مرة أخرى.')
+      alert(t('closing.excel.error'))
     }
   }
 
@@ -511,30 +514,30 @@ export default function ClosingPage() {
 
   const getTypeLabel = (type: string) => {
     const types: { [key: string]: string } = {
-      'Member': 'عضوية',
-      'PT': 'تدريب شخصي',
-      'DayUse': 'يوم استخدام',
-      'InBody': 'InBody'
+      'Member': t('closing.receiptTypes.member'),
+      'PT': t('closing.receiptTypes.pt'),
+      'DayUse': t('closing.receiptTypes.dayUse'),
+      'InBody': t('closing.receiptTypes.inBody')
     }
     return types[type] || type
   }
 
   const getPaymentMethodLabel = (method: string) => {
     const methods: { [key: string]: string } = {
-      'cash': 'كاش 💵',
-      'visa': 'فيزا 💳',
-      'instapay': 'إنستاباي 📱',
-      'wallet': 'محفظة 💰'
+      'cash': `${t('closing.paymentMethods.cash')} 💵`,
+      'visa': `${t('closing.paymentMethods.visa')} 💳`,
+      'instapay': `${t('closing.paymentMethods.instapay')} 📱`,
+      'wallet': `${t('closing.paymentMethods.wallet')} 💰`
     }
-    return methods[method] || 'كاش 💵'
+    return methods[method] || `${t('closing.paymentMethods.cash')} 💵`
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
+    <div className="container mx-auto p-6" dir={direction}>
       <div className="mb-6 no-print">
-        <h1 className="text-3xl font-bold mb-2">💰 التقفيل المالي التفصيلي</h1>
-        <p className="text-gray-600">تقرير يومي شامل مع تفصيل كل العمليات</p>
-        
+        <h1 className="text-3xl font-bold mb-2">💰 {t('closing.title')}</h1>
+        <p className="text-gray-600">{t('closing.subtitle')}</p>
+
         {/* View Mode Tabs */}
         <div className="mt-4 flex gap-2">
           <button
@@ -545,7 +548,7 @@ export default function ClosingPage() {
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            📅 التقفيل اليومي
+            📅 {t('closing.viewMode.daily')}
           </button>
           <button
             onClick={() => setViewMode('monthly')}
@@ -555,7 +558,7 @@ export default function ClosingPage() {
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            📆 التقفيل الشهري
+            📆 {t('closing.viewMode.monthly')}
           </button>
         </div>
       </div>
@@ -566,7 +569,7 @@ export default function ClosingPage() {
           {viewMode === 'daily' ? (
             /* اختيار اليوم للعرض اليومي */
             <div>
-              <label className="block text-sm font-medium mb-2">📅 اختر اليوم</label>
+              <label className="block text-sm font-medium mb-2">📅 {t('closing.controls.selectDay')}</label>
               <input
                 type="date"
                 value={selectedDay}
@@ -574,18 +577,20 @@ export default function ClosingPage() {
                 className="px-4 py-2 border-2 rounded-lg font-mono text-lg"
               />
               <p className="text-sm text-gray-600 mt-2">
-                عرض تفاصيل يوم {new Date(selectedDay).toLocaleDateString('ar-EG', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                {t('closing.controls.viewDayDetails', {
+                  date: new Date(selectedDay).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
                 })}
               </p>
             </div>
           ) : (
             /* اختيار الشهر للعرض الشهري */
             <div>
-              <label className="block text-sm font-medium mb-2">📅 اختر الشهر</label>
+              <label className="block text-sm font-medium mb-2">📅 {t('closing.controls.selectMonth')}</label>
               <input
                 type="month"
                 value={selectedMonth}
@@ -593,7 +598,9 @@ export default function ClosingPage() {
                 className="px-4 py-2 border-2 rounded-lg font-mono text-lg"
               />
               <p className="text-sm text-gray-600 mt-2">
-                عرض جميع أيام شهر {new Date(selectedMonth + '-01').toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}
+                {t('closing.controls.viewMonthDetails', {
+                  month: new Date(selectedMonth + '-01').toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })
+                })}
               </p>
             </div>
           )}
@@ -603,19 +610,19 @@ export default function ClosingPage() {
               onClick={handlePrint}
               className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
             >
-              🖨️ طباعة
+              🖨️ {t('closing.buttons.print')}
             </button>
             <button
               onClick={handleExportExcel}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
             >
-              📊 تصدير Excel
+              📊 {t('closing.buttons.export')}
             </button>
             <button
               onClick={fetchData}
               className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
             >
-              🔄 تحديث
+              🔄 {t('closing.buttons.refresh')}
             </button>
           </div>
         </div>
@@ -624,7 +631,7 @@ export default function ClosingPage() {
       {loading ? (
         <div className="text-center py-20">
           <div className="inline-block animate-spin text-6xl mb-4">⏳</div>
-          <p className="text-xl text-gray-600">جاري التحميل...</p>
+          <p className="text-xl text-gray-600">{t('closing.loading')}</p>
         </div>
       ) : (
         <>
@@ -632,9 +639,9 @@ export default function ClosingPage() {
           <div className="text-center mb-6 print-only" style={{ display: 'none' }}>
             <h1 className="text-3xl font-bold mb-2">X - GYM</h1>
             <p className="text-lg text-gray-600">
-              {viewMode === 'daily' 
-                ? `التقفيل اليومي - ${new Date(selectedDay).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
-                : `التقفيل الشهري - ${new Date(selectedMonth + '-01').toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}`
+              {viewMode === 'daily'
+                ? `${t('closing.viewMode.daily')} - ${new Date(selectedDay).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+                : `${t('closing.viewMode.monthly')} - ${new Date(selectedMonth + '-01').toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}`
               }
             </p>
           </div>
@@ -642,27 +649,27 @@ export default function ClosingPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 no-print">
             <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg shadow-lg">
-              <p className="text-sm opacity-90">إجمالي الإيرادات</p>
+              <p className="text-sm opacity-90">{t('closing.stats.totalRevenue')}</p>
               <p className="text-3xl font-bold">{totals.totalRevenue.toFixed(0)}</p>
             </div>
             <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-4 rounded-lg shadow-lg">
-              <p className="text-sm opacity-90">إجمالي المصروفات</p>
+              <p className="text-sm opacity-90">{t('closing.stats.totalExpenses')}</p>
               <p className="text-3xl font-bold">{totals.expenses.toFixed(0)}</p>
             </div>
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-lg">
-              <p className="text-sm opacity-90">صافي الربح</p>
+              <p className="text-sm opacity-90">{t('closing.stats.netProfit')}</p>
               <p className="text-3xl font-bold">{totals.netProfit.toFixed(0)}</p>
             </div>
             <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-4 rounded-lg shadow-lg">
-              <p className="text-sm opacity-90">إجمالي المدفوعات</p>
+              <p className="text-sm opacity-90">{t('closing.stats.totalPayments')}</p>
               <p className="text-3xl font-bold">{totals.totalPayments.toFixed(0)}</p>
             </div>
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg shadow-lg">
-              <p className="text-sm opacity-90">عدد الأيام</p>
+              <p className="text-sm opacity-90">{t('closing.stats.numberOfDays')}</p>
               <p className="text-3xl font-bold">{dailyData.length}</p>
             </div>
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg shadow-lg">
-              <p className="text-sm opacity-90">متوسط اليوم</p>
+              <p className="text-sm opacity-90">{t('closing.stats.dailyAverage')}</p>
               <p className="text-3xl font-bold">
                 {dailyData.length > 0 ? (totals.totalRevenue / dailyData.length).toFixed(0) : 0}
               </p>
@@ -674,7 +681,7 @@ export default function ClosingPage() {
             <div className="bg-white border-2 border-green-300 p-4 rounded-lg shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">كاش 💵</p>
+                  <p className="text-sm text-gray-600">{t('closing.paymentMethods.cash')} 💵</p>
                   <p className="text-2xl font-bold text-green-600">{totals.cash.toFixed(0)}</p>
                 </div>
                 <span className="text-4xl">💵</span>
@@ -683,7 +690,7 @@ export default function ClosingPage() {
             <div className="bg-white border-2 border-blue-300 p-4 rounded-lg shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">فيزا 💳</p>
+                  <p className="text-sm text-gray-600">{t('closing.paymentMethods.visa')} 💳</p>
                   <p className="text-2xl font-bold text-blue-600">{totals.visa.toFixed(0)}</p>
                 </div>
                 <span className="text-4xl">💳</span>
@@ -692,7 +699,7 @@ export default function ClosingPage() {
             <div className="bg-white border-2 border-purple-300 p-4 rounded-lg shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">إنستاباي 📱</p>
+                  <p className="text-sm text-gray-600">{t('closing.paymentMethods.instapay')} 📱</p>
                   <p className="text-2xl font-bold text-purple-600">{totals.instapay.toFixed(0)}</p>
                 </div>
                 <span className="text-4xl">📱</span>
@@ -701,7 +708,7 @@ export default function ClosingPage() {
             <div className="bg-white border-2 border-orange-300 p-4 rounded-lg shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">محفظة 💰</p>
+                  <p className="text-sm text-gray-600">{t('closing.paymentMethods.wallet')} 💰</p>
                   <p className="text-2xl font-bold text-orange-600">{totals.wallet.toFixed(0)}</p>
                 </div>
                 <span className="text-4xl">💰</span>
@@ -720,55 +727,55 @@ export default function ClosingPage() {
                       {/* معلومات اليوم */}
                       <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-lg">
                         <h2 className="text-2xl font-bold mb-2">
-                          📅 {new Date(day.date).toLocaleDateString('ar-EG', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
+                          📅 {new Date(day.date).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
                           })}
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                           <div className="bg-white/20 p-3 rounded-lg">
-                            <p className="text-sm opacity-90">Floor</p>
-                            <p className="text-xl font-bold">{day.floor > 0 ? day.floor.toFixed(0) : '0'} ج.م</p>
+                            <p className="text-sm opacity-90">{t('closing.table.floor')}</p>
+                            <p className="text-xl font-bold">{day.floor > 0 ? day.floor.toFixed(0) : '0'} {t('closing.currency')}</p>
                           </div>
                           <div className="bg-white/20 p-3 rounded-lg">
-                            <p className="text-sm opacity-90">PT</p>
-                            <p className="text-xl font-bold">{day.pt > 0 ? day.pt.toFixed(0) : '0'} ج.م</p>
+                            <p className="text-sm opacity-90">{t('closing.table.pt')}</p>
+                            <p className="text-xl font-bold">{day.pt > 0 ? day.pt.toFixed(0) : '0'} {t('closing.currency')}</p>
                           </div>
                           <div className="bg-white/20 p-3 rounded-lg">
-                            <p className="text-sm opacity-90">المصروفات</p>
-                            <p className="text-xl font-bold">{day.expenses > 0 ? day.expenses.toFixed(0) : '0'} ج.م</p>
+                            <p className="text-sm opacity-90">{t('closing.table.expenses')}</p>
+                            <p className="text-xl font-bold">{day.expenses > 0 ? day.expenses.toFixed(0) : '0'} {t('closing.currency')}</p>
                           </div>
                           <div className="bg-white/20 p-3 rounded-lg">
-                            <p className="text-sm opacity-90">الإجمالي</p>
-                            <p className="text-xl font-bold">{((day.floor + day.pt) - day.expenses).toFixed(0)} ج.م</p>
+                            <p className="text-sm opacity-90">{t('closing.table.total')}</p>
+                            <p className="text-xl font-bold">{((day.floor + day.pt) - day.expenses).toFixed(0)} {t('closing.currency')}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* طرق الدفع */}
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="font-bold text-lg mb-3">💳 طرق الدفع</h3>
+                        <h3 className="font-bold text-lg mb-3">💳 {t('closing.paymentMethods.title')}</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div className="bg-white p-3 rounded-lg border-2 border-green-200">
-                            <p className="text-sm text-gray-600">كاش 💵</p>
+                            <p className="text-sm text-gray-600">{t('closing.paymentMethods.cash')} 💵</p>
                             <p className="text-lg font-bold text-green-600">{day.cash > 0 ? day.cash.toFixed(0) : '0'}</p>
                             <div className="mt-2 pt-2 border-t border-gray-200">
-                              <p className="text-xs text-gray-500">صافي الكاش بعد المصاريف</p>
-                              <p className="text-sm font-bold text-orange-600">{(day.cash - day.expenses).toFixed(0)} ج.م</p>
+                              <p className="text-xs text-gray-500">{t('closing.paymentMethods.netCash')}</p>
+                              <p className="text-sm font-bold text-orange-600">{(day.cash - day.expenses).toFixed(0)} {t('closing.currency')}</p>
                             </div>
                           </div>
                           <div className="bg-white p-3 rounded-lg border-2 border-blue-200">
-                            <p className="text-sm text-gray-600">فيزا 💳</p>
+                            <p className="text-sm text-gray-600">{t('closing.paymentMethods.visa')} 💳</p>
                             <p className="text-lg font-bold text-blue-600">{day.visa > 0 ? day.visa.toFixed(0) : '0'}</p>
                           </div>
                           <div className="bg-white p-3 rounded-lg border-2 border-purple-200">
-                            <p className="text-sm text-gray-600">إنستاباي 📱</p>
+                            <p className="text-sm text-gray-600">{t('closing.paymentMethods.instapay')} 📱</p>
                             <p className="text-lg font-bold text-purple-600">{day.instapay > 0 ? day.instapay.toFixed(0) : '0'}</p>
                           </div>
                           <div className="bg-white p-3 rounded-lg border-2 border-orange-200">
-                            <p className="text-sm text-gray-600">محفظة 💰</p>
+                            <p className="text-sm text-gray-600">{t('closing.paymentMethods.wallet')} 💰</p>
                             <p className="text-lg font-bold text-orange-600">{day.wallet > 0 ? day.wallet.toFixed(0) : '0'}</p>
                           </div>
                         </div>
@@ -777,12 +784,12 @@ export default function ClosingPage() {
                       {/* السلف */}
                       {Object.keys(day.staffLoans).length > 0 && (
                         <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
-                          <h3 className="font-bold text-lg mb-3">💰 سلف الموظفين</h3>
+                          <h3 className="font-bold text-lg mb-3">💰 {t('closing.staffLoans.title')}</h3>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             {Object.entries(day.staffLoans).map(([staffName, amount]) => (
                               <div key={staffName} className="bg-white p-3 rounded-lg">
                                 <p className="text-sm text-gray-600">{staffName}</p>
-                                <p className="text-lg font-bold text-red-600">{amount.toFixed(0)} ج.م</p>
+                                <p className="text-lg font-bold text-red-600">{amount.toFixed(0)} {t('closing.currency')}</p>
                               </div>
                             ))}
                           </div>
@@ -794,18 +801,18 @@ export default function ClosingPage() {
                         <div>
                           <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
                             <span>🧾</span>
-                            <span>الإيصالات ({day.receipts.length})</span>
+                            <span>{t('closing.receipts.count', { count: day.receipts.length.toString() })}</span>
                           </h4>
                           <div className="bg-white rounded-lg overflow-hidden border-2 border-blue-200">
                             <table className="w-full text-sm">
                               <thead className="bg-blue-100">
                                 <tr>
-                                  <th className="px-3 py-2 text-right">الوقت</th>
-                                  <th className="px-3 py-2 text-right">رقم الإيصال</th>
-                                  <th className="px-3 py-2 text-right">النوع</th>
-                                  <th className="px-3 py-2 text-right">التفاصيل</th>
-                                  <th className="px-3 py-2 text-right">المبلغ</th>
-                                  <th className="px-3 py-2 text-right">طريقة الدفع</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.time')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.receiptNumber')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.type')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.details')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.amount')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.paymentMethod')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -814,7 +821,7 @@ export default function ClosingPage() {
                                   return (
                                     <tr key={receipt.id} className="border-t hover:bg-blue-50">
                                       <td className="px-3 py-2 font-mono text-xs">
-                                        {new Date(receipt.createdAt).toLocaleTimeString('ar-EG')}
+                                        {new Date(receipt.createdAt).toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                                       </td>
                                       <td className="px-3 py-2 font-bold text-green-600">
                                         #{receipt.receiptNumber}
@@ -837,7 +844,7 @@ export default function ClosingPage() {
                                         {details.name && <div>{details.name}</div>}
                                       </td>
                                       <td className="px-3 py-2 font-bold text-green-600">
-                                        {receipt.amount} ج.م
+                                        {receipt.amount} {t('closing.currency')}
                                       </td>
                                       <td className="px-3 py-2">
                                         <span className="text-xs">
@@ -853,7 +860,7 @@ export default function ClosingPage() {
                         </div>
                       ) : (
                         <div className="bg-gray-50 p-8 rounded-lg text-center">
-                          <p className="text-gray-500 text-lg">📭 لا توجد إيصالات في هذا اليوم</p>
+                          <p className="text-gray-500 text-lg">📭 {t('closing.receipts.noReceipts')}</p>
                         </div>
                       )}
 
@@ -862,33 +869,33 @@ export default function ClosingPage() {
                         <div>
                           <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
                             <span>💸</span>
-                            <span>المصروفات ({day.expensesList.length})</span>
+                            <span>{t('closing.expenses.count', { count: day.expensesList.length.toString() })}</span>
                           </h4>
                           <div className="bg-white rounded-lg overflow-hidden border-2 border-red-200">
                             <table className="w-full text-sm">
                               <thead className="bg-red-100">
                                 <tr>
-                                  <th className="px-3 py-2 text-right">الوقت</th>
-                                  <th className="px-3 py-2 text-right">النوع</th>
-                                  <th className="px-3 py-2 text-right">الوصف</th>
-                                  <th className="px-3 py-2 text-right">الموظف</th>
-                                  <th className="px-3 py-2 text-right">المبلغ</th>
-                                  <th className="px-3 py-2 text-right">الحالة</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.time')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.type')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.description')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.staff')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.amount')}</th>
+                                  <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.status')}</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {day.expensesList.map((expense: any) => (
                                   <tr key={expense.id} className="border-t hover:bg-red-50">
                                     <td className="px-3 py-2 font-mono text-xs">
-                                      {new Date(expense.createdAt).toLocaleTimeString('ar-EG')}
+                                      {new Date(expense.createdAt).toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                                     </td>
                                     <td className="px-3 py-2">
                                       <span className={`px-2 py-1 rounded text-xs ${
-                                        expense.type === 'gym_expense' 
-                                          ? 'bg-orange-100 text-orange-800' 
+                                        expense.type === 'gym_expense'
+                                          ? 'bg-orange-100 text-orange-800'
                                           : 'bg-purple-100 text-purple-800'
                                       }`}>
-                                        {expense.type === 'gym_expense' ? 'مصروف جيم' : 'سلفة'}
+                                        {expense.type === 'gym_expense' ? t('closing.expenses.gymExpense') : t('closing.expenses.staffLoan')}
                                       </span>
                                     </td>
                                     <td className="px-3 py-2">{expense.description}</td>
@@ -896,16 +903,16 @@ export default function ClosingPage() {
                                       {expense.staff ? expense.staff.name : '-'}
                                     </td>
                                     <td className="px-3 py-2 font-bold text-red-600">
-                                      {expense.amount} ج.م
+                                      {expense.amount} {t('closing.currency')}
                                     </td>
                                     <td className="px-3 py-2">
                                       {expense.type === 'staff_loan' && (
                                         <span className={`px-2 py-1 rounded text-xs ${
-                                          expense.isPaid 
-                                            ? 'bg-green-100 text-green-800' 
+                                          expense.isPaid
+                                            ? 'bg-green-100 text-green-800'
                                             : 'bg-red-100 text-red-800'
                                         }`}>
-                                          {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
+                                          {expense.isPaid ? `✅ ${t('closing.expenses.paid')}` : `❌ ${t('closing.expenses.unpaid')}`}
                                         </span>
                                       )}
                                     </td>
@@ -917,7 +924,7 @@ export default function ClosingPage() {
                         </div>
                       ) : (
                         <div className="bg-gray-50 p-8 rounded-lg text-center">
-                          <p className="text-gray-500 text-lg">📭 لا توجد مصروفات في هذا اليوم</p>
+                          <p className="text-gray-500 text-lg">📭 {t('closing.expenses.noExpenses')}</p>
                         </div>
                       )}
                     </div>
@@ -925,7 +932,7 @@ export default function ClosingPage() {
                 </div>
               ) : (
                 <div className="p-8 text-center">
-                  <p className="text-gray-500 text-lg">📭 لا توجد بيانات لهذا اليوم</p>
+                  <p className="text-gray-500 text-lg">📭 {t('closing.noData')}</p>
                 </div>
               )
             ) : (
@@ -933,74 +940,74 @@ export default function ClosingPage() {
             <table className="w-full border-collapse text-sm excel-table">
               <thead>
                 <tr className="bg-gray-200 border-2 border-gray-400">
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold">التاريخ</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-blue-100">Floor</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-green-100">PT</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-green-50">كاش 💵</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-blue-50">فيزا 💳</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-purple-50">إنستاباي 📱</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-orange-50">محفظة 💰</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-yellow-100">Total 💰</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-orange-100">مصاريف</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold min-w-[300px]">تفاصيل المصاريف</th>
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-yellow-50">السلف</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold">{t('closing.table.date')}</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-blue-100">{t('closing.table.floor')}</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-green-100">{t('closing.table.pt')}</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-green-50">{t('closing.table.cash')} 💵</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-blue-50">{t('closing.table.visa')} 💳</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-purple-50">{t('closing.table.instapay')} 📱</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-orange-50">{t('closing.table.wallet')} 💰</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-yellow-100">{t('closing.table.total')} 💰</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-orange-100">{t('closing.table.expenses')}</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold min-w-[300px]">{t('closing.table.expenseDetails')}</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold bg-yellow-50">{t('closing.table.loans')}</th>
                   {(staffList || []).map(staff => (
                     <th key={staff.id} className="border border-gray-400 px-3 py-2 text-center font-bold bg-red-50 min-w-[80px]">
                       {staff.name}
                     </th>
                   ))}
-                  <th className="border border-gray-400 px-3 py-2 text-center font-bold no-print">التفاصيل</th>
+                  <th className="border border-gray-400 px-3 py-2 text-center font-bold no-print">{t('closing.table.details')}</th>
                 </tr>
               </thead>
               <tbody>
                 {dailyData.map((day, index) => (
                   <>
-                    <tr 
-                      key={day.date} 
+                    <tr
+                      key={day.date}
                       className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} cursor-pointer hover:bg-blue-50`}
                       onClick={() => toggleDayDetails(day.date)}
                     >
                       <td className="border border-gray-300 px-3 py-2 text-center font-mono">
-                        {new Date(day.date).toLocaleDateString('ar-EG')}
+                        {new Date(day.date).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-blue-600">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-blue-600`}>
                         {day.floor > 0 ? day.floor.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-green-600">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-green-600`}>
                         {day.pt > 0 ? day.pt.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-green-700">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-green-700`}>
                         {day.cash > 0 ? day.cash.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-blue-700">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-blue-700`}>
                         {day.visa > 0 ? day.visa.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-purple-700">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-purple-700`}>
                         {day.instapay > 0 ? day.instapay.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-orange-700">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-orange-700`}>
                         {day.wallet > 0 ? day.wallet.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-yellow-700 bg-yellow-50">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-yellow-700 bg-yellow-50`}>
                         {(day.cash + day.visa + day.instapay + day.wallet).toFixed(0)}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-red-600">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-red-600`}>
                         {day.expenses > 0 ? day.expenses.toFixed(0) : '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right text-xs">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} text-xs`}>
                         {day.expenseDetails || '-'}
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-right font-bold text-orange-600">
+                      <td className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} font-bold text-orange-600`}>
                         {Object.values(day.staffLoans).reduce((a, b) => a + b, 0).toFixed(0) || '-'}
                       </td>
                       {(staffList || []).map(staff => (
-                        <td key={staff.id} className="border border-gray-300 px-3 py-2 text-right text-red-600">
+                        <td key={staff.id} className={`border border-gray-300 px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'} text-red-600`}>
                           {day.staffLoans[staff.name] ? day.staffLoans[staff.name].toFixed(0) : '-'}
                         </td>
                       ))}
                       <td className="border border-gray-300 px-3 py-2 text-center no-print">
                         <button className="text-blue-600 hover:text-blue-800 font-bold">
-                          {expandedDay === day.date ? '▼ إخفاء' : '▶ عرض'}
+                          {expandedDay === day.date ? `▼ ${t('closing.buttons.hide')}` : `▶ ${t('closing.buttons.show')}`}
                         </button>
                       </td>
                     </tr>
@@ -1015,18 +1022,18 @@ export default function ClosingPage() {
                               <div>
                                 <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
                                   <span>🧾</span>
-                                  <span>الإيصالات ({day.receipts.length})</span>
+                                  <span>{t('closing.receipts.count', { count: day.receipts.length.toString() })}</span>
                                 </h4>
                                 <div className="bg-white rounded-lg overflow-hidden border-2 border-blue-200">
                                   <table className="w-full text-sm">
                                     <thead className="bg-blue-100">
                                       <tr>
-                                        <th className="px-3 py-2 text-right">الوقت</th>
-                                        <th className="px-3 py-2 text-right">رقم الإيصال</th>
-                                        <th className="px-3 py-2 text-right">النوع</th>
-                                        <th className="px-3 py-2 text-right">التفاصيل</th>
-                                        <th className="px-3 py-2 text-right">المبلغ</th>
-                                        <th className="px-3 py-2 text-right">طريقة الدفع</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.time')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.receiptNumber')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.type')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.details')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.amount')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.receipts.paymentMethod')}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -1035,7 +1042,7 @@ export default function ClosingPage() {
                                         return (
                                           <tr key={receipt.id} className="border-t hover:bg-blue-50">
                                             <td className="px-3 py-2 font-mono text-xs">
-                                              {new Date(receipt.createdAt).toLocaleTimeString('ar-EG')}
+                                              {new Date(receipt.createdAt).toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                                             </td>
                                             <td className="px-3 py-2 font-bold text-green-600">
                                               #{receipt.receiptNumber}
@@ -1058,7 +1065,7 @@ export default function ClosingPage() {
                                               {details.name && <div>{details.name}</div>}
                                             </td>
                                             <td className="px-3 py-2 font-bold text-green-600">
-                                              {receipt.amount} ج.م
+                                              {receipt.amount} {t('closing.currency')}
                                             </td>
                                             <td className="px-3 py-2">
                                               <span className="text-xs">
@@ -1079,33 +1086,33 @@ export default function ClosingPage() {
                               <div>
                                 <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
                                   <span>💸</span>
-                                  <span>المصروفات ({day.expensesList.length})</span>
+                                  <span>{t('closing.expenses.count', { count: day.expensesList.length.toString() })}</span>
                                 </h4>
                                 <div className="bg-white rounded-lg overflow-hidden border-2 border-red-200">
                                   <table className="w-full text-sm">
                                     <thead className="bg-red-100">
                                       <tr>
-                                        <th className="px-3 py-2 text-right">الوقت</th>
-                                        <th className="px-3 py-2 text-right">النوع</th>
-                                        <th className="px-3 py-2 text-right">الوصف</th>
-                                        <th className="px-3 py-2 text-right">الموظف</th>
-                                        <th className="px-3 py-2 text-right">المبلغ</th>
-                                        <th className="px-3 py-2 text-right">الحالة</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.time')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.type')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.description')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.staff')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.amount')}</th>
+                                        <th className={`px-3 py-2 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('closing.expenses.status')}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {day.expensesList.map((expense: any) => (
                                         <tr key={expense.id} className="border-t hover:bg-red-50">
                                           <td className="px-3 py-2 font-mono text-xs">
-                                            {new Date(expense.createdAt).toLocaleTimeString('ar-EG')}
+                                            {new Date(expense.createdAt).toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                                           </td>
                                           <td className="px-3 py-2">
                                             <span className={`px-2 py-1 rounded text-xs ${
-                                              expense.type === 'gym_expense' 
-                                                ? 'bg-orange-100 text-orange-800' 
+                                              expense.type === 'gym_expense'
+                                                ? 'bg-orange-100 text-orange-800'
                                                 : 'bg-purple-100 text-purple-800'
                                             }`}>
-                                              {expense.type === 'gym_expense' ? 'مصروف جيم' : 'سلفة'}
+                                              {expense.type === 'gym_expense' ? t('closing.expenses.gymExpense') : t('closing.expenses.staffLoan')}
                                             </span>
                                           </td>
                                           <td className="px-3 py-2">{expense.description}</td>
@@ -1113,16 +1120,16 @@ export default function ClosingPage() {
                                             {expense.staff ? expense.staff.name : '-'}
                                           </td>
                                           <td className="px-3 py-2 font-bold text-red-600">
-                                            {expense.amount} ج.م
+                                            {expense.amount} {t('closing.currency')}
                                           </td>
                                           <td className="px-3 py-2">
                                             {expense.type === 'staff_loan' && (
                                               <span className={`px-2 py-1 rounded text-xs ${
-                                                expense.isPaid 
-                                                  ? 'bg-green-100 text-green-800' 
+                                                expense.isPaid
+                                                  ? 'bg-green-100 text-green-800'
                                                   : 'bg-red-100 text-red-800'
                                               }`}>
-                                                {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
+                                                {expense.isPaid ? `✅ ${t('closing.expenses.paid')}` : `❌ ${t('closing.expenses.unpaid')}`}
                                               </span>
                                             )}
                                           </td>
@@ -1139,36 +1146,36 @@ export default function ClosingPage() {
                     )}
                   </>
                 ))}
-                
+
                 {/* Totals Row */}
                 <tr className="bg-yellow-100 border-t-4 border-yellow-600 font-bold">
-                  <td className="border border-gray-400 px-3 py-3 text-center">الإجمالي</td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-blue-700 text-lg">
+                  <td className="border border-gray-400 px-3 py-3 text-center">{t('closing.table.totalLabel')}</td>
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-blue-700 text-lg`}>
                     {totals.floor.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-green-700 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-green-700 text-lg`}>
                     {totals.pt.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-green-800 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-green-800 text-lg`}>
                     {totals.cash.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-blue-800 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-blue-800 text-lg`}>
                     {totals.visa.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-purple-800 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-purple-800 text-lg`}>
                     {totals.instapay.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-orange-800 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-orange-800 text-lg`}>
                     {totals.wallet.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-yellow-800 text-lg bg-yellow-200">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-yellow-800 text-lg bg-yellow-200`}>
                     {totals.totalPayments.toFixed(0)}
                   </td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-red-700 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-red-700 text-lg`}>
                     {totals.expenses.toFixed(0)}
                   </td>
                   <td className="border border-gray-400 px-3 py-3"></td>
-                  <td className="border border-gray-400 px-3 py-3 text-right text-orange-700 text-lg">
+                  <td className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-orange-700 text-lg`}>
                     {dailyData.reduce((sum, day) =>
                       sum + Object.values(day.staffLoans).reduce((a, b) => a + b, 0), 0
                     ).toFixed(0)}
@@ -1178,7 +1185,7 @@ export default function ClosingPage() {
                       sum + (day.staffLoans[staff.name] || 0), 0
                     )
                     return (
-                      <td key={staff.id} className="border border-gray-400 px-3 py-3 text-right text-red-700">
+                      <td key={staff.id} className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-red-700`}>
                         {total > 0 ? total.toFixed(0) : '-'}
                       </td>
                     )
@@ -1189,10 +1196,10 @@ export default function ClosingPage() {
                 {/* Net Profit Row */}
                 <tr className="bg-green-100 border-t-2 border-green-600 font-bold">
                   <td colSpan={3} className="border border-gray-400 px-3 py-3 text-center text-lg">
-                    صافي الربح
+                    {t('closing.stats.netProfit')}
                   </td>
-                  <td colSpan={(staffList?.length || 0) + 9} className="border border-gray-400 px-3 py-3 text-right text-2xl text-green-700">
-                    {totals.netProfit.toFixed(0)} ج.م
+                  <td colSpan={(staffList?.length || 0) + 9} className={`border border-gray-400 px-3 py-3 text-${direction === 'rtl' ? 'right' : 'left'} text-2xl text-green-700`}>
+                    {totals.netProfit.toFixed(0)} {t('closing.currency')}
                   </td>
                 </tr>
               </tbody>
@@ -1226,16 +1233,16 @@ export default function ClosingPage() {
             margin: 10mm;
           }
         }
-        
+
         .excel-table {
           font-family: 'Arial', sans-serif;
         }
-        
+
         .excel-table th {
           background-color: #e5e7eb;
           font-weight: 700;
         }
-        
+
         .excel-table td,
         .excel-table th {
           white-space: nowrap;

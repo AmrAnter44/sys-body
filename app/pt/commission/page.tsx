@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useLanguage } from '../../../contexts/LanguageContext'
 
 interface Staff {
   id: string
@@ -44,6 +45,7 @@ interface CommissionResult {
 }
 
 export default function CoachCommissionPage() {
+  const { t } = useLanguage()
   const [coaches, setCoaches] = useState<Staff[]>([])
   const [ptSessions, setPtSessions] = useState<PTSession[]>([])
   const [selectedCoach, setSelectedCoach] = useState<string>('')
@@ -140,7 +142,7 @@ export default function CoachCommissionPage() {
   // دالة حساب التحصيل
   const handleCalculate = () => {
     if (!selectedCoach) {
-      alert('⚠️ من فضلك اختر الكوتش')
+      alert(t('pt.commission.selectCoach'))
       return
     }
 
@@ -206,22 +208,22 @@ export default function CoachCommissionPage() {
         <div className="flex items-center gap-3 mb-3">
           <div className="text-5xl">💰</div>
           <div>
-            <h1 className="text-4xl font-bold">حاسبة تحصيل الكوتشات</h1>
+            <h1 className="text-4xl font-bold">{t('pt.commission.title')}</h1>
             <p className="text-gray-600 mt-1">
-              احسب نسبة ومبلغ تحصيل الكوتش بناءً على دخل جلسات PT الفعلي
+              {t('pt.commission.subtitle')}
             </p>
           </div>
         </div>
       </div>
 
-      {/* اختيار الفترة الزمنية */}
+      {/* Time Period Selection */}
       <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
         <label className="block text-sm font-bold mb-3 text-gray-700">
-          📅 اختر الفترة الزمنية لحساب التحصيل
+          📅 {t('pt.commission.selectPeriod')}
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-gray-600 mb-1">من تاريخ</label>
+            <label className="block text-xs text-gray-600 mb-1">{t('pt.commission.fromDate')}</label>
             <input
               type="date"
               value={dateFrom}
@@ -230,7 +232,7 @@ export default function CoachCommissionPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-600 mb-1">إلى تاريخ</label>
+            <label className="block text-xs text-gray-600 mb-1">{t('pt.commission.toDate')}</label>
             <input
               type="date"
               value={dateTo}
@@ -242,29 +244,29 @@ export default function CoachCommissionPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* نموذج الإدخال */}
+        {/* Input Form */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <span>📋</span>
-            <span>بيانات الحساب</span>
+            <span>{t('pt.commission.calculationData')}</span>
           </h2>
 
           {loading ? (
-            <div className="text-center py-12 text-gray-500">جاري التحميل...</div>
+            <div className="text-center py-12 text-gray-500">{t('pt.commission.loading')}</div>
           ) : coaches.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">😕</div>
-              <p className="text-gray-600">لا يوجد كوتشات نشطين حالياً</p>
+              <p className="text-gray-600">{t('pt.commission.noActiveCoaches')}</p>
               <p className="text-sm text-gray-500 mt-2">
-                قم بإضافة موظفين بوظيفة "مدرب" من صفحة الموظفين
+                {t('pt.commission.addCoachesHint')}
               </p>
             </div>
           ) : (
             <div className="space-y-6">
-              {/* اختيار الكوتش */}
+              {/* Coach Selection */}
               <div>
                 <label className="block text-sm font-bold mb-3 text-gray-700">
-                  👤 {coaches.length === 1 ? 'الكوتش' : 'اختر الكوتش'} <span className="text-red-600">*</span>
+                  👤 {coaches.length === 1 ? t('pt.commission.theCoach') : t('pt.commission.selectCoach')} <span className="text-red-600">*</span>
                 </label>
                 {coaches.length === 1 ? (
                   <div className="w-full px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-lg text-lg font-bold text-blue-700">
@@ -280,7 +282,7 @@ export default function CoachCommissionPage() {
                     }}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
                   >
-                    <option value="">-- اختر كوتش --</option>
+                    <option value="">{t('pt.commission.selectCoachOption')}</option>
                     {coaches.map((coach) => (
                       <option key={coach.id} value={coach.name}>
                         {coach.name} {coach.phone && `(${coach.phone})`}
@@ -290,7 +292,7 @@ export default function CoachCommissionPage() {
                 )}
               </div>
 
-              {/* خيار استخدام دخل مخصص */}
+              {/* Custom Income Option */}
               <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -300,16 +302,16 @@ export default function CoachCommissionPage() {
                     className="w-5 h-5 text-blue-600 rounded"
                   />
                   <span className="text-sm font-bold text-gray-700">
-                    استخدام دخل مخصص بدلاً من حساب PT التلقائي
+                    {t('pt.commission.useCustomIncome')}
                   </span>
                 </label>
               </div>
 
-              {/* إدخال الدخل المخصص */}
+              {/* Custom Income Input */}
               {useCustomIncome && (
                 <div>
                   <label className="block text-sm font-bold mb-3 text-gray-700">
-                    💵 الدخل الشهري المخصص (جنيه مصري) <span className="text-red-600">*</span>
+                    💵 {t('pt.commission.customMonthlyIncome')} <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="number"
@@ -318,7 +320,7 @@ export default function CoachCommissionPage() {
                     value={customIncome}
                     onChange={(e) => setCustomIncome(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                    placeholder="مثال: 15000"
+                    placeholder={t('pt.commission.exampleIncome')}
                   />
                 </div>
               )}
@@ -327,27 +329,27 @@ export default function CoachCommissionPage() {
               <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-5">
                 <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
                   <span>📊</span>
-                  <span>جدول النسب</span>
+                  <span>{t('pt.commission.percentageTable')}</span>
                 </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>أقل من 5,000 ج.م</span>
+                    <span>{t('pt.commission.lessThan5000')}</span>
                     <span className="font-bold text-orange-600">25%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>5,000 - 10,999 ج.م</span>
+                    <span>{t('pt.commission.range5000to11000')}</span>
                     <span className="font-bold text-yellow-600">30%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>11,000 - 14,999 ج.م</span>
+                    <span>{t('pt.commission.range11000to15000')}</span>
                     <span className="font-bold text-blue-600">35%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>15,000 - 19,999 ج.م</span>
+                    <span>{t('pt.commission.range15000to20000')}</span>
                     <span className="font-bold text-purple-600">40%</span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span>20,000 ج.م أو أكثر</span>
+                    <span>{t('pt.commission.over20000')}</span>
                     <span className="font-bold text-green-600">45%</span>
                   </div>
                 </div>
@@ -360,14 +362,14 @@ export default function CoachCommissionPage() {
                   disabled={!selectedCoach || (useCustomIncome && !customIncome)}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-bold text-lg shadow-lg transform transition hover:scale-105 active:scale-95"
                 >
-                  ✅ احسب التحصيل
+                  ✅ {t('pt.commission.calculateButton')}
                 </button>
                 {result && (
                   <button
                     onClick={handleReset}
                     className="px-6 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 py-4 rounded-lg hover:from-gray-300 hover:to-gray-400 font-bold shadow-lg transform transition hover:scale-105 active:scale-95"
                   >
-                    🔄 مسح
+                    🔄 {t('pt.commission.resetButton')}
                   </button>
                 )}
               </div>
@@ -375,20 +377,18 @@ export default function CoachCommissionPage() {
           )}
         </div>
 
-        {/* نتيجة الحساب */}
+        {/* Calculation Result */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <span>📈</span>
-            <span>نتيجة الحساب</span>
+            <span>{t('pt.commission.result')}</span>
           </h2>
 
           {!result ? (
             <div className="flex flex-col items-center justify-center h-full py-12">
               <div className="text-8xl mb-6">🧮</div>
               <p className="text-gray-500 text-lg text-center">
-                اختر كوتش واضغط على "احسب التحصيل"
-                <br />
-                لعرض النتيجة هنا
+                {t('pt.commission.selectCoachToCalculate')}
               </p>
             </div>
           ) : (
@@ -398,7 +398,7 @@ export default function CoachCommissionPage() {
                 <div className="flex items-center gap-3 mb-2">
                   <div className="text-3xl">👤</div>
                   <div>
-                    <p className="text-sm text-gray-600">الكوتش</p>
+                    <p className="text-sm text-gray-600">{t('pt.commission.coach')}</p>
                     <p className="text-2xl font-bold text-indigo-900">{result.coachName}</p>
                   </div>
                 </div>
@@ -409,29 +409,29 @@ export default function CoachCommissionPage() {
                 <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200 rounded-xl p-5">
                   <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
                     <span>📊</span>
-                    <span>إحصائيات جلسات PT</span>
+                    <span>{t('pt.commission.ptStats')}</span>
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-600 mb-1">إجمالي الجلسات</p>
+                      <p className="text-xs text-gray-600 mb-1">{t('pt.commission.totalSessions')}</p>
                       <p className="text-2xl font-bold text-teal-600">
                         {coachEarnings.totalSessions}
                       </p>
                     </div>
                     <div className="bg-white rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-600 mb-1">جلسات منتهية</p>
+                      <p className="text-xs text-gray-600 mb-1">{t('pt.commission.completedSessions')}</p>
                       <p className="text-2xl font-bold text-green-600">
                         {coachEarnings.completedSessions}
                       </p>
                     </div>
                     <div className="bg-white rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-600 mb-1">جلسات متبقية</p>
+                      <p className="text-xs text-gray-600 mb-1">{t('pt.commission.remainingSessions')}</p>
                       <p className="text-2xl font-bold text-orange-600">
                         {coachEarnings.remainingSessions}
                       </p>
                     </div>
                     <div className="bg-white rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-600 mb-1">عدد العملاء</p>
+                      <p className="text-xs text-gray-600 mb-1">{t('pt.commission.numberOfClients')}</p>
                       <p className="text-2xl font-bold text-purple-600">
                         {coachEarnings.clients}
                       </p>
@@ -446,14 +446,14 @@ export default function CoachCommissionPage() {
                   <div className="text-3xl">💵</div>
                   <div>
                     <p className="text-sm text-gray-600">
-                      {useCustomIncome ? 'الدخل المخصص' : 'إجمالي دخل PT'}
+                      {useCustomIncome ? t('pt.commission.customIncome') : t('pt.commission.totalPTIncome')}
                     </p>
                     <p className="text-3xl font-bold text-cyan-900">
                       {result.monthlyIncome.toLocaleString('ar-EG', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}{' '}
-                      <span className="text-xl">ج.م</span>
+                      <span className="text-xl">{t('pt.commission.egp')}</span>
                     </p>
                   </div>
                 </div>
@@ -467,7 +467,7 @@ export default function CoachCommissionPage() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white/90 text-sm mb-1">نسبة التحصيل</p>
+                    <p className="text-white/90 text-sm mb-1">{t('pt.commission.percentage')}</p>
                     <p className="text-5xl font-black">{result.percentage}%</p>
                   </div>
                   <div className="text-6xl opacity-30">📊</div>
@@ -479,26 +479,26 @@ export default function CoachCommissionPage() {
                 <div className="flex items-center gap-3 mb-3">
                   <div className="text-4xl">💰</div>
                   <div>
-                    <p className="text-white/90 text-sm">المبلغ المستحق للكوتش</p>
+                    <p className="text-white/90 text-sm">{t('pt.commission.coachDue')}</p>
                     <p className="text-4xl font-black">
                       {result.commission.toLocaleString('ar-EG', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}{' '}
-                      <span className="text-2xl">ج.م</span>
+                      <span className="text-2xl">{t('pt.commission.egp')}</span>
                     </p>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t-2 border-white/30">
                   <p className="text-white/80 text-sm text-center">
-                    ✨ هذا المبلغ هو {result.percentage}% من الدخل الشهري
+                    ✨ {t('pt.commission.percentageNote', { percentage: result.percentage.toString() })}
                   </p>
                 </div>
               </div>
 
               {/* معادلة الحساب */}
               <div className="bg-gradient-to-br from-slate-50 to-gray-100 border-2 border-slate-300 rounded-xl p-5">
-                <h3 className="font-bold text-center mb-3 text-gray-700">معادلة الحساب</h3>
+                <h3 className="font-bold text-center mb-3 text-gray-700">{t('pt.commission.calculationFormula')}</h3>
                 <div className="bg-white rounded-lg p-4 font-mono text-center">
                   <p className="text-lg">
                     {result.monthlyIncome.toLocaleString('ar-EG')} × {result.percentage}% ={' '}
@@ -507,7 +507,7 @@ export default function CoachCommissionPage() {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}{' '}
-                      ج.م
+                      {t('pt.commission.egp')}
                     </span>
                   </p>
                 </div>
@@ -518,10 +518,9 @@ export default function CoachCommissionPage() {
                 <div className="flex items-start gap-3">
                   <div className="text-2xl">⚠️</div>
                   <div>
-                    <p className="font-bold text-amber-800 mb-1">ملاحظة هامة</p>
+                    <p className="font-bold text-amber-800 mb-1">{t('pt.commission.importantNote')}</p>
                     <p className="text-sm text-amber-700">
-                      هذا الحساب للعرض فقط ولا يؤثر على أي بيانات في النظام. للتنفيذ الفعلي،
-                      يرجى الرجوع للإدارة المالية.
+                      {t('pt.commission.displayOnlyNote')}
                     </p>
                   </div>
                 </div>
@@ -537,13 +536,13 @@ export default function CoachCommissionPage() {
           <div className="bg-white rounded-lg shadow-md p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">المبلغ المتبقي للجيم</p>
+                <p className="text-gray-600 text-sm mb-1">{t('pt.commission.gymShare')}</p>
                 <p className="text-2xl font-bold text-blue-600">
                   {result.gymShare.toLocaleString('ar-EG', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}{' '}
-                  ج.م
+                  {t('pt.commission.egp')}
                 </p>
               </div>
               <div className="text-4xl">🏢</div>
@@ -553,7 +552,7 @@ export default function CoachCommissionPage() {
           <div className="bg-white rounded-lg shadow-md p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">نسبة الجيم</p>
+                <p className="text-gray-600 text-sm mb-1">{t('pt.commission.gymPercentage')}</p>
                 <p className="text-2xl font-bold text-purple-600">{100 - result.percentage}%</p>
               </div>
               <div className="text-4xl">📉</div>
@@ -563,15 +562,15 @@ export default function CoachCommissionPage() {
           <div className="bg-white rounded-lg shadow-md p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">حالة الدخل</p>
+                <p className="text-gray-600 text-sm mb-1">{t('pt.commission.incomeStatus')}</p>
                 <p className="text-lg font-bold text-green-600">
                   {result.monthlyIncome >= 20000
-                    ? '🔥 ممتاز'
+                    ? `🔥 ${t('pt.commission.excellent')}`
                     : result.monthlyIncome >= 15000
-                    ? '✅ جيد جداً'
+                    ? `✅ ${t('pt.commission.veryGood')}`
                     : result.monthlyIncome >= 10000
-                    ? '👍 جيد'
-                    : '💪 يحتاج تحسين'}
+                    ? `👍 ${t('pt.commission.good')}`
+                    : `💪 ${t('pt.commission.needsImprovement')}`}
                 </p>
               </div>
               <div className="text-4xl">⭐</div>
@@ -586,8 +585,10 @@ export default function CoachCommissionPage() {
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
             <span>📋</span>
             <span>
-              ملخص أداء جميع الكوتشات - من {new Date(dateFrom).toLocaleDateString('ar-EG')} إلى{' '}
-              {new Date(dateTo).toLocaleDateString('ar-EG')}
+              {t('pt.commission.allCoachesSummary', {
+                fromDate: new Date(dateFrom).toLocaleDateString('ar-EG'),
+                toDate: new Date(dateTo).toLocaleDateString('ar-EG')
+              })}
             </span>
           </h2>
 
@@ -595,13 +596,13 @@ export default function CoachCommissionPage() {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-right">الكوتش</th>
-                  <th className="px-4 py-3 text-right">عدد العملاء</th>
-                  <th className="px-4 py-3 text-right">إجمالي الجلسات</th>
-                  <th className="px-4 py-3 text-right">جلسات منتهية</th>
-                  <th className="px-4 py-3 text-right">إجمالي الدخل</th>
-                  <th className="px-4 py-3 text-right">النسبة</th>
-                  <th className="px-4 py-3 text-right">التحصيل المتوقع</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.coach')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.clients')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.totalSessions')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.completedSessions')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.totalIncome')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.percentage')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.commission.expectedCommission')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -625,7 +626,7 @@ export default function CoachCommissionPage() {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0,
                           })}{' '}
-                          ج.م
+                          {t('pt.commission.egp')}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="font-bold text-lg">{percentage}%</span>
@@ -635,7 +636,7 @@ export default function CoachCommissionPage() {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0,
                           })}{' '}
-                          ج.م
+                          {t('pt.commission.egp')}
                         </td>
                       </tr>
                     )
@@ -643,7 +644,7 @@ export default function CoachCommissionPage() {
               </tbody>
               <tfoot className="bg-gradient-to-r from-blue-50 to-purple-50 font-bold">
                 <tr>
-                  <td className="px-4 py-3">الإجمالي</td>
+                  <td className="px-4 py-3">{t('pt.commission.total')}</td>
                   <td className="px-4 py-3 text-center">
                     {new Set(
                       allCoachesStats.flatMap((s) =>
@@ -666,7 +667,7 @@ export default function CoachCommissionPage() {
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 0,
                       })}{' '}
-                    ج.م
+                    {t('pt.commission.egp')}
                   </td>
                   <td className="px-4 py-3 text-center">-</td>
                   <td className="px-4 py-3 text-green-600">
@@ -679,7 +680,7 @@ export default function CoachCommissionPage() {
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 0,
                       })}{' '}
-                    ج.م
+                    {t('pt.commission.egp')}
                   </td>
                 </tr>
               </tfoot>
@@ -689,7 +690,7 @@ export default function CoachCommissionPage() {
           {allCoachesStats.filter((stat) => stat.earnings.totalRevenue > 0).length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <div className="text-6xl mb-4">📊</div>
-              <p className="text-xl">لا توجد بيانات PT للشهر المحدد</p>
+              <p className="text-xl">{t('pt.commission.noPTDataForPeriod')}</p>
             </div>
           )}
         </div>

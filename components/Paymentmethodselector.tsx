@@ -1,5 +1,7 @@
 'use client'
 
+import { useLanguage } from '../contexts/LanguageContext'
+
 interface PaymentMethodSelectorProps {
   value: string
   onChange: (method: string) => void
@@ -7,17 +9,19 @@ interface PaymentMethodSelectorProps {
 }
 
 export default function PaymentMethodSelector({ value, onChange, required = false }: PaymentMethodSelectorProps) {
+  const { t } = useLanguage()
+
   const paymentMethods = [
-    { value: 'cash', label: 'كاش 💵', icon: '💵', color: 'bg-green-100 border-green-500' },
-    { value: 'visa', label: 'فيزا 💳', icon: '💳', color: 'bg-blue-100 border-blue-500' },
-    { value: 'instapay', label: 'إنستا باي 📱', icon: '📱', color: 'bg-purple-100 border-purple-500' },
-    { value: 'wallet', label: 'محفظة إلكترونية 💰', icon: '💰', color: 'bg-orange-100 border-orange-500' },
+    { value: 'cash', icon: '💵', color: 'bg-green-100 border-green-500' },
+    { value: 'visa', icon: '💳', color: 'bg-blue-100 border-blue-500' },
+    { value: 'instapay', icon: '📱', color: 'bg-purple-100 border-purple-500' },
+    { value: 'wallet', icon: '💰', color: 'bg-orange-100 border-orange-500' },
   ]
 
   return (
     <div>
       <label className="block text-sm font-medium mb-2">
-        طريقة الدفع {required && <span className="text-red-600">*</span>}
+        {t('members.paymentMethods.label')} {required && <span className="text-red-600">*</span>}
       </label>
       
       <div className="grid grid-cols-2 gap-3">
@@ -35,7 +39,9 @@ export default function PaymentMethodSelector({ value, onChange, required = fals
             `}
           >
             <span className="text-3xl">{method.icon}</span>
-            <span className="font-medium text-sm">{method.label}</span>
+            <span className="font-medium text-sm">
+              {t(`members.paymentMethods.${method.value}`)} {method.icon}
+            </span>
           </button>
         ))}
       </div>
@@ -44,26 +50,15 @@ export default function PaymentMethodSelector({ value, onChange, required = fals
       {value && (
         <div className="mt-3 text-center">
           <p className="text-sm text-gray-600">
-            الطريقة المختارة: 
+            {t('members.paymentMethods.selectedMethod')}
             <span className="font-bold text-blue-600 mr-1">
-              {paymentMethods.find(m => m.value === value)?.label}
+              {t(`members.paymentMethods.${value}`)} {paymentMethods.find(m => m.value === value)?.icon}
             </span>
           </p>
         </div>
       )}
     </div>
   )
-}
-
-// دالة مساعدة للحصول على اسم طريقة الدفع بالعربية
-export function getPaymentMethodLabel(method: string): string {
-  const methods: { [key: string]: string } = {
-    'cash': 'كاش 💵',
-    'visa': 'فيزا 💳',
-    'instapay': 'إنستا باي 📱',
-    'wallet': 'محفظة إلكترونية 💰'
-  }
-  return methods[method] || method
 }
 
 // دالة للحصول على أيقونة طريقة الدفع

@@ -10,13 +10,21 @@ export async function GET(request: Request) {
     // إذا لم يتم توفير تاريخ، استخدم اليوم
     const targetDate = dateParam ? new Date(dateParam) : new Date()
 
-    // بداية اليوم (00:00:00)
+    // ✅ بداية اليوم (00:00:00) - استخدام UTC لتجنب مشاكل timezone
     const startOfDay = new Date(targetDate)
     startOfDay.setHours(0, 0, 0, 0)
 
-    // نهاية اليوم (23:59:59)
+    // ✅ نهاية اليوم (23:59:59)
     const endOfDay = new Date(targetDate)
     endOfDay.setHours(23, 59, 59, 999)
+
+    console.log('📊 جلب إحصائيات:', {
+      date: targetDate.toISOString().split('T')[0],
+      startOfDay: startOfDay.toISOString(),
+      endOfDay: endOfDay.toISOString(),
+      localStart: startOfDay.toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' }),
+      localEnd: endOfDay.toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })
+    })
 
     // عدد الأعضاء الذين سجلوا دخول اليوم
     const todayCheckIns = await prisma.memberCheckIn.count({
@@ -28,12 +36,8 @@ export async function GET(request: Request) {
       },
     })
 
-    // عدد الأعضاء الموجودين حالياً
-    const currentCount = await prisma.memberCheckIn.count({
-      where: {
-        isActive: true,
-      },
-    })
+    // ✅ لم نعد نتتبع من هو داخل حالياً
+    const currentCount = 0
 
     // إحصائيات إضافية: عدد الأعضاء الفريدين اليوم
     const uniqueMembers = await prisma.memberCheckIn.findMany({
@@ -49,32 +53,9 @@ export async function GET(request: Request) {
       distinct: ['memberId'],
     })
 
-    // متوسط مدة البقاء (للأعضاء الذين خرجوا)
-    const completedSessions = await prisma.memberCheckIn.findMany({
-      where: {
-        checkInTime: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-        isActive: false,
-        actualCheckOutTime: {
-          not: null,
-        },
-      },
-      select: {
-        checkInTime: true,
-        actualCheckOutTime: true,
-      },
-    })
-
-    let averageDuration = 0
-    if (completedSessions.length > 0) {
-      const totalDuration = completedSessions.reduce((sum, session) => {
-        const duration = session.actualCheckOutTime!.getTime() - session.checkInTime.getTime()
-        return sum + duration
-      }, 0)
-      averageDuration = Math.round(totalDuration / completedSessions.length / 1000 / 60) // بالدقائق
-    }
+    // ملاحظة: لا يتم تتبع مدة البقاء في النظام الحالي
+    // لأن schema لا يحتوي على حقول actualCheckOutTime أو isActive
+    const averageDuration = 0
 
     return NextResponse.json({
       success: true,

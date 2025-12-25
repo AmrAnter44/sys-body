@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useLanguage } from '../../contexts/LanguageContext'
 import PermissionDenied from '../../components/PermissionDenied'
 import ReceiptWhatsApp from '../../components/ReceiptWhatsApp'
 import { ReceiptDetailModal } from '../../components/ReceiptDetailModal'
@@ -27,6 +28,7 @@ interface Receipt {
 export default function ReceiptsPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading, user } = usePermissions()
+  const { t, direction } = useLanguage()
   const { confirm, isOpen, options, handleConfirm, handleCancel } = useConfirm()
 
   const [receipts, setReceipts] = useState<Receipt[]>([])
@@ -185,16 +187,16 @@ export default function ReceiptsPage() {
   // ✅ التحقق من الصلاحيات بعد كل الـ hooks
   if (permissionsLoading) {
     return (
-      <div className="container mx-auto p-6 text-center" dir="rtl">
+      <div className="container mx-auto p-6 text-center" dir={direction}>
         <div className="text-6xl mb-4">⏳</div>
-        <p className="text-xl">جاري التحميل...</p>
+        <p className="text-xl">{t('receipts.loading')}</p>
       </div>
     )
   }
 
   // ✅ إذا لم يكن لديه صلاحية العرض
   if (!hasPermission('canViewReceipts')) {
-    return <PermissionDenied message="ليس لديك صلاحية عرض الإيصالات" />
+    return <PermissionDenied message={t('receipts.noPermission')} />
   }
 
   const getTotalRevenue = () => {
@@ -220,40 +222,44 @@ export default function ReceiptsPage() {
 
   const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      'Member': '🆕 عضو جديد',
-      'تجديد عضويه': '🔄 تجديد عضوية',
-      'اشتراك برايفت': '💪 PT جديد',
-      'تجديد برايفت': '🔄 تجديد PT',
+      'Member': `🆕 ${t('receipts.types.Member')}`,
+      'تجديد عضويه': `🔄 ${t('receipts.types.membershipRenewal')}`,
+      'ترقية باكدج': `🚀 ${t('receipts.types.packageUpgrade')}`,
+      'عضوية': `🆕 ${t('receipts.types.membership')}`,
+      'اشتراك برايفت': `💪 ${t('receipts.types.newPT')}`,
+      'تجديد برايفت': `🔄 ${t('receipts.types.ptRenewal')}`,
       'PT': '💪 PT',
-      'DayUse': '📅 Day Use',
-      'Payment': '💰 دفع متبقي',
-      'InBody': '⚖️ InBody'
+      'DayUse': `📅 ${t('receipts.types.dayUse')}`,
+      'يوم استخدام': `📅 ${t('receipts.types.dayUse')}`,
+      'تأجير لوجر': `🔐 ${t('receipts.types.lockerRental')}`,
+      'Payment': `💰 ${t('receipts.types.Payment')}`,
+      'InBody': `⚖️ ${t('receipts.types.InBody')}`
     }
     return labels[type] || type
   }
 
   const getPaymentMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      'cash': '💵 كاش',
-      'visa': '💳 فيزا',
-      'vodafone_cash': '📱 فودافون كاش',
-      'instapay': '💸 إنستاباي'
+      'cash': `💵 ${t('receipts.paymentMethods.cash')}`,
+      'visa': `💳 ${t('receipts.paymentMethods.visa')}`,
+      'vodafone_cash': `📱 ${t('receipts.paymentMethods.vodafone_cash')}`,
+      'instapay': `💸 ${t('receipts.paymentMethods.instapay')}`
     }
     return labels[method] || method
   }
 
   const handleDelete = async (receiptId: string) => {
     if (!canDelete) {
-      setMessage('❌ ليس لديك صلاحية حذف الإيصالات')
+      setMessage(`❌ ${t('receipts.noPermissionDelete')}`)
       setTimeout(() => setMessage(''), 3000)
       return
     }
 
     const confirmed = await confirm({
-      title: '⚠️ حذف الإيصال',
-      message: 'هل أنت متأكد من حذف هذا الإيصال؟\nلا يمكن التراجع عن هذا الإجراء!',
-      confirmText: 'نعم، احذف',
-      cancelText: 'إلغاء',
+      title: `⚠️ ${t('receipts.delete.title')}`,
+      message: t('receipts.delete.message'),
+      confirmText: t('receipts.delete.confirm'),
+      cancelText: t('receipts.delete.cancel'),
       type: 'danger'
     })
 
@@ -265,22 +271,22 @@ export default function ReceiptsPage() {
       })
 
       if (response.ok) {
-        setMessage('✅ تم حذف الإيصال بنجاح')
+        setMessage(`✅ ${t('receipts.delete.success')}`)
         fetchReceipts()
       } else {
         const error = await response.json()
-        setMessage(`❌ ${error.error || 'فشل حذف الإيصال'}`)
+        setMessage(`❌ ${error.error || t('receipts.delete.error')}`)
       }
     } catch (error) {
       console.error('Error:', error)
-      setMessage('❌ حدث خطأ في الحذف')
+      setMessage(`❌ ${t('receipts.delete.errorOccurred')}`)
     }
     setTimeout(() => setMessage(''), 3000)
   }
 
   const handleOpenEdit = (receipt: Receipt) => {
     if (!canEdit) {
-      setMessage('❌ ليس لديك صلاحية تعديل الإيصالات')
+      setMessage(`❌ ${t('receipts.noPermissionEdit')}`)
       setTimeout(() => setMessage(''), 3000)
       return
     }
@@ -320,17 +326,17 @@ export default function ReceiptsPage() {
       })
 
       if (response.ok) {
-        setMessage('✅ تم تحديث الإيصال بنجاح')
+        setMessage(`✅ ${t('receipts.edit.success')}`)
         setShowEditModal(false)
         setEditingReceipt(null)
         fetchReceipts()
       } else {
         const error = await response.json()
-        setMessage(`❌ ${error.error || 'فشل تحديث الإيصال'}`)
+        setMessage(`❌ ${error.error || t('receipts.edit.error')}`)
       }
     } catch (error) {
       console.error('Error:', error)
-      setMessage('❌ حدث خطأ في التحديث')
+      setMessage(`❌ ${t('receipts.messages.updateError')}`)
     }
     setTimeout(() => setMessage(''), 3000)
   }
@@ -350,13 +356,13 @@ export default function ReceiptsPage() {
       )
     } catch (error) {
       console.error('Error printing receipt:', error)
-      alert('❌ حدث خطأ في الطباعة')
+      alert(`❌ ${t('receipts.actions.printError')}`)
     }
   }
 
   const handleUpdateNextReceiptNumber = async () => {
     if (nextReceiptNumber < 1) {
-      alert('رقم الإيصال يجب أن يكون أكبر من 0')
+      alert(t('receipts.nextReceiptNumber.invalidNumber'))
       return
     }
 
@@ -383,19 +389,19 @@ export default function ReceiptsPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 text-center" dir="rtl">
+      <div className="container mx-auto p-6 text-center" dir={direction}>
         <div className="text-6xl mb-4">⏳</div>
-        <p className="text-xl">جاري التحميل...</p>
+        <p className="text-xl">{t('receipts.loading')}</p>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir={direction}>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">🧾 الإيصالات</h1>
-          <p className="text-gray-600">عرض وإدارة جميع الإيصالات</p>
+          <h1 className="text-3xl font-bold">🧾 {t('receipts.title')}</h1>
+          <p className="text-gray-600">{t('receipts.subtitle')}</p>
           {user && (
             <p className="text-sm text-gray-500 mt-1">
               👤 {user.name} - {user.role === 'ADMIN' ? '👑 مدير' : user.role === 'MANAGER' ? '📊 مشرف' : '👷 موظف'}
@@ -418,7 +424,7 @@ export default function ReceiptsPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-3xl font-bold">{filteredReceipts.length}</div>
-              <div className="text-sm opacity-90">إجمالي الإيصالات</div>
+              <div className="text-sm opacity-90">{t('receipts.stats.totalReceipts')}</div>
             </div>
             <div className="text-5xl opacity-20">📊</div>
           </div>
@@ -428,7 +434,7 @@ export default function ReceiptsPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-3xl font-bold">{getTodayCount()}</div>
-              <div className="text-sm opacity-90">إيصالات اليوم</div>
+              <div className="text-sm opacity-90">{t('receipts.stats.todayReceipts')}</div>
             </div>
             <div className="text-5xl opacity-20">📅</div>
           </div>
@@ -438,7 +444,7 @@ export default function ReceiptsPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-3xl font-bold">{getTodayRevenue().toLocaleString()}</div>
-              <div className="text-sm opacity-90">إيرادات اليوم (ج.م)</div>
+              <div className="text-sm opacity-90">{t('receipts.stats.todayRevenue')}</div>
             </div>
             <div className="text-5xl opacity-20">💵</div>
           </div>
@@ -451,7 +457,7 @@ export default function ReceiptsPage() {
           <div className="flex items-center gap-3">
             <span className="text-xl">🔢</span>
             <div>
-              <p className="font-bold text-sm">رقم الإيصال التالي</p>
+              <p className="font-bold text-sm">{t('receipts.nextReceiptNumber.title')}</p>
               <p className="text-xs text-gray-600">#{nextReceiptNumber}</p>
             </div>
           </div>
@@ -459,7 +465,7 @@ export default function ReceiptsPage() {
             onClick={() => setShowReceiptNumberEdit(!showReceiptNumberEdit)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition"
           >
-            {showReceiptNumberEdit ? '✕ إلغاء' : '✏️ تعديل'}
+            {showReceiptNumberEdit ? `✕ ${t('receipts.nextReceiptNumber.cancel')}` : `✏️ ${t('receipts.nextReceiptNumber.edit')}`}
           </button>
         </div>
 
@@ -467,7 +473,7 @@ export default function ReceiptsPage() {
           <div className="mt-4 pt-4 border-t flex gap-3 items-end">
             <div className="flex-1">
               <label className="block text-xs font-medium mb-1 text-gray-700">
-                الرقم الجديد
+                {t('receipts.nextReceiptNumber.newNumber')}
               </label>
               <input
                 type="number"
@@ -481,7 +487,7 @@ export default function ReceiptsPage() {
               onClick={handleUpdateNextReceiptNumber}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition"
             >
-              ✓ حفظ
+              ✓ {t('receipts.nextReceiptNumber.save')}
             </button>
           </div>
         )}
@@ -489,51 +495,51 @@ export default function ReceiptsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <h3 className="text-lg font-bold mb-4">🔍 البحث والفلاتر</h3>
+        <h3 className="text-lg font-bold mb-4">🔍 {t('receipts.filters.title')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">🔍 بحث</label>
+            <label className="block text-sm font-medium mb-2">🔍 {t('receipts.filters.search')}</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="رقم الإيصال، اسم العميل، الهاتف، الموظف..."
+              placeholder={t('receipts.filters.searchPlaceholder')}
               className="w-full px-3 py-2 md:px-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">📋 نوع الإيصال</label>
+            <label className="block text-sm font-medium mb-2">📋 {t('receipts.filters.receiptType')}</label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="w-full px-3 py-2 md:px-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">الكل</option>
-              <option value="Member">عضو جديد</option>
-              <option value="عضوية">عضوية</option>
-              <option value="تجديد عضويه">تجديد عضوية</option>
-              <option value="اشتراك برايفت">PT جديد</option>
-              <option value="تجديد برايفت">تجديد PT</option>
-              <option value="يوم استخدام">يوم استخدام</option>
-              <option value="تأجير لوجر">تأجير لوجر</option>
-              <option value="InBody">InBody</option>
-              <option value="Payment">دفع متبقي</option>
+              <option value="all">{t('receipts.filters.all')}</option>
+              <option value="Member">{t('receipts.types.Member')}</option>
+              <option value="عضوية">{t('receipts.types.membership')}</option>
+              <option value="تجديد عضويه">{t('receipts.types.membershipRenewal')}</option>
+              <option value="اشتراك برايفت">{t('receipts.types.newPT')}</option>
+              <option value="تجديد برايفت">{t('receipts.types.ptRenewal')}</option>
+              <option value="يوم استخدام">{t('receipts.types.dayUse')}</option>
+              <option value="تأجير لوجر">{t('receipts.types.lockerRental')}</option>
+              <option value="InBody">{t('receipts.types.InBody')}</option>
+              <option value="Payment">{t('receipts.types.Payment')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">💳 طريقة الدفع</label>
+            <label className="block text-sm font-medium mb-2">💳 {t('receipts.filters.paymentMethod')}</label>
             <select
               value={filterPayment}
               onChange={(e) => setFilterPayment(e.target.value)}
               className="w-full px-3 py-2 md:px-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">الكل</option>
-              <option value="cash">كاش</option>
-              <option value="visa">فيزا</option>
-              <option value="vodafone_cash">فودافون كاش</option>
-              <option value="instapay">إنستاباي</option>
+              <option value="all">{t('receipts.filters.all')}</option>
+              <option value="cash">{t('receipts.paymentMethods.cash')}</option>
+              <option value="visa">{t('receipts.paymentMethods.visa')}</option>
+              <option value="vodafone_cash">{t('receipts.paymentMethods.vodafone_cash')}</option>
+              <option value="instapay">{t('receipts.paymentMethods.instapay')}</option>
             </select>
           </div>
         </div>
@@ -547,7 +553,7 @@ export default function ReceiptsPage() {
             }}
             className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
-            ❌ مسح الفلاتر
+            ❌ {t('receipts.filters.clearFilters')}
           </button>
         )}
       </div>
@@ -567,10 +573,180 @@ export default function ReceiptsPage() {
             return (
               <div
                 key={receipt.id}
-                className="bg-white border-r-4 border-blue-500 rounded-lg shadow-md p-4"
+                className="bg-white border-r-4 border-blue-500 rounded-lg shadow-lg p-5"
               >
-                {/* Action Buttons at Top */}
-                <div className="flex justify-end gap-2 mb-3">
+                {/* Header Section */}
+                <div className="flex justify-between items-start mb-4 pb-3 border-b-2 border-gray-100">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-gray-500">رقم الإيصال</span>
+                    </div>
+                    <span className="font-bold text-blue-600 text-xl">#{receipt.receiptNumber}</span>
+                  </div>
+                  <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+                    {getTypeLabel(receipt.type)}
+                  </span>
+                </div>
+
+                {/* Client Info Section */}
+                <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="text-gray-500 text-sm min-w-[80px]">👤 العميل:</span>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-900 text-lg">{clientName}</p>
+                      {details.phone && (
+                        <p className="text-sm text-gray-600 mt-1">📱 {details.phone}</p>
+                      )}
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {details.memberNumber && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-semibold">
+                            عضوية #{details.memberNumber}
+                          </span>
+                        )}
+                        {details.ptNumber && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                            PT #{details.ptNumber}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscription Duration - للتجديد والاشتراك الجديد */}
+                {(receipt.type === 'تجديد عضويه' || receipt.type === 'عضوية' || receipt.type === 'Member' ||
+                  receipt.type === 'اشتراك برايفت' || receipt.type === 'تجديد برايفت') && details.duration && (
+                  <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-3 mb-4 border-2 border-orange-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-orange-600 text-lg">⏰</span>
+                      <div>
+                        <p className="text-xs text-orange-700 font-semibold">{t('receipts.card.subscriptionDuration')}</p>
+                        <p className="font-bold text-orange-900 text-lg">
+                          {details.duration} {details.duration === 1 ? t('receipts.card.month') : t('receipts.card.months')}
+                        </p>
+                      </div>
+                    </div>
+                    {details.endDate && (
+                      <div className="mt-2 pt-2 border-t border-orange-200">
+                        <p className="text-xs text-orange-700">
+                          📅 {t('receipts.card.expiresOn')}: <span className="font-semibold">{new Date(details.endDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Upgrade Details - للترقية */}
+                {receipt.type === 'ترقية باكدج' && details.isUpgrade && (
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4 mb-4 border-2 border-orange-300">
+                    <h4 className="font-bold text-orange-800 mb-3 flex items-center gap-2">
+                      <span>🚀</span>
+                      <span>{t('receipts.upgrade.title')}</span>
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-white/50 rounded-lg p-3">
+                        <p className="text-orange-700 font-semibold mb-2">{t('receipts.upgrade.oldPackage')}</p>
+                        <div className="space-y-1 text-gray-700">
+                          <p className="text-xs">{t('offers.price')}: <span className="font-bold">{details.oldPackagePrice} {t('members.egp')}</span></p>
+                          <p className="text-xs">PT: {details.oldFreePTSessions}</p>
+                          <p className="text-xs">InBody: {details.oldInBodyScans}</p>
+                          <p className="text-xs">{t('offers.invitations')}: {details.oldInvitations}</p>
+                          {details.oldExpiryDate && (
+                            <p className="text-xs text-gray-500">
+                              {t('members.expiryDate')}: {new Date(details.oldExpiryDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-white/50 rounded-lg p-3">
+                        <p className="text-green-700 font-semibold mb-2">{t('receipts.upgrade.newPackage')}</p>
+                        <div className="space-y-1 text-gray-700">
+                          <p className="text-xs">{t('offers.price')}: <span className="font-bold text-green-600">{details.newPackagePrice} {t('members.egp')}</span></p>
+                          <p className="text-xs">PT: {details.newFreePTSessions}</p>
+                          <p className="text-xs">InBody: {details.newInBodyScans}</p>
+                          <p className="text-xs">{t('offers.invitations')}: {details.newInvitations}</p>
+                          {details.newExpiryDate && (
+                            <p className="text-xs text-green-600">
+                              {t('members.expiryDate')}: {new Date(details.newExpiryDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-orange-300">
+                      <div className="flex justify-between items-center">
+                        <span className="text-orange-800 font-bold text-sm">{t('receipts.upgrade.upgradeCost')}:</span>
+                        <span className="text-xl font-bold text-green-600">
+                          {details.upgradeAmount} {t('members.egp')}
+                        </span>
+                      </div>
+                      {details.startDate && (
+                        <p className="text-xs text-gray-600 mt-2">
+                          {t('receipts.upgrade.startDate')}: {new Date(details.startDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Info Section */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between bg-green-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-sm font-semibold">💰 {t('receipts.card.paidAmount')}</span>
+                    <span className="font-bold text-green-600 text-xl">{receipt.amount.toLocaleString()} {t('members.egp')}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-sm">💳 {t('receipts.table.paymentMethod')}</span>
+                    <span className="text-sm font-semibold text-gray-700">{getPaymentMethodLabel(receipt.paymentMethod)}</span>
+                  </div>
+
+                  {details.discount > 0 && (
+                    <div className="flex items-center justify-between bg-red-50 rounded-lg p-2">
+                      <span className="text-gray-500 text-sm">🏷️ {t('receipts.card.discount')}</span>
+                      <span className="text-sm font-bold text-red-600">{details.discount} {t('members.egp')}</span>
+                    </div>
+                  )}
+
+                  {details.services && details.services.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500 mb-2 font-semibold">📋 {t('receipts.card.services')}</p>
+                      <div className="space-y-1">
+                        {details.services.map((service: any, idx: number) => (
+                          <div key={idx} className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                            • {service.name || service}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer Info */}
+                <div className="space-y-2 pt-3 border-t border-gray-200">
+                  {receipt.staffName && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 text-xs">👨‍💼</span>
+                      <span className="text-sm text-gray-700">{receipt.staffName}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-xs">📅</span>
+                    <span className="text-xs text-gray-600">
+                      {new Date(receipt.createdAt).toLocaleString(direction === 'rtl' ? 'ar-EG' : 'en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons at Bottom */}
+                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200">
                   <ReceiptWhatsApp
                     receipt={receipt}
                     onDetailsClick={() => setSelectedReceipt(receipt)}
@@ -578,17 +754,17 @@ export default function ReceiptsPage() {
 
                   <button
                     onClick={() => handlePrint(receipt)}
-                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm transition shadow-md"
-                    title="طباعة"
+                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm transition shadow-md font-semibold"
+                    title={t('receipts.actions.print')}
                   >
-                    🖨️
+                    🖨️ {t('receipts.actions.print')}
                   </button>
 
                   {canEdit && (
                     <button
                       onClick={() => handleOpenEdit(receipt)}
                       className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm transition shadow-md"
-                      title="تعديل"
+                      title={t('receipts.actions.edit')}
                     >
                       ✏️
                     </button>
@@ -598,72 +774,11 @@ export default function ReceiptsPage() {
                     <button
                       onClick={() => handleDelete(receipt.id)}
                       className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm transition shadow-md"
-                      title="حذف"
+                      title={t('receipts.actions.delete')}
                     >
                       🗑️
                     </button>
                   )}
-                </div>
-
-                {/* Receipt Info */}
-                <div className="space-y-3">
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[90px]">🔢 رقم الإيصال:</span>
-                    <span className="font-bold text-blue-600">#{receipt.receiptNumber}</span>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[90px]">📋 النوع:</span>
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                      {getTypeLabel(receipt.type)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[90px]">👤 العميل:</span>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{clientName}</p>
-                      {details.phone && (
-                        <p className="text-xs text-gray-600">{details.phone}</p>
-                      )}
-                      {details.memberNumber && (
-                        <p className="text-xs text-blue-600">عضوية #{details.memberNumber}</p>
-                      )}
-                      {details.ptNumber && (
-                        <p className="text-xs text-green-600">PT #{details.ptNumber}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[90px]">💰 المبلغ:</span>
-                    <span className="font-bold text-green-600 text-lg">{receipt.amount.toLocaleString()} ج.م</span>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[90px]">💳 طريقة الدفع:</span>
-                    <span className="text-sm">{getPaymentMethodLabel(receipt.paymentMethod)}</span>
-                  </div>
-
-                  {receipt.staffName && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[90px]">👨‍💼 الموظف:</span>
-                      <span className="text-sm text-gray-600">{receipt.staffName}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 text-sm min-w-[90px]">📅 التاريخ:</span>
-                    <span className="text-sm text-gray-600">
-                      {new Date(receipt.createdAt).toLocaleString('ar-EG', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
                 </div>
               </div>
             )
@@ -674,8 +789,8 @@ export default function ReceiptsPage() {
               <div className="text-6xl mb-4">🧾</div>
               <p className="text-xl font-medium mb-2">
                 {searchTerm || filterType !== 'all' || filterPayment !== 'all'
-                  ? 'لا توجد نتائج للبحث'
-                  : 'لا توجد إيصالات'}
+                  ? t('receipts.empty.noSearchResults')
+                  : t('receipts.empty.noReceipts')}
               </p>
               {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
                 <button
@@ -686,7 +801,7 @@ export default function ReceiptsPage() {
                   }}
                   className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                 >
-                  مسح الفلاتر
+                  {t('receipts.empty.clearFilters')}
                 </button>
               )}
             </div>
@@ -699,14 +814,15 @@ export default function ReceiptsPage() {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-right font-bold">رقم الإيصال</th>
-                  <th className="px-6 py-4 text-right font-bold">النوع</th>
-                  <th className="px-6 py-4 text-right font-bold">العميل</th>
-                  <th className="px-6 py-4 text-right font-bold">المبلغ</th>
-                  <th className="px-6 py-4 text-right font-bold">طريقة الدفع</th>
-                  <th className="px-6 py-4 text-right font-bold">الموظف</th>
-                  <th className="px-6 py-4 text-right font-bold">التاريخ</th>
-                  <th className="px-6 py-4 text-right font-bold">إجراءات</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.receiptNumber')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.type')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.client')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.details')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.amount')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.paymentMethod')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.staff')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.date')}</th>
+                  <th className={`px-4 py-4 ${direction === 'rtl' ? 'text-right' : 'text-left'} font-bold`}>{t('receipts.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -720,39 +836,73 @@ export default function ReceiptsPage() {
 
                 return (
                   <tr key={receipt.id} className="border-t hover:bg-blue-50 transition">
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-blue-600">#{receipt.receiptNumber}</span>
+                    <td className="px-4 py-4">
+                      <span className="font-bold text-blue-600 text-lg">#{receipt.receiptNumber}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                    <td className="px-4 py-4">
+                      <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
                         {getTypeLabel(receipt.type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div>
-                        <p className="font-semibold">{clientName}</p>
+                        <p className="font-bold text-gray-900">{clientName}</p>
                         {details.phone && (
-                          <p className="text-xs text-gray-600">{details.phone}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{details.phone}</p>
                         )}
-                        {details.memberNumber && (
-                          <p className="text-xs text-blue-600">عضوية #{details.memberNumber}</p>
+                        <div className="flex gap-1 mt-1">
+                          {details.memberNumber && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              عضوية #{details.memberNumber}
+                            </span>
+                          )}
+                          {details.ptNumber && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                              PT #{details.ptNumber}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="space-y-1">
+                        {/* مدة الاشتراك للتجديد والاشتراك الجديد */}
+                        {(receipt.type === 'تجديد عضويه' || receipt.type === 'عضوية' || receipt.type === 'Member' ||
+                          receipt.type === 'اشتراك برايفت' || receipt.type === 'تجديد برايفت') && details.duration && (
+                          <div className="bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                            <p className="text-xs text-orange-700 font-semibold">
+                              ⏰ {details.duration} {details.duration === 1 ? 'شهر' : 'شهور'}
+                            </p>
+                            {details.endDate && (
+                              <p className="text-xs text-orange-600 mt-0.5">
+                                حتى {new Date(details.endDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
                         )}
-                        {details.ptNumber && (
-                          <p className="text-xs text-green-600">PT #{details.ptNumber}</p>
+                        {details.discount > 0 && (
+                          <p className="text-xs text-red-600 font-semibold">
+                            🏷️ خصم: {details.discount} {t('common.currency')}
+                          </p>
+                        )}
+                        {details.services && details.services.length > 0 && (
+                          <p className="text-xs text-gray-600">
+                            📋 {details.services.length} خدمة
+                          </p>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-green-600">{receipt.amount.toLocaleString()} ج.م</span>
+                    <td className="px-4 py-4">
+                      <span className="font-bold text-green-600 text-lg">{receipt.amount.toLocaleString()} {t('common.currency')}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm">{getPaymentMethodLabel(receipt.paymentMethod)}</span>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-semibold">{getPaymentMethodLabel(receipt.paymentMethod)}</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <span className="text-sm text-gray-600">{receipt.staffName || '-'}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(receipt.createdAt).toLocaleString('ar-EG', {
+                    <td className="px-4 py-4 text-xs text-gray-600">
+                      {new Date(receipt.createdAt).toLocaleString(direction === 'rtl' ? 'ar-EG' : 'en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -771,7 +921,7 @@ export default function ReceiptsPage() {
                         <button
                           onClick={() => handlePrint(receipt)}
                           className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm transition shadow-md hover:shadow-lg"
-                          title="طباعة"
+                          title={t('receipts.actions.print')}
                         >
                           🖨️
                         </button>
@@ -780,17 +930,17 @@ export default function ReceiptsPage() {
                           <button
                             onClick={() => handleOpenEdit(receipt)}
                             className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm transition shadow-md hover:shadow-lg"
-                            title="تعديل"
+                            title={t('receipts.actions.edit')}
                           >
                             ✏️
                           </button>
                         )}
-                        
+
                         {canDelete && (
                           <button
                             onClick={() => handleDelete(receipt.id)}
                             className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm transition shadow-md hover:shadow-lg"
-                            title="حذف"
+                            title={t('receipts.actions.delete')}
                           >
                             🗑️
                           </button>
@@ -809,8 +959,8 @@ export default function ReceiptsPage() {
               <div className="text-6xl mb-4">🧾</div>
               <p className="text-xl font-medium mb-2">
                 {searchTerm || filterType !== 'all' || filterPayment !== 'all'
-                  ? 'لا توجد نتائج للبحث'
-                  : 'لا توجد إيصالات'}
+                  ? t('receipts.empty.noSearchResults')
+                  : t('receipts.empty.noReceipts')}
               </p>
               {(searchTerm || filterType !== 'all' || filterPayment !== 'all') && (
                 <button
@@ -821,7 +971,7 @@ export default function ReceiptsPage() {
                   }}
                   className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                 >
-                  مسح الفلاتر
+                  {t('receipts.empty.clearFilters')}
                 </button>
               )}
             </div>
@@ -833,7 +983,11 @@ export default function ReceiptsPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
             {/* معلومات الصفحة */}
             <div className="text-sm text-gray-600">
-              عرض {startIndex + 1} - {Math.min(endIndex, filteredReceipts.length)} من {filteredReceipts.length} إيصال
+              {t('receipts.pagination.showing', {
+                start: (startIndex + 1).toString(),
+                end: Math.min(endIndex, filteredReceipts.length).toString(),
+                total: filteredReceipts.length.toString()
+              })}
             </div>
 
             {/* أزرار التنقل */}
@@ -842,18 +996,18 @@ export default function ReceiptsPage() {
                 onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
                 className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="الصفحة الأولى"
+                title={t('receipts.pagination.first')}
               >
-                الأولى
+                {t('receipts.pagination.first')}
               </button>
 
               <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="السابقة"
+                title={t('receipts.pagination.previous')}
               >
-                السابقة
+                {t('receipts.pagination.previous')}
               </button>
 
               {/* أرقام الصفحات */}
@@ -890,24 +1044,24 @@ export default function ReceiptsPage() {
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="التالية"
+                title={t('receipts.pagination.next')}
               >
-                التالية
+                {t('receipts.pagination.next')}
               </button>
 
               <button
                 onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="الصفحة الأخيرة"
+                title={t('receipts.pagination.last')}
               >
-                الأخيرة
+                {t('receipts.pagination.last')}
               </button>
             </div>
 
             {/* اختيار عدد العناصر في الصفحة */}
             <div className="flex items-center gap-2 text-sm">
-              <label className="text-gray-600">عدد العناصر:</label>
+              <label className="text-gray-600">{t('receipts.pagination.itemsPerPage')}:</label>
               <select
                 value={itemsPerPage}
                 onChange={(e) => {
@@ -937,11 +1091,11 @@ export default function ReceiptsPage() {
       {/* Edit Modal */}
       {showEditModal && editingReceipt && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" dir={direction}>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold">✏️ تعديل الإيصال</h2>
-                <p className="text-sm text-gray-600">إيصال رقم #{editingReceipt.receiptNumber}</p>
+                <h2 className="text-2xl font-bold">✏️ {t('receipts.edit.title')}</h2>
+                <p className="text-sm text-gray-600">{t('receipts.edit.subtitle')} #{editingReceipt.receiptNumber}</p>
               </div>
               <button
                 onClick={() => {
@@ -955,16 +1109,16 @@ export default function ReceiptsPage() {
             </div>
 
             {/* معلومات الإيصال الأساسية */}
-            <div className="bg-blue-50 border-r-4 border-blue-500 rounded-lg p-4 mb-6">
+            <div className={`bg-blue-50 ${direction === 'rtl' ? 'border-r-4' : 'border-l-4'} border-blue-500 rounded-lg p-4 mb-6`}>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-600">النوع:</span>
-                  <span className="font-bold mr-2">{getTypeLabel(editingReceipt.type)}</span>
+                  <span className="text-gray-600">{t('receipts.edit.type')}:</span>
+                  <span className={`font-bold ${direction === 'rtl' ? 'mr-2' : 'ml-2'}`}>{getTypeLabel(editingReceipt.type)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-600">التاريخ:</span>
-                  <span className="font-bold mr-2">
-                    {new Date(editingReceipt.createdAt).toLocaleDateString('ar-EG')}
+                  <span className="text-gray-600">{t('receipts.edit.date')}:</span>
+                  <span className={`font-bold ${direction === 'rtl' ? 'mr-2' : 'ml-2'}`}>
+                    {new Date(editingReceipt.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                   </span>
                 </div>
               </div>
@@ -974,7 +1128,7 @@ export default function ReceiptsPage() {
               {/* رقم الإيصال */}
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  رقم الإيصال <span className="text-red-600">*</span>
+                  {t('receipts.edit.receiptNumberRequired')}
                 </label>
                 <input
                   type="number"
@@ -984,14 +1138,14 @@ export default function ReceiptsPage() {
                   placeholder="1000"
                 />
                 <p className="text-xs text-amber-600 mt-1">
-                  ⚠️ تأكد من عدم تكرار رقم الإيصال
+                  ⚠️ {t('receipts.edit.receiptNumberWarning')}
                 </p>
               </div>
 
               {/* المبلغ */}
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  المبلغ (ج.م) <span className="text-red-600">*</span>
+                  {t('receipts.edit.amountRequired')}
                 </label>
                 <input
                   type="number"
@@ -1006,38 +1160,38 @@ export default function ReceiptsPage() {
               {/* طريقة الدفع */}
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  طريقة الدفع <span className="text-red-600">*</span>
+                  {t('receipts.edit.paymentMethodRequired')}
                 </label>
                 <select
                   value={editFormData.paymentMethod}
                   onChange={(e) => setEditFormData({ ...editFormData, paymentMethod: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="cash">💵 كاش</option>
-                  <option value="visa">💳 فيزا</option>
-                  <option value="vodafone_cash">📱 فودافون كاش</option>
-                  <option value="instapay">💸 إنستاباي</option>
+                  <option value="cash">💵 {t('receipts.paymentMethods.cash')}</option>
+                  <option value="visa">💳 {t('receipts.paymentMethods.visa')}</option>
+                  <option value="vodafone_cash">📱 {t('receipts.paymentMethods.vodafone_cash')}</option>
+                  <option value="instapay">💸 {t('receipts.paymentMethods.instapay')}</option>
                 </select>
               </div>
 
               {/* اسم الموظف */}
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  اسم الموظف (اختياري)
+                  {t('receipts.edit.staffNameOptional')}
                 </label>
                 <input
                   type="text"
                   value={editFormData.staffName}
                   onChange={(e) => setEditFormData({ ...editFormData, staffName: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="اسم الموظف المسؤول"
+                  placeholder={t('receipts.edit.staffPlaceholder')}
                 />
               </div>
 
               {/* تاريخ الإيصال */}
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  تاريخ الإيصال <span className="text-red-600">*</span>
+                  {t('receipts.edit.receiptDateRequired')}
                 </label>
                 <input
                   type="datetime-local"
@@ -1046,19 +1200,18 @@ export default function ReceiptsPage() {
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  ℹ️ يمكنك تعديل تاريخ ووقت الإيصال
+                  ℹ️ {t('receipts.edit.dateNote')}
                 </p>
               </div>
 
               {/* ملاحظة تحذيرية */}
-              <div className="bg-yellow-50 border-r-4 border-yellow-500 rounded-lg p-4">
+              <div className={`bg-yellow-50 ${direction === 'rtl' ? 'border-r-4' : 'border-l-4'} border-yellow-500 rounded-lg p-4`}>
                 <div className="flex items-start gap-3">
                   <div className="text-2xl">⚠️</div>
                   <div>
-                    <p className="font-bold text-yellow-800 mb-1">تنبيه هام</p>
+                    <p className="font-bold text-yellow-800 mb-1">{t('receipts.edit.warning')}</p>
                     <p className="text-sm text-yellow-700">
-                      تعديل الإيصال سيؤثر فقط على البيانات المعروضة في النظام. 
-                      لن يتم تعديل التفاصيل المرتبطة بالعضوية أو جلسات PT.
+                      {t('receipts.edit.warningMessage')}
                     </p>
                   </div>
                 </div>
@@ -1071,7 +1224,7 @@ export default function ReceiptsPage() {
                 onClick={handleSaveEdit}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-bold shadow-lg hover:shadow-xl"
               >
-                ✅ حفظ التعديلات
+                ✅ {t('receipts.edit.save')}
               </button>
               <button
                 onClick={() => {
@@ -1080,7 +1233,7 @@ export default function ReceiptsPage() {
                 }}
                 className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-bold"
               >
-                إلغاء
+                {t('receipts.edit.cancel')}
               </button>
             </div>
           </div>

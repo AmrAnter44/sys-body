@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { InvitationModal, SimpleServiceModal } from '../../components/ServiceDeductionModals'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface SearchResult {
   type: 'member' | 'pt'
@@ -13,6 +14,26 @@ type SearchMode = 'id' | 'name'
 
 export default function SearchPage() {
   const router = useRouter()
+  const { t, direction } = useLanguage()
+
+  const getPositionLabel = (position: string | null | undefined): string => {
+    if (!position) return '-'
+    const POSITION_MAP: { [key: string]: string } = {
+      'مدرب': 'trainer',
+      'ريسبشن': 'receptionist',
+      'بار': 'barista',
+      'HK': 'housekeeping',
+      'نظافة': 'housekeeping',
+      'مدير': 'manager',
+      'محاسب': 'accountant',
+      'صيانة': 'maintenance',
+      'أمن': 'security',
+      'other': 'other',
+    }
+    const key = POSITION_MAP[position] || 'other'
+    return t(`positions.${key}` as any)
+  }
+
   const [searchMode, setSearchMode] = useState<SearchMode>('id')
   const [memberId, setMemberId] = useState('')
   const [searchName, setSearchName] = useState('')
@@ -125,25 +146,25 @@ export default function SearchPage() {
       }
 
       const ctx = audioContextRef.current
-      
+
       // نغمة تحذير (نغمتين)
       const times = [0, 0.2]
       const frequencies = [440, 370] // A4, F#4
-      
+
       times.forEach((time, index) => {
         const oscillator = ctx.createOscillator()
         const gainNode = ctx.createGain()
-        
+
         oscillator.connect(gainNode)
         gainNode.connect(ctx.destination)
-        
+
         oscillator.type = 'triangle'
         oscillator.frequency.setValueAtTime(frequencies[index], ctx.currentTime + time)
-        
+
         // صوت متوسط للتحذير
         gainNode.gain.setValueAtTime(0.7, ctx.currentTime + time)
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + time + 0.25)
-        
+
         oscillator.start(ctx.currentTime + time)
         oscillator.stop(ctx.currentTime + time + 0.25)
       })
@@ -152,11 +173,58 @@ export default function SearchPage() {
     }
   }
 
+  // 🆕 دالة تشغيل صوت الفريز (اشتراك مجمد)
+  const playFreezeSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      }
+
+      const ctx = audioContextRef.current
+
+      // نغمة فريز مميزة (4 نغمات هابطة بطيئة تشبه صوت الثلج)
+      const freezePattern = [
+        { freq: 1046.50, time: 0 },      // C6
+        { freq: 987.77, time: 0.15 },    // B5
+        { freq: 880.00, time: 0.3 },     // A5
+        { freq: 783.99, time: 0.45 },    // G5
+      ]
+
+      freezePattern.forEach(({ freq, time }) => {
+        const oscillator = ctx.createOscillator()
+        const gainNode = ctx.createGain()
+
+        oscillator.connect(gainNode)
+        gainNode.connect(ctx.destination)
+
+        oscillator.type = 'sine' // موجة ناعمة للثلج
+        oscillator.frequency.setValueAtTime(freq, ctx.currentTime + time)
+
+        // صوت متوسط وهادئ
+        gainNode.gain.setValueAtTime(0.6, ctx.currentTime + time)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + time + 0.2)
+
+        oscillator.start(ctx.currentTime + time)
+        oscillator.stop(ctx.currentTime + time + 0.2)
+      })
+    } catch (error) {
+      console.error('Error playing freeze sound:', error)
+    }
+  }
+
   // 🆕 دالة فحص حالة العضو وتشغيل الصوت المناسب
   const checkMemberStatusAndPlaySound = (member: any) => {
     const isActive = member.isActive
+    const isFrozen = member.isFrozen
     const expiryDate = member.expiryDate ? new Date(member.expiryDate) : null
     const today = new Date()
+
+    // فحص التجميد أولاً
+    if (isFrozen) {
+      // اشتراك مجمد - صوت فريز
+      playFreezeSound()
+      return 'frozen'
+    }
 
     if (!isActive || (expiryDate && expiryDate < today)) {
       // اشتراك منتهي - صوت إنذار
@@ -474,20 +542,21 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="container mx-auto p-3 sm:p-4 md:p-6 min-h-screen" dir="rtl">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 min-h-screen" dir={direction}>
       <div className="mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
           <span>🔍</span>
-          <span>البحث السريع</span>
+          <span>{t('search.title')}</span>
         </h1>
-        <p className="text-sm sm:text-base text-gray-600">سكان سريع أو بحث بالاسم - الصوت يؤكد النتيجة تلقائياً</p>
+        <p className="text-sm sm:text-base text-gray-600">{t('search.subtitle')}</p>
         <p className="text-xs sm:text-sm text-orange-600 mt-2">
-          🔊 <strong>صوت أخضر ✅:</strong> اشتراك نشط |
-          <strong className="text-yellow-600"> صوت أصفر ⚠️:</strong> قريب من الانتهاء |
-          <strong className="text-red-600"> صوت أحمر 🚨:</strong> منتهي أو غير موجود
+          🔊 <strong>{t('search.soundGreen')}</strong> {t('search.activeSubscription')} |
+          <strong className="text-yellow-600"> {t('search.soundYellow')}</strong> {t('search.expiringSoon')} |
+          <strong className="text-cyan-600"> {t('search.soundCyan')}</strong> {t('search.frozenSubscription')} |
+          <strong className="text-red-600"> {t('search.soundRed')}</strong> {t('search.expiredOrNotFound')}
         </p>
         <p className="text-xs sm:text-sm text-blue-600 mt-2 font-bold">
-          👷 <strong>تسجيل حضور موظف:</strong> اكتب 9 أرقام <code className="bg-blue-100 px-1 sm:px-2 py-1 rounded text-xs sm:text-sm">100000022</code> للتسجيل التلقائي
+          👷 <strong>{t('search.staffAttendance')}</strong> {t('search.enter9Digits')} <code className="bg-blue-100 px-1 sm:px-2 py-1 rounded text-xs sm:text-sm">100000022</code> {t('search.forAutoRegistration')}
         </p>
       </div>
 
@@ -505,8 +574,8 @@ export default function SearchPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            <span className="hidden sm:inline">🎯 البحث برقم العضوية (ID) أو تسجيل حضور (9 أرقام)</span>
-            <span className="sm:hidden">🎯 رقم العضوية / حضور</span>
+            <span className="hidden sm:inline">🎯 {t('search.searchByIdOrAttendance')}</span>
+            <span className="sm:hidden">🎯 {t('search.idOrAttendanceShort')}</span>
           </button>
           <button
             onClick={() => {
@@ -520,8 +589,8 @@ export default function SearchPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            <span className="hidden sm:inline">👤 البحث بالاسم والرقم</span>
-            <span className="sm:hidden">👤 الاسم والرقم</span>
+            <span className="hidden sm:inline">👤 {t('search.searchByNamePhone')}</span>
+            <span className="sm:hidden">👤 {t('search.namePhoneShort')}</span>
           </button>
         </div>
       </div>
@@ -531,14 +600,14 @@ export default function SearchPage() {
           <div className="mb-4 sm:mb-6">
             <label className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 text-blue-800 flex items-center gap-2">
               <span>🎯</span>
-              <span className="hidden sm:inline">البحث برقم العضوية أو تسجيل حضور موظف</span>
-              <span className="sm:hidden">رقم العضوية / حضور</span>
+              <span className="hidden sm:inline">{t('search.searchByIdOrStaff')}</span>
+              <span className="sm:hidden">{t('search.idOrAttendanceShort')}</span>
             </label>
             <div className="bg-blue-50 border-2 border-blue-300 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-              <p className="text-blue-800 font-bold mb-2 text-sm sm:text-base">📝 كيفية الاستخدام:</p>
+              <p className="text-blue-800 font-bold mb-2 text-sm sm:text-base">📝 {t('search.howToUse')}</p>
               <ul className="text-blue-700 space-y-1 text-xs sm:text-sm">
-                <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم (1-8 خانات) مباشرة (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">1001</code>)</li>
-                <li>• <strong>لتسجيل حضور موظف:</strong> اكتب 9 أرقام (مثال: <code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">100000022</code>)</li>
+                <li>• <strong>{t('search.searchMemberInstruction')}</strong> {t('search.searchMemberDetails')} (<code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">1001</code>)</li>
+                <li>• <strong>{t('search.staffAttendanceInstruction')}</strong> {t('search.staffAttendanceDetails')} (<code className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs sm:text-sm">100000022</code>)</li>
               </ul>
             </div>
             
@@ -557,7 +626,7 @@ export default function SearchPage() {
                     <h3 className={`text-lg sm:text-xl md:text-2xl font-bold mb-1 sm:mb-2 ${
                       attendanceMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
                     }`}>
-                      {attendanceMessage.type === 'success' ? 'تم التسجيل بنجاح!' : 'خطأ في التسجيل'}
+                      {attendanceMessage.type === 'success' ? t('search.registeredSuccessfully') : t('search.registrationError')}
                     </h3>
                     <p className={`text-base sm:text-lg md:text-xl font-bold ${
                       attendanceMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
@@ -568,12 +637,12 @@ export default function SearchPage() {
                       <div className="mt-3 sm:mt-4 bg-white/50 rounded-lg sm:rounded-xl p-3 sm:p-4">
                         <div className="grid grid-cols-2 gap-2 sm:gap-3">
                           <div>
-                            <p className="text-xs sm:text-sm text-gray-600">الموظف</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('nav.employee')}</p>
                             <p className="text-sm sm:text-base md:text-lg font-bold text-gray-800">{attendanceMessage.staff.name}</p>
                           </div>
                           <div>
-                            <p className="text-xs sm:text-sm text-gray-600">الوظيفة</p>
-                            <p className="text-sm sm:text-base md:text-lg font-bold text-gray-800">{attendanceMessage.staff.position || '-'}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('nav.position')}</p>
+                            <p className="text-sm sm:text-base md:text-lg font-bold text-gray-800">{getPositionLabel(attendanceMessage.staff.position)}</p>
                           </div>
                         </div>
                       </div>
@@ -591,7 +660,7 @@ export default function SearchPage() {
                 onChange={(e) => setMemberId(e.target.value)}
                 onKeyPress={handleIdKeyPress}
                 className="flex-1 px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 lg:px-6 lg:py-6 border-2 sm:border-4 border-green-300 rounded-lg sm:rounded-xl text-lg sm:text-xl md:text-2xl lg:text-4xl font-bold text-center focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
-                placeholder="1001 أو 100000022"
+                placeholder={t('search.idPlaceholder')}
                 autoFocus
               />
               <button
@@ -599,12 +668,12 @@ export default function SearchPage() {
                 disabled={loading || !memberId.trim()}
                 className="px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 lg:px-8 lg:py-6 bg-green-600 text-white text-sm sm:text-base md:text-lg lg:text-xl font-bold rounded-lg sm:rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition whitespace-nowrap"
               >
-                <span className="hidden sm:inline">{loading ? '⏳' : '🔍'} بحث</span>
+                <span className="hidden sm:inline">{loading ? '⏳' : '🔍'} {t('search.search')}</span>
                 <span className="sm:hidden">{loading ? '⏳' : '🔍'}</span>
               </button>
             </div>
             <p className="text-xs sm:text-sm text-gray-500 mt-2">
-              💡 اضغط Enter للبحث السريع
+              💡 {t('search.pressEnter')}
             </p>
           </div>
         </div>
@@ -614,7 +683,7 @@ export default function SearchPage() {
         <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-lg mb-4 sm:mb-6 border-2 sm:border-4 border-green-200">
           <label className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 text-green-800 flex items-center gap-2">
             <span>👤</span>
-            <span>البحث بالاسم والرقم</span>
+            <span>{t('search.searchByNamePhone')}</span>
           </label>
 
           {/* 🆕 رسالة الخطأ */}
@@ -628,7 +697,7 @@ export default function SearchPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">الاسم</label>
+              <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">{t('search.name')}</label>
               <input
                 ref={nameRef}
                 type="text"
@@ -636,19 +705,19 @@ export default function SearchPage() {
                 onChange={(e) => setSearchName(e.target.value)}
                 onKeyPress={handleNameKeyPress}
                 className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-sm sm:text-base md:text-lg focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
-                placeholder="اكتب اسم العضو أو جزء منه..."
+                placeholder={t('search.namePlaceholder')}
               />
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">رقم الهاتف</label>
+              <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">{t('search.phoneNumber')}</label>
               <input
                 type="tel"
                 value={searchPhone}
                 onChange={(e) => setSearchPhone(e.target.value)}
                 onKeyPress={handleNameKeyPress}
                 className="w-full px-3 py-2 md:px-4 md:py-3 border-2 border-green-300 rounded-lg text-sm sm:text-base md:text-lg focus:border-green-600 focus:ring-2 sm:focus:ring-4 focus:ring-green-200 transition"
-                placeholder="اكتب رقم الهاتف أو جزء منه..."
+                placeholder={t('search.phonePlaceholder')}
               />
             </div>
           </div>
@@ -658,18 +727,18 @@ export default function SearchPage() {
             disabled={loading || (!searchName.trim() && !searchPhone.trim())}
             className="w-full px-4 py-2.5 sm:py-3 md:px-6 md:py-4 bg-green-600 text-white text-sm sm:text-base md:text-lg lg:text-xl font-bold rounded-lg sm:rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition"
           >
-            🔍 بحث
+            🔍 {t('search.search')}
           </button>
 
           <p className="text-xs sm:text-sm text-gray-500 mt-2">
-            💡 يمكنك البحث بالاسم فقط، أو رقم الهاتف فقط، أو كليهما معاً
+            💡 {t('search.searchTip')}
           </p>
         </div>
       )}
 
       {lastSearchTime && (
         <div className="bg-gray-100 p-2 sm:p-3 rounded-lg text-center text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-          آخر بحث: {lastSearchTime.toLocaleTimeString('ar-EG')}
+          {t('search.lastSearch')} {lastSearchTime.toLocaleTimeString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
         </div>
       )}
 
@@ -678,16 +747,16 @@ export default function SearchPage() {
           {loading ? (
             <div className="text-center py-12 sm:py-16 md:py-20">
               <div className="inline-block animate-spin text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">⏳</div>
-              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 font-bold">جاري البحث...</p>
+              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 font-bold">{t('search.searching')}</p>
             </div>
           ) : results.length === 0 ? (
             <div className="text-center py-12 sm:py-16 md:py-20 bg-red-50 animate-pulse">
               <div className="text-5xl sm:text-6xl md:text-8xl mb-4 sm:mb-6 animate-bounce">🚨</div>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mb-2 sm:mb-3 px-4">لم يتم العثور على نتائج</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mb-2 sm:mb-3 px-4">{t('search.noResults')}</p>
               <p className="text-base sm:text-lg md:text-xl text-red-500 px-4">
                 {searchMode === 'id'
-                  ? `للبحث عن "${memberId}"`
-                  : `للبحث عن "${searchName || searchPhone}"`
+                  ? `${t('search.searchingFor')} "${memberId}"`
+                  : `${t('search.searchingFor')} "${searchName || searchPhone}"`
                 }
               </p>
             </div>
@@ -695,7 +764,7 @@ export default function SearchPage() {
             <div className="p-4 sm:p-6">
               <div className="mb-3 sm:mb-4 text-center">
                 <span className="bg-green-100 text-green-800 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl text-base sm:text-lg md:text-xl font-bold">
-                  ✅ تم العثور على {results.length} {results.length === 1 ? 'نتيجة' : 'نتائج'}
+                  ✅ {t('search.foundResults')} {results.length} {results.length === 1 ? t('search.result') : t('search.results')}
                 </span>
               </div>
               
@@ -724,7 +793,7 @@ export default function SearchPage() {
 
                             <div>
                               <span className="bg-blue-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base md:text-lg font-bold">
-                                👤 عضو
+                                👤 {t('search.member')}
                               </span>
                               <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mt-2 sm:mt-3">{result.data.name}</h3>
                             </div>
@@ -744,36 +813,51 @@ export default function SearchPage() {
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">الهاتف</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('common.phone')}</p>
                             <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.phone}</p>
                           </div>
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">السعر</p>
-                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.subscriptionPrice} ج.م</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('search.price')}</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.subscriptionPrice} {t('members.egp')}</p>
                           </div>
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">المتبقي</p>
-                            <p className="text-sm sm:text-base md:text-xl font-bold text-red-600">{result.data.remainingAmount} ج.م</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('search.remaining')}</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold text-red-600">{result.data.remainingAmount} {t('members.egp')}</p>
                           </div>
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">الحالة</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('search.status')}</p>
                             <span className={`inline-block px-2 sm:px-3 py-1 rounded-lg text-sm sm:text-base md:text-lg font-bold ${
-                              result.data.isActive && (!result.data.expiryDate || new Date(result.data.expiryDate) >= new Date())
+                              result.data.isFrozen
+                                ? 'bg-cyan-500 text-white animate-pulse'
+                                : result.data.isActive && (!result.data.expiryDate || new Date(result.data.expiryDate) >= new Date())
                                 ? 'bg-green-500 text-white'
                                 : 'bg-red-500 text-white animate-pulse'
                             }`}>
-                              {result.data.isActive && (!result.data.expiryDate || new Date(result.data.expiryDate) >= new Date()) ? '✅ نشط' : '🚨 منتهي'}
+                              {result.data.isFrozen ? `❄️ ${t('search.frozen')}` : result.data.isActive && (!result.data.expiryDate || new Date(result.data.expiryDate) >= new Date()) ? `✅ ${t('search.active')}` : `🚨 ${t('search.expired')}`}
                             </span>
                           </div>
                         </div>
+
+                        {result.data.startDate && (
+                          <div className="mb-3 sm:mb-4 bg-blue-50 border-2 border-blue-400 rounded-lg p-3 sm:p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xs sm:text-sm text-gray-600">{t('common.startDate')}</p>
+                                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-800">
+                                  {new Date(result.data.startDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {result.data.expiryDate && (
                           <div className="mb-3 sm:mb-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 sm:p-4">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                               <div>
-                                <p className="text-xs sm:text-sm text-gray-600">تاريخ الانتهاء</p>
+                                <p className="text-xs sm:text-sm text-gray-600">{t('search.expiryDate')}</p>
                                 <p className="text-base sm:text-lg md:text-xl font-bold text-gray-800">
-                                  {new Date(result.data.expiryDate).toLocaleDateString('ar-EG')}
+                                  {new Date(result.data.expiryDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                                 </p>
                               </div>
                               {(() => {
@@ -782,25 +866,25 @@ export default function SearchPage() {
 
                                 if (days < 0) {
                                   return (
-                                    <div className="text-right">
+                                    <div className={direction === 'rtl' ? 'text-right' : 'text-left'}>
                                       <p className="text-red-600 font-bold text-base sm:text-lg md:text-2xl animate-pulse">
-                                        🚨 منتهي منذ {Math.abs(days)} يوم
+                                        🚨 {t('search.expiredSince')} {Math.abs(days)} {t('search.day')}
                                       </p>
                                     </div>
                                   )
                                 } else if (days <= 7) {
                                   return (
-                                    <div className="text-right">
+                                    <div className={direction === 'rtl' ? 'text-right' : 'text-left'}>
                                       <p className="text-orange-600 font-bold text-base sm:text-lg md:text-2xl">
-                                        ⚠️ باقي {days} يوم فقط
+                                        ⚠️ {t('search.daysRemaining')} {days} {t('search.daysOnly')}
                                       </p>
                                     </div>
                                   )
                                 } else {
                                   return (
-                                    <div className="text-right">
+                                    <div className={direction === 'rtl' ? 'text-right' : 'text-left'}>
                                       <p className="text-green-600 font-bold text-base sm:text-lg md:text-2xl">
-                                        ✅ باقي {days} يوم
+                                        ✅ {t('search.daysRemaining')} {days} {t('search.day')}
                                       </p>
                                     </div>
                                   )
@@ -815,7 +899,7 @@ export default function SearchPage() {
                           <div className="mb-3 sm:mb-4 bg-blue-50 border-2 border-blue-400 rounded-lg p-3 sm:p-4">
                             <div className="flex items-start gap-2 mb-2">
                               <span className="text-lg sm:text-xl">📝</span>
-                              <p className="text-xs sm:text-sm font-bold text-blue-800">الملاحظات:</p>
+                              <p className="text-xs sm:text-sm font-bold text-blue-800">{t('search.notes')}</p>
                             </div>
                             <p className="text-sm sm:text-base md:text-lg text-gray-700 leading-relaxed whitespace-pre-wrap">
                               {result.data.notes}
@@ -828,7 +912,7 @@ export default function SearchPage() {
                           <div className="mb-3 sm:mb-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-400 rounded-xl p-4">
                             <div className="flex items-center gap-2 mb-3">
                               <span className="text-2xl">🎁</span>
-                              <p className="text-sm sm:text-base font-bold text-purple-800">الخدمات المجانية المتبقية</p>
+                              <p className="text-sm sm:text-base font-bold text-purple-800">{t('search.freeServicesRemaining')}</p>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {/* الدعوات */}
@@ -838,7 +922,7 @@ export default function SearchPage() {
                                     <div className="flex items-center gap-2">
                                       <span className="text-xl">🎟️</span>
                                       <div>
-                                        <p className="text-xs text-gray-600">الدعوات</p>
+                                        <p className="text-xs text-gray-600">{t('search.invitations')}</p>
                                         <p className="text-xl font-bold text-purple-600">{result.data.invitations}</p>
                                       </div>
                                     </div>
@@ -846,7 +930,7 @@ export default function SearchPage() {
                                       onClick={() => setInvitationModal({ isOpen: true, memberId: result.data.id, memberName: result.data.name })}
                                       className="bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 text-xs font-bold"
                                     >
-                                      استخدام
+                                      {t('search.use')}
                                     </button>
                                   </div>
                                 </div>
@@ -859,7 +943,7 @@ export default function SearchPage() {
                                     <div className="flex items-center gap-2">
                                       <span className="text-xl">💪</span>
                                       <div>
-                                        <p className="text-xs text-gray-600">PT مجاني</p>
+                                        <p className="text-xs text-gray-600">{t('search.freePT')}</p>
                                         <p className="text-xl font-bold text-green-600">{result.data.freePTSessions}</p>
                                       </div>
                                     </div>
@@ -867,7 +951,7 @@ export default function SearchPage() {
                                       onClick={() => setServiceModal({ isOpen: true, type: 'freePT', memberId: result.data.id, memberName: result.data.name })}
                                       className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 text-xs font-bold"
                                     >
-                                      خصم -1
+                                      {t('search.deduct')}
                                     </button>
                                   </div>
                                 </div>
@@ -888,7 +972,7 @@ export default function SearchPage() {
                                       onClick={() => setServiceModal({ isOpen: true, type: 'inBody', memberId: result.data.id, memberName: result.data.name })}
                                       className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-xs font-bold"
                                     >
-                                      خصم -1
+                                      {t('search.deduct')}
                                     </button>
                                   </div>
                                 </div>
@@ -903,8 +987,8 @@ export default function SearchPage() {
                             className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl font-bold text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 sm:gap-3"
                           >
                             <span>👁️</span>
-                            <span>عرض التفاصيل الكاملة</span>
-                            <span>➡️</span>
+                            <span>{t('search.viewFullDetails')}</span>
+                            <span>{direction === 'rtl' ? '➡️' : '⬅️'}</span>
                           </button>
                         </div>
                       </div>
@@ -923,20 +1007,20 @@ export default function SearchPage() {
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">الهاتف</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('common.phone')}</p>
                             <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.phone}</p>
                           </div>
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">المدرب</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('search.coach')}</p>
                             <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.coachName}</p>
                           </div>
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">الجلسات المتبقية</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('search.sessionsRemaining')}</p>
                             <p className="text-sm sm:text-base md:text-xl font-bold text-green-600">{result.data.sessionsRemaining}</p>
                           </div>
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">سعر الجلسة</p>
-                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.pricePerSession} ج.م</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{t('search.sessionPrice')}</p>
+                            <p className="text-sm sm:text-base md:text-xl font-bold">{result.data.pricePerSession} {t('members.egp')}</p>
                           </div>
                         </div>
 
@@ -945,8 +1029,8 @@ export default function SearchPage() {
                           className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl font-bold text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 sm:gap-3"
                         >
                           <span>👁️</span>
-                          <span>عرض التفاصيل الكاملة</span>
-                          <span>➡️</span>
+                          <span>{t('search.viewFullDetails')}</span>
+                          <span>{direction === 'rtl' ? '➡️' : '⬅️'}</span>
                         </button>
                       </div>
                     )}

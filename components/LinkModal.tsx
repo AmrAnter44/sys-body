@@ -63,8 +63,8 @@ export default function LinkModal({ onClose }: LinkModalProps) {
   const generateQRCode = async (text: string) => {
     try {
       const dataUrl = await QRCode.toDataURL(text, {
-        width: 300,
-        margin: 2,
+        width: 200,
+        margin: 1,
         color: {
           dark: '#000000',
           light: '#FFFFFF'
@@ -98,15 +98,15 @@ export default function LinkModal({ onClose }: LinkModalProps) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold flex items-center gap-2">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full p-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-xl font-bold flex items-center gap-2">
             <span>🔗</span>
             <span>مشاركة اللينك</span>
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
             type="button"
           >
             ×
@@ -114,75 +114,81 @@ export default function LinkModal({ onClose }: LinkModalProps) {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin text-4xl mb-4">⏳</div>
-            <p className="text-lg text-gray-600">جاري الحصول على اللينك...</p>
+          <div className="text-center py-6">
+            <div className="inline-block animate-spin text-3xl mb-3">⏳</div>
+            <p className="text-base text-gray-600">جاري الحصول على اللينك...</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* QR Code */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* QR Code - عمود واحد */}
             {qrCodeDataUrl && (
-              <div className="flex justify-center">
-                <div className="bg-white p-4 rounded-xl border-4 border-blue-200 shadow-lg">
-                  <img src={qrCodeDataUrl} alt="QR Code" className="w-64 h-64" />
+              <div className="flex justify-center items-start">
+                <div className="bg-white p-2 rounded-xl border-2 border-blue-200 shadow-lg">
+                  <img src={qrCodeDataUrl} alt="QR Code" className="w-36 h-36" />
                 </div>
               </div>
             )}
 
-            {/* IP Address */}
-            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-              <p className="text-sm font-bold text-blue-800 mb-2">📡 IP Address:</p>
-              <p className="text-2xl font-mono font-bold text-blue-600 text-center">
-                {ip}
-              </p>
-            </div>
+            {/* المعلومات - عمودين */}
+            <div className="md:col-span-2 space-y-2">
+              {/* IP Address و URL في صف واحد */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {/* IP Address */}
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-2">
+                  <p className="text-xs font-bold text-blue-800 mb-1">📡 IP Address:</p>
+                  <p className="text-lg font-mono font-bold text-blue-600 text-center">
+                    {ip}
+                  </p>
+                </div>
 
-            {/* URL */}
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-              <p className="text-sm font-bold text-green-800 mb-2">🔗 اللينك الكامل:</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={url}
-                  readOnly
-                  className="flex-1 px-4 py-3 border-2 border-green-400 rounded-lg font-mono text-sm bg-white"
-                  onClick={(e) => e.currentTarget.select()}
-                />
+                {/* URL */}
+                <div className="bg-green-50 border-2 border-green-300 rounded-lg p-2">
+                  <p className="text-xs font-bold text-green-800 mb-1">🔗 اللينك الكامل:</p>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={url}
+                      readOnly
+                      className="flex-1 px-2 py-1 border border-green-400 rounded text-xs font-mono bg-white"
+                      onClick={(e) => e.currentTarget.select()}
+                    />
+                    <button
+                      onClick={copyToClipboard}
+                      className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 font-bold text-xs whitespace-nowrap"
+                    >
+                      {copied ? '✅' : '📋'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* معلومات */}
+              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-2">
+                <p className="text-xs font-bold text-yellow-800 mb-1">ℹ️ كيفية الاستخدام:</p>
+                <ul className="text-xs text-yellow-700 space-y-0.5">
+                  <li>• افتح اللينك من أي جهاز على <strong>نفس الشبكة</strong></li>
+                  <li>• يمكنك استخدام الموبايل أو التابلت أو أي كمبيوتر آخر</li>
+                  <li>• امسح QR Code بكاميرا الموبايل للدخول مباشرة</li>
+                  <li>• شارك اللينك على واتساب لأي شخص على نفس الشبكة</li>
+                </ul>
+              </div>
+
+              {/* أزرار */}
+              <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={copyToClipboard}
-                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold whitespace-nowrap"
+                  onClick={shareOnWhatsApp}
+                  className="bg-green-500 text-white py-1.5 px-3 rounded-lg hover:bg-green-600 font-bold text-sm flex items-center justify-center gap-1"
                 >
-                  {copied ? '✅ تم النسخ' : '📋 نسخ'}
+                  <span>💬</span>
+                  <span>واتساب</span>
+                </button>
+                <button
+                  onClick={onClose}
+                  className="bg-gray-200 text-gray-700 py-1.5 px-3 rounded-lg hover:bg-gray-300 font-bold text-sm"
+                >
+                  إغلاق
                 </button>
               </div>
-            </div>
-
-            {/* معلومات */}
-            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-              <p className="text-sm font-bold text-yellow-800 mb-2">ℹ️ كيفية الاستخدام:</p>
-              <ul className="text-sm text-yellow-700 space-y-1">
-                <li>• افتح اللينك من أي جهاز على <strong>نفس الشبكة</strong></li>
-                <li>• يمكنك استخدام الموبايل أو التابلت أو أي كمبيوتر آخر</li>
-                <li>• امسح QR Code بكاميرا الموبايل للدخول مباشرة</li>
-                <li>• شارك اللينك على واتساب لأي شخص على نفس الشبكة</li>
-              </ul>
-            </div>
-
-            {/* أزرار */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={shareOnWhatsApp}
-                className="bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 font-bold text-lg flex items-center justify-center gap-2"
-              >
-                <span>💬</span>
-                <span>واتساب</span>
-              </button>
-              <button
-                onClick={onClose}
-                className="bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 font-bold text-lg"
-              >
-                إغلاق
-              </button>
             </div>
           </div>
         )}

@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 export default function CheckMembershipPage() {
+  const { t } = useLanguage()
   const [memberNumber, setMemberNumber] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -10,6 +12,7 @@ export default function CheckMembershipPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
+  // ✅ تم إزالة منطق الخروج التلقائي - نسجل وقت الدخول فقط
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
@@ -98,7 +101,7 @@ export default function CheckMembershipPage() {
   const handleCheck = async () => {
     if (!memberNumber.trim()) {
       playAlarmSound()
-      setError('⚠️ يرجى إدخال رقم العضوية')
+      setError(`⚠️ ${t('attendance.enterMembershipNumber')}`)
       return
     }
 
@@ -123,12 +126,12 @@ export default function CheckMembershipPage() {
         }
       } else {
         playAlarmSound()
-        setError(data.error || 'حدث خطأ')
+        setError(data.error || t('attendance.error'))
       }
     } catch (error) {
       console.error('Check error:', error)
       playAlarmSound()
-      setError('حدث خطأ في الاتصال')
+      setError(t('attendance.connectionError'))
     } finally {
       setLoading(false)
       setMemberNumber('')
@@ -160,10 +163,10 @@ export default function CheckMembershipPage() {
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-blue-600">X GYM</h1>
           </div>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2">
-            🔍 التحقق من العضوية
+            🔍 {t('attendance.verifyMembership')}
           </h2>
           <p className="text-sm sm:text-base text-gray-600">
-            اكتب رقم عضويتك للتحقق من حالة اشتراكك
+            {t('attendance.enterNumberToVerify')}
           </p>
         </div>
 
@@ -171,7 +174,7 @@ export default function CheckMembershipPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border-4 border-blue-500 mb-6">
           <div className="mb-6">
             <label className="block text-lg sm:text-xl font-bold mb-4 text-gray-800 text-center">
-              رقم العضوية
+              {t('attendance.membershipNumber')}
             </label>
 
             {error && (
@@ -201,7 +204,7 @@ export default function CheckMembershipPage() {
             </div>
 
             <p className="text-xs sm:text-sm text-gray-500 mt-3 text-center">
-              💡 اضغط Enter للبحث السريع
+              💡 {t('attendance.pressEnterToSearch')}
             </p>
           </div>
         </div>
@@ -225,7 +228,7 @@ export default function CheckMembershipPage() {
               </h3>
 
               <p className="text-lg sm:text-xl text-gray-600 mb-4">
-                رقم العضوية: <span className="font-bold text-blue-600">#{result.memberNumber}</span>
+                {t('attendance.membershipNumber')}: <span className="font-bold text-blue-600">#{result.memberNumber}</span>
               </p>
 
               <div className={`inline-block px-6 py-3 rounded-xl text-xl sm:text-2xl font-bold ${
@@ -249,7 +252,7 @@ export default function CheckMembershipPage() {
               }`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">تاريخ الانتهاء</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('attendance.expiryDate')}</p>
                     <p className="text-xl sm:text-2xl font-bold text-gray-800">
                       {new Date(result.expiryDate).toLocaleDateString('ar-EG')}
                     </p>
@@ -257,7 +260,7 @@ export default function CheckMembershipPage() {
 
                   {result.remainingDays !== undefined && (
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">الأيام المتبقية</p>
+                      <p className="text-sm text-gray-600 mb-1">{t('attendance.daysRemaining')}</p>
                       <p className={`text-xl sm:text-2xl font-bold ${
                         result.remainingDays > 7
                           ? 'text-green-600'
@@ -266,10 +269,10 @@ export default function CheckMembershipPage() {
                           : 'text-red-600'
                       }`}>
                         {result.remainingDays > 0
-                          ? `${result.remainingDays} يوم`
+                          ? t('attendance.daysCount', { days: result.remainingDays.toString() })
                           : result.remainingDays === 0
-                          ? 'ينتهي اليوم'
-                          : `منتهي منذ ${Math.abs(result.remainingDays)} يوم`
+                          ? t('attendance.expiresToday')
+                          : t('attendance.expiredSince', { days: Math.abs(result.remainingDays).toString() })
                         }
                       </p>
                     </div>
@@ -288,7 +291,7 @@ export default function CheckMembershipPage() {
                 }}
                 className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-bold transition"
               >
-                بحث عن عضوية أخرى
+                {t('attendance.searchAnother')}
               </button>
             </div>
           </div>
@@ -296,8 +299,8 @@ export default function CheckMembershipPage() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600 text-sm">
-          <p>🔒 صفحة آمنة للتحقق من حالة العضوية فقط</p>
-          <p className="mt-2">للاستفسارات، يرجى التواصل مع الإدارة</p>
+          <p>🔒 {t('attendance.securePageVerifyOnly')}</p>
+          <p className="mt-2">{t('attendance.contactManagement')}</p>
         </div>
       </div>
 

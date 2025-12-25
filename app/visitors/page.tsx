@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import ConfirmDeleteModal from '../../components/ConfirmDeleteModal'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface Visitor {
   id: string
@@ -33,6 +34,7 @@ interface FollowUp {
 
 export default function VisitorsPage() {
   const router = useRouter()
+  const { t, direction } = useLanguage()
   const [visitors, setVisitors] = useState<Visitor[]>([])
   const [stats, setStats] = useState<Stats[]>([])
   const [followUps, setFollowUps] = useState<FollowUp[]>([])
@@ -72,16 +74,33 @@ export default function VisitorsPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter)
       if (sourceFilter !== 'all') params.append('source', sourceFilter)
 
-      const response = await fetch(`/api/visitors?${params}`)
-      const data = await response.json()
+      // ✅ جلب الزوار والأعضاء في نفس الوقت
+      const [visitorsResponse, membersResponse] = await Promise.all([
+        fetch(`/api/visitors?${params}`),
+        fetch('/api/members')
+      ])
+
+      const visitorsData = await visitorsResponse.json()
+      const membersData = await membersResponse.json()
 
       // ✅ فلترة الدعوات - الدعوات تظهر في صفحة /invitations فقط
-      const nonInvitationVisitors = (data.visitors || []).filter(
+      const nonInvitationVisitors = (visitorsData.visitors || []).filter(
         (v: Visitor) => v.source !== 'invitation' && v.source !== 'member-invitation'
       )
 
-      setVisitors(nonInvitationVisitors)
-      setStats(data.stats || [])
+      // ✅ جمع كل أرقام الأعضاء (normalize)
+      const memberPhones = new Set(
+        (Array.isArray(membersData) ? membersData : []).map((m: any) => normalizePhone(m.phone))
+      )
+
+      // ✅ فلترة الزوار - استبعاد اللي أرقامهم موجودة في الأعضاء
+      const filteredVisitors = nonInvitationVisitors.filter((v: Visitor) => {
+        const visitorPhone = normalizePhone(v.phone)
+        return !memberPhones.has(visitorPhone)
+      })
+
+      setVisitors(filteredVisitors)
+      setStats(visitorsData.stats || [])
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -147,17 +166,17 @@ export default function VisitorsPage() {
 
       if (response.ok) {
         setFormData({ name: '', phone: '', notes: '', source: 'walk-in', interestedIn: '' })
-        setMessage('✅ تم إضافة الزائر بنجاح!')
+        setMessage(`✅ ${t('visitors.messages.addSuccess')}`)
         setTimeout(() => setMessage(''), 3000)
         fetchVisitors()
         setShowForm(false)
       } else {
-        setMessage(`❌ ${data.error || 'فشل إضافة الزائر'}`)
+        setMessage(`❌ ${data.error || t('visitors.messages.addError')}`)
         setTimeout(() => setMessage(''), 5000)
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('visitors.messages.error')}`)
     } finally {
       setLoading(false)
     }
@@ -171,11 +190,11 @@ export default function VisitorsPage() {
         body: JSON.stringify({ id, status: newStatus }),
       })
       fetchVisitors()
-      setMessage('✅ تم تحديث الحالة بنجاح!')
+      setMessage(`✅ ${t('visitors.messages.statusUpdateSuccess')}`)
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       console.error('Error updating status:', error)
-      setMessage('❌ فشل تحديث الحالة')
+      setMessage(`❌ ${t('visitors.messages.statusUpdateError')}`)
     }
   }
 
@@ -191,13 +210,13 @@ export default function VisitorsPage() {
     try {
       await fetch(`/api/visitors?id=${visitorToDelete.id}`, { method: 'DELETE' })
       fetchVisitors()
-      setMessage('✅ تم حذف الزائر بنجاح!')
+      setMessage(`✅ ${t('visitors.messages.deleteSuccess')}`)
       setTimeout(() => setMessage(''), 3000)
       setShowDeleteModal(false)
       setVisitorToDelete(null)
     } catch (error) {
       console.error('Error deleting visitor:', error)
-      setMessage('❌ فشل حذف الزائر')
+      setMessage(`❌ ${t('visitors.messages.deleteError')}`)
     } finally {
       setDeleteLoading(false)
     }
@@ -239,16 +258,16 @@ export default function VisitorsPage() {
       postponed: 'bg-yellow-100 text-yellow-800',
       subscribed: 'bg-blue-100 text-blue-800',
     }
-    const labels = {
-      interested: 'مهتم',
-      'not-interested': 'غير مهتم',
-      postponed: 'مؤجل',
-      subscribed: 'اشترك',
+    const labels: Record<string, string> = {
+      interested: t('visitors.results.interested'),
+      'not-interested': t('visitors.results.notInterested'),
+      postponed: t('visitors.results.postponed'),
+      subscribed: t('visitors.results.subscribed'),
     }
     if (!result) return <span className="text-gray-400">-</span>
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${badges[result as keyof typeof badges] || 'bg-gray-100 text-gray-800'}`}>
-        {labels[result as keyof typeof labels] || result}
+        {labels[result] || result}
       </span>
     )
   }
@@ -260,37 +279,35 @@ export default function VisitorsPage() {
       subscribed: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     }
-    const labels = {
-      pending: 'معلق',
-      contacted: 'تم التواصل',
-      subscribed: 'مشترك',
-      rejected: 'مرفوض',
+    const labels: Record<string, string> = {
+      pending: t('visitors.status.pending'),
+      contacted: t('visitors.status.contacted'),
+      subscribed: t('visitors.status.subscribed'),
+      rejected: t('visitors.status.rejected'),
     }
     return (
       <span className={`px-2 py-1 rounded-full text-xs ${badges[status as keyof typeof badges] || 'bg-gray-100 text-gray-800'}`}>
-        {labels[status as keyof typeof labels] || status}
+        {labels[status] || status}
       </span>
     )
   }
 
   const getSourceLabel = (source: string) => {
-    const labels = {
-      'walk-in': 'زيارة مباشرة',
-      'facebook': 'فيسبوك',
-      'instagram': 'إنستجرام',
-      'friend': 'صديق',
-      'other': 'أخرى',
+    const labels: Record<string, string> = {
+      'walk-in': t('visitors.sources.walkIn'),
+      'facebook': t('visitors.sources.facebook'),
+      'instagram': t('visitors.sources.instagram'),
+      'friend': t('visitors.sources.friend'),
+      'other': t('visitors.sources.other'),
     }
-    return labels[source as keyof typeof labels] || source
+    return labels[source] || source
   }
 
   const getMonthLabel = (yearMonth: string) => {
     const [year, month] = yearMonth.split('-')
-    const monthNames = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ]
-    return `${monthNames[parseInt(month) - 1]} ${year}`
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+    const monthName = date.toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US', { month: 'long' })
+    return `${monthName} ${year}`
   }
 
   // Pagination calculations
@@ -305,19 +322,19 @@ export default function VisitorsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir={direction}>
       {/* Header with Stats */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h1 className="text-3xl font-bold">إدارة الزوار</h1>
-            <p className="text-gray-600 mt-2">قاعدة بيانات الزوار والعملاء المحتملين</p>
+            <h1 className="text-3xl font-bold">{t('visitors.title')}</h1>
+            <p className="text-gray-600 mt-2">{t('visitors.subtitle')}</p>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
             className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700"
           >
-            {showForm ? 'إخفاء النموذج' : '➕ إضافة زائر جديد'}
+            {showForm ? t('visitors.hideForm') : `➕ ${t('visitors.addVisitor')}`}
           </button>
         </div>
 
@@ -325,20 +342,20 @@ export default function VisitorsPage() {
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
             <div className="text-sm opacity-90 mb-1">
-              {monthFilter !== 'all' ? `زوار ${getMonthLabel(monthFilter)}` : 'إجمالي الزوار'}
+              {monthFilter !== 'all' ? `${t('visitors.stats.visitorsOf')} ${getMonthLabel(monthFilter)}` : t('visitors.status.totalVisitors')}
             </div>
             <div className="text-4xl font-bold">{filteredVisitors.length}</div>
             {monthFilter !== 'all' && (
-              <div className="text-xs opacity-75 mt-1">من أصل {visitors.length} زائر</div>
+              <div className="text-xs opacity-75 mt-1">{t('visitors.stats.outOf', { total: visitors.length.toString() })}</div>
             )}
           </div>
           {stats.map((stat) => (
             <div key={stat.status} className="bg-white p-5 rounded-xl shadow-lg border-2">
               <div className="text-gray-500 text-sm font-medium mb-1">
-                {stat.status === 'pending' && '⏳ معلق'}
-                {stat.status === 'contacted' && '📞 تم التواصل'}
-                {stat.status === 'subscribed' && '✅ مشترك'}
-                {stat.status === 'rejected' && '❌ مرفوض'}
+                {stat.status === 'pending' && `⏳ ${t('visitors.status.pending')}`}
+                {stat.status === 'contacted' && `📞 ${t('visitors.status.contacted')}`}
+                {stat.status === 'subscribed' && `✅ ${t('visitors.status.subscribed')}`}
+                {stat.status === 'rejected' && `❌ ${t('visitors.status.rejected')}`}
               </div>
               <div className="text-3xl font-bold">{stat._count}</div>
             </div>
@@ -356,71 +373,71 @@ export default function VisitorsPage() {
       {/* Add Visitor Form */}
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-xl font-semibold mb-4">إضافة زائر جديد</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('visitors.form.title')}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الاسم *</label>
+                <label className="block text-sm font-medium mb-1">{t('visitors.form.name')} *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="اسم الزائر"
+                  placeholder={t('visitors.form.namePlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">رقم الهاتف *</label>
+                <label className="block text-sm font-medium mb-1">{t('visitors.form.phone')} *</label>
                 <input
                   type="tel"
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="01xxxxxxxxx"
+                  placeholder={t('visitors.form.phonePlaceholder')}
                   pattern="^(010|011|012|015)[0-9]{8}$"
-                  title="يجب أن يبدأ الرقم بـ 010، 011، 012، أو 015 ويتكون من 11 رقم"
+                  title={t('visitors.form.phonePattern')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">مصدر الزائر</label>
+                <label className="block text-sm font-medium mb-1">{t('visitors.form.source')}</label>
                 <select
                   value={formData.source}
                   onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
-                  <option value="walk-in">زيارة مباشرة</option>
-                  <option value="facebook">فيسبوك</option>
-                  <option value="instagram">إنستجرام</option>
-                  <option value="friend">صديق</option>
-                  <option value="other">أخرى</option>
+                  <option value="walk-in">{t('visitors.sources.walkIn')}</option>
+                  <option value="facebook">{t('visitors.sources.facebook')}</option>
+                  <option value="instagram">{t('visitors.sources.instagram')}</option>
+                  <option value="friend">{t('visitors.sources.friend')}</option>
+                  <option value="other">{t('visitors.sources.other')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">مهتم بـ</label>
+                <label className="block text-sm font-medium mb-1">{t('visitors.form.interestedIn')}</label>
                 <input
                   type="text"
                   value={formData.interestedIn}
                   onChange={(e) => setFormData({ ...formData, interestedIn: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="مثال: جيم، كلاسات، تدريب شخصي"
+                  placeholder={t('visitors.form.interestedInPlaceholder')}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">ملاحظات</label>
+              <label className="block text-sm font-medium mb-1">{t('visitors.form.notes')}</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 rows={3}
-                placeholder="أي ملاحظات عن الزائر..."
+                placeholder={t('visitors.form.notesPlaceholder')}
               />
             </div>
 
@@ -429,7 +446,7 @@ export default function VisitorsPage() {
               disabled={loading}
               className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'جاري الحفظ...' : 'إضافة زائر'}
+              {loading ? t('visitors.form.saving') : t('visitors.form.submit')}
             </button>
           </form>
         </div>
@@ -439,24 +456,24 @@ export default function VisitorsPage() {
       <div className="bg-white p-4 rounded-lg shadow-md mb-6">
         <div className="grid grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">🔍 بحث</label>
+            <label className="block text-sm font-medium mb-1">🔍 {t('visitors.filters.search')}</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="ابحث بالاسم أو رقم الهاتف..."
+              placeholder={t('visitors.filters.searchPlaceholder')}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📅 الشهر</label>
+            <label className="block text-sm font-medium mb-1">📅 {t('visitors.filters.month')}</label>
             <select
               value={monthFilter}
               onChange={(e) => setMonthFilter(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
-              <option value="all">كل الأشهر ({visitors.length})</option>
+              <option value="all">{t('visitors.filters.allMonths', { count: visitors.length.toString() })}</option>
               {availableMonths.map(month => {
                 const count = visitors.filter(v => {
                   const date = new Date(v.createdAt)
@@ -473,33 +490,33 @@ export default function VisitorsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📂 المصدر</label>
+            <label className="block text-sm font-medium mb-1">📂 {t('visitors.filters.source')}</label>
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
-              <option value="all">الكل</option>
-              <option value="walk-in">زيارة مباشرة</option>
-              <option value="facebook">فيسبوك</option>
-              <option value="instagram">إنستجرام</option>
-              <option value="friend">صديق</option>
-              <option value="other">أخرى</option>
+              <option value="all">{t('visitors.filters.all')}</option>
+              <option value="walk-in">{t('visitors.sources.walkIn')}</option>
+              <option value="facebook">{t('visitors.sources.facebook')}</option>
+              <option value="instagram">{t('visitors.sources.instagram')}</option>
+              <option value="friend">{t('visitors.sources.friend')}</option>
+              <option value="other">{t('visitors.sources.other')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📊 الحالة</label>
+            <label className="block text-sm font-medium mb-1">📊 {t('visitors.filters.status')}</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
-              <option value="all">الكل</option>
-              <option value="pending">معلق</option>
-              <option value="contacted">تم التواصل</option>
-              <option value="subscribed">مشترك</option>
-              <option value="rejected">مرفوض</option>
+              <option value="all">{t('visitors.filters.all')}</option>
+              <option value="pending">{t('visitors.status.pending')}</option>
+              <option value="contacted">{t('visitors.status.contacted')}</option>
+              <option value="subscribed">{t('visitors.status.subscribed')}</option>
+              <option value="rejected">{t('visitors.status.rejected')}</option>
             </select>
           </div>
         </div>
@@ -509,7 +526,7 @@ export default function VisitorsPage() {
       {loading ? (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">⏳</div>
-          <p className="text-xl">جاري التحميل...</p>
+          <p className="text-xl">{t('visitors.loading')}</p>
         </div>
       ) : (
         <>
@@ -523,24 +540,30 @@ export default function VisitorsPage() {
                 {/* Actions في الأعلى */}
                 <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b">
                   <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => openQuickFollowUp(visitor)}
-                      className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1 rounded bg-blue-50"
-                    >
-                      ➕ متابعة
-                    </button>
+                    {visitor.status === 'subscribed' ? (
+                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded text-xs font-bold">
+                        ✅ مشترك
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => openQuickFollowUp(visitor)}
+                        className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1 rounded bg-blue-50"
+                      >
+                        ➕ {t('visitors.actions.followUp')}
+                      </button>
+                    )}
                     <button
                       onClick={() => openHistoryModal(visitor)}
                       className="text-purple-600 hover:text-purple-800 text-xs font-medium px-2 py-1 rounded bg-purple-50"
                     >
-                      📋 السجل
+                      📋 {t('visitors.actions.history')}
                     </button>
                   </div>
                   <button
                     onClick={() => handleDelete(visitor)}
                     className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 rounded bg-red-50"
                   >
-                    🗑️ حذف
+                    🗑️ {t('visitors.actions.delete')}
                   </button>
                 </div>
 
@@ -587,10 +610,10 @@ export default function VisitorsPage() {
                       onChange={(e) => handleUpdateStatus(visitor.id, e.target.value)}
                       className="text-xs px-2 py-1 rounded border flex-1"
                     >
-                      <option value="pending">معلق</option>
-                      <option value="contacted">تم التواصل</option>
-                      <option value="subscribed">مشترك</option>
-                      <option value="rejected">مرفوض</option>
+                      <option value="pending">{t('visitors.status.pending')}</option>
+                      <option value="contacted">{t('visitors.status.contacted')}</option>
+                      <option value="subscribed">{t('visitors.status.subscribed')}</option>
+                      <option value="rejected">{t('visitors.status.rejected')}</option>
                     </select>
                   </div>
 
@@ -598,7 +621,7 @@ export default function VisitorsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500 text-sm">📅</span>
                     <span className="text-gray-700">
-                      {new Date(visitor.createdAt).toLocaleDateString('ar-EG')}
+                      {new Date(visitor.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                     </span>
                   </div>
 
@@ -606,7 +629,7 @@ export default function VisitorsPage() {
                   {visitor.notes && (
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm text-gray-600">
-                        <span className="font-semibold">📝 ملاحظات:</span> {visitor.notes}
+                        <span className="font-semibold">📝 {t('visitors.table.notes')}:</span> {visitor.notes}
                       </p>
                     </div>
                   )}
@@ -618,7 +641,11 @@ export default function VisitorsPage() {
             {filteredVisitors.length > 0 && totalPages > 1 && (
               <div className="bg-white rounded-lg shadow-md p-4 space-y-3">
                 <div className="text-sm text-gray-600 text-center">
-                  عرض {startIndex + 1} - {Math.min(endIndex, filteredVisitors.length)} من {filteredVisitors.length} زائر
+                  {t('visitors.pagination.showing', {
+                    start: (startIndex + 1).toString(),
+                    end: Math.min(endIndex, filteredVisitors.length).toString(),
+                    total: filteredVisitors.length.toString()
+                  })}
                 </div>
 
                 <div className="flex items-center justify-center gap-2">
@@ -627,7 +654,7 @@ export default function VisitorsPage() {
                     disabled={currentPage === 1}
                     className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-gray-100 hover:bg-gray-200"
                   >
-                    السابقة
+                    {t('visitors.pagination.previous')}
                   </button>
 
                   <span className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-medium">
@@ -639,12 +666,12 @@ export default function VisitorsPage() {
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-gray-100 hover:bg-gray-200"
                   >
-                    التالية
+                    {t('visitors.pagination.next')}
                   </button>
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-sm">
-                  <label className="text-gray-600">عدد العناصر:</label>
+                  <label className="text-gray-600">{t('visitors.pagination.itemsPerPage')}:</label>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
@@ -667,16 +694,16 @@ export default function VisitorsPage() {
                 <div className="text-5xl mb-3">🚶</div>
                 {monthFilter !== 'all' ? (
                   <>
-                    <p>لا يوجد زوار في {getMonthLabel(monthFilter)}</p>
+                    <p>{t('visitors.noVisitors.inMonth', { month: getMonthLabel(monthFilter) })}</p>
                     <button
                       onClick={() => setMonthFilter('all')}
                       className="mt-3 text-orange-600 hover:text-orange-700 font-medium"
                     >
-                      عرض كل الأشهر
+                      {t('visitors.noVisitors.showAll')}
                     </button>
                   </>
                 ) : (
-                  <p>لا يوجد زوار حالياً</p>
+                  <p>{t('visitors.noVisitors.current')}</p>
                 )}
               </div>
             )}
@@ -687,14 +714,14 @@ export default function VisitorsPage() {
             <table className="w-full">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-right">الاسم</th>
-                  <th className="px-4 py-3 text-right">رقم الهاتف</th>
-                  <th className="px-4 py-3 text-right">المصدر</th>
-                  <th className="px-4 py-3 text-right">مهتم بـ</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
-                  <th className="px-4 py-3 text-right">تاريخ الزيارة</th>
-                  <th className="px-4 py-3 text-right">ملاحظات</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.name')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.phone')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.source')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.interestedIn')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.status')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.visitDate')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.notes')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('visitors.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -724,14 +751,14 @@ export default function VisitorsPage() {
                         onChange={(e) => handleUpdateStatus(visitor.id, e.target.value)}
                         className="text-xs px-2 py-1 rounded border"
                       >
-                        <option value="pending">معلق</option>
-                        <option value="contacted">تم التواصل</option>
-                        <option value="subscribed">مشترك</option>
-                        <option value="rejected">مرفوض</option>
+                        <option value="pending">{t('visitors.status.pending')}</option>
+                        <option value="contacted">{t('visitors.status.contacted')}</option>
+                        <option value="subscribed">{t('visitors.status.subscribed')}</option>
+                        <option value="rejected">{t('visitors.status.rejected')}</option>
                       </select>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {new Date(visitor.createdAt).toLocaleDateString('ar-EG')}
+                      {new Date(visitor.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {visitor.notes ? (
@@ -744,25 +771,31 @@ export default function VisitorsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => openQuickFollowUp(visitor)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
-                          title="إضافة متابعة جديدة"
-                        >
-                          ➕ متابعة
-                        </button>
+                        {visitor.status === 'subscribed' ? (
+                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm font-bold">
+                            ✅ مشترك
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => openQuickFollowUp(visitor)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
+                            title={t('visitors.actions.followUpTitle')}
+                          >
+                            ➕ {t('visitors.actions.followUp')}
+                          </button>
+                        )}
                         <button
                           onClick={() => openHistoryModal(visitor)}
                           className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded bg-purple-50 hover:bg-purple-100"
-                          title="عرض سجل المتابعات"
+                          title={t('visitors.actions.historyTitle')}
                         >
-                          📋 السجل
+                          📋 {t('visitors.actions.history')}
                         </button>
                         <button
                           onClick={() => handleDelete(visitor)}
                           className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
                         >
-                          🗑️ حذف
+                          🗑️ {t('visitors.actions.delete')}
                         </button>
                       </div>
                     </td>
@@ -776,7 +809,11 @@ export default function VisitorsPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
                 {/* معلومات الصفحة */}
                 <div className="text-sm text-gray-600">
-                  عرض {startIndex + 1} - {Math.min(endIndex, filteredVisitors.length)} من {filteredVisitors.length} زائر
+                  {t('visitors.pagination.showing', {
+                    start: (startIndex + 1).toString(),
+                    end: Math.min(endIndex, filteredVisitors.length).toString(),
+                    total: filteredVisitors.length.toString()
+                  })}
                 </div>
 
                 {/* أزرار التنقل */}
@@ -785,18 +822,18 @@ export default function VisitorsPage() {
                     onClick={() => goToPage(1)}
                     disabled={currentPage === 1}
                     className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                    title="الصفحة الأولى"
+                    title={t('visitors.pagination.firstPage')}
                   >
-                    الأولى
+                    {t('visitors.pagination.first')}
                   </button>
 
                   <button
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                    title="السابقة"
+                    title={t('visitors.pagination.previousPage')}
                   >
-                    السابقة
+                    {t('visitors.pagination.previous')}
                   </button>
 
                   {/* أرقام الصفحات */}
@@ -833,24 +870,24 @@ export default function VisitorsPage() {
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                    title="التالية"
+                    title={t('visitors.pagination.nextPage')}
                   >
-                    التالية
+                    {t('visitors.pagination.next')}
                   </button>
 
                   <button
                     onClick={() => goToPage(totalPages)}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                    title="الصفحة الأخيرة"
+                    title={t('visitors.pagination.lastPage')}
                   >
-                    الأخيرة
+                    {t('visitors.pagination.last')}
                   </button>
                 </div>
 
                 {/* اختيار عدد العناصر في الصفحة */}
                 <div className="flex items-center gap-2 text-sm">
-                  <label className="text-gray-600">عدد العناصر:</label>
+                  <label className="text-gray-600">{t('visitors.pagination.itemsPerPage')}:</label>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
@@ -873,16 +910,16 @@ export default function VisitorsPage() {
                 <div className="text-5xl mb-3">🚶</div>
                 {monthFilter !== 'all' ? (
                   <>
-                    <p>لا يوجد زوار في {getMonthLabel(monthFilter)}</p>
+                    <p>{t('visitors.noVisitors.inMonth', { month: getMonthLabel(monthFilter) })}</p>
                     <button
                       onClick={() => setMonthFilter('all')}
                       className="mt-3 text-orange-600 hover:text-orange-700 font-medium"
                     >
-                      عرض كل الأشهر
+                      {t('visitors.noVisitors.showAll')}
                     </button>
                   </>
                 ) : (
-                  <p>لا يوجد زوار حالياً</p>
+                  <p>{t('visitors.noVisitors.current')}</p>
                 )}
               </div>
             )}
@@ -893,12 +930,12 @@ export default function VisitorsPage() {
       {/* History Modal - سجل المتابعات */}
       {showHistoryModal && selectedVisitorForHistory && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowHistoryModal(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={direction}>
             <div className="sticky top-0 bg-purple-600 text-white p-4 rounded-t-lg flex justify-between items-center">
               <div>
                 <h2 className="text-lg font-bold flex items-center gap-2">
                   <span>📋</span>
-                  <span>سجل المتابعات</span>
+                  <span>{t('visitors.historyModal.title')}</span>
                 </h2>
                 <p className="text-xs opacity-90 mt-0.5">
                   {selectedVisitorForHistory.name} - {selectedVisitorForHistory.phone}
@@ -916,7 +953,7 @@ export default function VisitorsPage() {
               {visitorHistory.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-2">📭</div>
-                  <p className="text-sm">لا توجد متابعات لهذا الزائر</p>
+                  <p className="text-sm">{t('visitors.historyModal.noFollowUps')}</p>
                   <button
                     onClick={() => {
                       setShowHistoryModal(false)
@@ -924,14 +961,14 @@ export default function VisitorsPage() {
                     }}
                     className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                   >
-                    ➕ إضافة أول متابعة
+                    ➕ {t('visitors.historyModal.addFirst')}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                     <p className="text-sm font-bold text-purple-900">
-                      المجموع: <span className="text-2xl">{visitorHistory.length}</span>
+                      {t('visitors.historyModal.total')}: <span className="text-2xl">{visitorHistory.length}</span>
                     </p>
                   </div>
 
@@ -947,12 +984,12 @@ export default function VisitorsPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xl font-bold text-gray-400">#{visitorHistory.length - index}</span>
                             <span className="text-xs text-gray-500">
-                              {new Date(fu.createdAt).toLocaleDateString('ar-EG')}
+                              {new Date(fu.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                             </span>
                             {fu.contacted ? (
-                              <span className="text-green-700 font-bold text-xs">✅ تم</span>
+                              <span className="text-green-700 font-bold text-xs">✅ {t('visitors.historyModal.completed')}</span>
                             ) : (
-                              <span className="text-orange-600 font-bold text-xs">⏳ لم يتم</span>
+                              <span className="text-orange-600 font-bold text-xs">⏳ {t('visitors.historyModal.notCompleted')}</span>
                             )}
                           </div>
                         </div>
@@ -972,7 +1009,7 @@ export default function VisitorsPage() {
 
                       {fu.nextFollowUpDate && (
                         <div className="text-xs text-gray-600">
-                          📅 القادمة: <span className="font-bold">{new Date(fu.nextFollowUpDate).toLocaleDateString('ar-EG')}</span>
+                          📅 {t('visitors.historyModal.nextFollowUp')}: <span className="font-bold">{new Date(fu.nextFollowUpDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}</span>
                         </div>
                       )}
                     </div>
@@ -992,8 +1029,8 @@ export default function VisitorsPage() {
           setVisitorToDelete(null)
         }}
         onConfirm={confirmDelete}
-        title="حذف زائر"
-        message="هل أنت متأكد من حذف هذا الزائر؟"
+        title={t('visitors.deleteModal.title')}
+        message={t('visitors.deleteModal.message')}
         itemName={visitorToDelete ? `${visitorToDelete.name} (${visitorToDelete.phone})` : ''}
         loading={deleteLoading}
       />

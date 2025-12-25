@@ -16,33 +16,32 @@ model Member {
   inBodyScans       Int          @default(0)
   invitations       Int          @default(0)
   freePTSessions    Int          @default(0)
+  remainingFreezeDays Int        @default(0)
   subscriptionPrice Float
   remainingAmount   Float        @default(0)
   notes             String?
   isActive          Boolean      @default(true)
+  isFrozen          Boolean      @default(false)
   startDate         DateTime?
   expiryDate        DateTime?
   createdAt         DateTime     @default(now())
-  invitationRecords Invitation[]
-  receipts          Receipt[]
-  checkIns          MemberCheckIn[]
+  invitationRecords    Invitation[]
+  receipts             Receipt[]
+  checkIns             MemberCheckIn[]
+  fitnessTest          FitnessTest?
+  fitnessTestRequests  FitnessTestRequest[]
 }
 
 model MemberCheckIn {
   id                    String    @id @default(cuid())
   memberId              String
   checkInTime           DateTime  @default(now())
-  expectedCheckOutTime  DateTime
-  actualCheckOutTime    DateTime?
-  isActive              Boolean   @default(true)
   checkInMethod         String    @default("scan")
 
   member                Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
-  @@index([isActive])
   @@index([checkInTime])
-  @@unique([memberId, isActive])
 }
 
 model PT {
@@ -159,33 +158,38 @@ model MemberCounter {
 }
 
 model Offer {
-  id             String   @id @default(cuid())
-  name           String
-  duration       Int
-  price          Float
-  freePTSessions Int      @default(0)
-  inBodyScans    Int      @default(0)
-  invitations    Int      @default(0)
-  icon           String   @default("📅")
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  name                    String
+  duration                Int
+  price                   Float
+  freePTSessions          Int      @default(0)
+  inBodyScans             Int      @default(0)
+  invitations             Int      @default(0)
+  freezeDays              Int      @default(0)
+  icon                    String   @default("📅")
+  isActive                Boolean  @default(true)
+  upgradeEligibilityDays  Int?     @default(7)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
 
 model Staff {
-  id         String       @id @default(cuid())
-  staffCode  String       @unique
-  name       String
-  phone      String?
-  position   String?
-  salary     Float?
-  notes      String?
-  isActive   Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  attendance Attendance[]
-  expenses   Expense[]
-  user       User?
+  id           String         @id @default(cuid())
+  staffCode    String         @unique
+  name         String
+  phone        String?
+  position     String?
+  salary       Float?
+  notes        String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  attendance          Attendance[]
+  expenses            Expense[]
+  user                User?
+  fitnessTests        FitnessTest[]
+  fitnessTestRequests FitnessTestRequest[] @relation("FitnessTestRequests")
+  rotations           Rotation[]
 
   @@index([staffCode])
 }
@@ -283,6 +287,8 @@ model Permission {
   canAccessClosing        Boolean @default(false)
   canAccessSettings       Boolean @default(false)
   canAccessAdmin          Boolean @default(false)
+  canCreateFitnessTest    Boolean @default(false)
+  canViewFitnessTests     Boolean @default(false)
   user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -298,4 +304,72 @@ model ActivityLog {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model FitnessTest {
+  id                String    @id @default(cuid())
+  memberId          String    @unique
+  coachId           String
+  coachUserId       String
+  testDate          DateTime
+
+  medFirstTimeGym              Boolean   @default(false)
+  medInDietPlan                Boolean   @default(false)
+  medHernia                    Boolean   @default(false)
+  medFamilyHeartHistory        Boolean   @default(false)
+  medHeartProblem              Boolean   @default(false)
+  medBackPain                  Boolean   @default(false)
+  medSurgery                   Boolean   @default(false)
+  medBreathingProblems         Boolean   @default(false)
+  medBloodPressure             Boolean   @default(false)
+  medKneeProblem               Boolean   @default(false)
+  medDiabetes                  Boolean   @default(false)
+  medSmoker                    Boolean   @default(false)
+  medHighCholesterol           Boolean   @default(false)
+
+  flexibilityData  String
+  exerciseData     String
+
+  createdAt        DateTime  @default(now())
+  createdBy        String
+
+  member           Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach            Staff     @relation(fields: [coachId], references: [id])
+
+  @@index([memberId])
+  @@index([coachUserId])
+}
+
+model FitnessTestRequest {
+  id           String   @id @default(cuid())
+  memberId     String
+  coachId      String
+  status       String   @default("pending") // pending, completed, cancelled
+  requestedBy  String
+  requestedAt  DateTime @default(now())
+  completedAt  DateTime?
+  notes        String?
+
+  member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach        Staff    @relation("FitnessTestRequests", fields: [coachId], references: [id])
+
+  @@index([coachId])
+  @@index([status])
+  @@index([memberId])
+}
+
+model Rotation {
+  id          String   @id @default(cuid())
+  staffId     String
+  dayOfWeek   String   // Monday, Tuesday, etc.
+  startTime   String   // "09:00"
+  endTime     String   // "17:00"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([dayOfWeek])
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { formatDateYMD } from '../../lib/dateFormatter'
 import ConfirmDeleteModal from '../../components/ConfirmDeleteModal'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface Invitation {
   id: string
@@ -18,6 +19,7 @@ interface Invitation {
 }
 
 export default function InvitationsPage() {
+  const { t } = useLanguage()
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -123,46 +125,46 @@ export default function InvitationsPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <span>🎟️</span>
-          <span>سجل الدعوات</span>
+          <span>{t('invitations.title')}</span>
         </h1>
-        <p className="text-gray-600 mt-2">جميع دعوات الأعضاء المستخدمة</p>
+        <p className="text-gray-600 mt-2">{t('invitations.subtitle')}</p>
       </div>
 
-      {/* إحصائيات */}
+      {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
-          <p className="text-sm opacity-90 mb-1">إجمالي الدعوات</p>
+          <p className="text-sm opacity-90 mb-1">{t('invitations.totalInvitations')}</p>
           <p className="text-4xl font-bold">{stats.total}</p>
         </div>
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 shadow-lg">
-          <p className="text-sm opacity-90 mb-1">اليوم</p>
+          <p className="text-sm opacity-90 mb-1">{t('invitations.today')}</p>
           <p className="text-4xl font-bold">{stats.today}</p>
         </div>
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 shadow-lg">
-          <p className="text-sm opacity-90 mb-1">هذا الأسبوع</p>
+          <p className="text-sm opacity-90 mb-1">{t('invitations.thisWeek')}</p>
           <p className="text-4xl font-bold">{stats.thisWeek}</p>
         </div>
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 shadow-lg">
-          <p className="text-sm opacity-90 mb-1">هذا الشهر</p>
+          <p className="text-sm opacity-90 mb-1">{t('invitations.thisMonth')}</p>
           <p className="text-4xl font-bold">{stats.thisMonth}</p>
         </div>
       </div>
 
-      {/* البحث والفلاتر */}
+      {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">🔍 البحث</label>
+            <label className="block text-sm font-medium mb-2">🔍 {t('invitations.search')}</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ابحث باسم الضيف، رقم الهاتف، أو العضو..."
+              placeholder={t('invitations.searchPlaceholder')}
               className="w-full px-4 py-2 border-2 rounded-lg"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">📅 تصفية بالتاريخ</label>
+            <label className="block text-sm font-medium mb-2">📅 {t('invitations.filterByDate')}</label>
             <input
               type="date"
               value={dateFilter}
@@ -180,20 +182,23 @@ export default function InvitationsPage() {
               }}
               className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-lg"
             >
-              ✖️ مسح الفلاتر
+              ✖️ {t('invitations.clearFilters')}
             </button>
             <p className="text-sm text-gray-600 py-1">
-              عرض {filteredInvitations.length} من {invitations.length} دعوة
+              {t('invitations.showing', {
+                count: filteredInvitations.length.toString(),
+                total: invitations.length.toString()
+              })}
             </p>
           </div>
         )}
       </div>
 
-      {/* القائمة / البطاقات */}
+      {/* List / Cards */}
       {loading ? (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">⏳</div>
-          <p className="text-xl">جاري التحميل...</p>
+          <p className="text-xl">{t('invitations.loading')}</p>
         </div>
       ) : (
         <div>
@@ -213,7 +218,7 @@ export default function InvitationsPage() {
                     onClick={() => handleDelete(invitation)}
                     className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded hover:bg-red-50"
                   >
-                    🗑️ حذف
+                    🗑️ {t('invitations.delete')}
                   </button>
                 </div>
 
@@ -225,7 +230,7 @@ export default function InvitationsPage() {
                   </div>
 
                   <div className="border-t pt-2">
-                    <p className="text-xs text-gray-500 mb-1">العضو المستضيف:</p>
+                    <p className="text-xs text-gray-500 mb-1">{t('invitations.hostingMemberLabel')}</p>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold">{invitation.member.name}</p>
@@ -239,7 +244,7 @@ export default function InvitationsPage() {
 
                   {invitation.notes && (
                     <div className="border-t pt-2">
-                      <p className="text-xs text-gray-500 mb-1">ملاحظات:</p>
+                      <p className="text-xs text-gray-500 mb-1">{t('invitations.notesLabel')}</p>
                       <p className="text-sm text-gray-700">{invitation.notes}</p>
                     </div>
                   )}
@@ -248,19 +253,19 @@ export default function InvitationsPage() {
             ))}
           </div>
 
-          {/* Table للشاشات الكبيرة */}
+          {/* Table for large screens */}
           <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-right">التاريخ</th>
-                    <th className="px-4 py-3 text-right">اسم الضيف</th>
-                    <th className="px-4 py-3 text-right">هاتف الضيف</th>
-                    <th className="px-4 py-3 text-right">العضو المستضيف</th>
-                    <th className="px-4 py-3 text-right">رقم العضوية</th>
-                    <th className="px-4 py-3 text-right">ملاحظات</th>
-                    <th className="px-4 py-3 text-right">إجراءات</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.date')}</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.guestName')}</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.guestPhone')}</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.hostingMember')}</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.membershipNumber')}</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.notes')}</th>
+                    <th className="px-4 py-3 text-right">{t('invitations.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,7 +315,7 @@ export default function InvitationsPage() {
                           onClick={() => handleDelete(invitation)}
                           className="text-red-600 hover:text-red-800 text-sm"
                         >
-                          حذف
+                          {t('invitations.delete')}
                         </button>
                       </td>
                     </tr>
@@ -323,29 +328,33 @@ export default function InvitationsPage() {
           {/* Pagination Controls */}
           {filteredInvitations.length > 0 && totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-gray-50 rounded-lg">
-              {/* معلومات الصفحة */}
+              {/* Page info */}
               <div className="text-sm text-gray-600">
-                عرض {startIndex + 1} - {Math.min(endIndex, filteredInvitations.length)} من {filteredInvitations.length} دعوة
+                {t('invitations.showingPagination', {
+                  start: (startIndex + 1).toString(),
+                  end: Math.min(endIndex, filteredInvitations.length).toString(),
+                  total: filteredInvitations.length.toString()
+                })}
               </div>
 
-              {/* أزرار التنقل */}
+              {/* Navigation buttons */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => goToPage(1)}
                   disabled={currentPage === 1}
                   className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="الصفحة الأولى"
+                  title={t('invitations.firstPage')}
                 >
-                  الأولى
+                  {t('invitations.firstPage')}
                 </button>
 
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="السابقة"
+                  title={t('invitations.previousPage')}
                 >
-                  السابقة
+                  {t('invitations.previousPage')}
                 </button>
 
                 {/* أرقام الصفحات */}
@@ -382,24 +391,24 @@ export default function InvitationsPage() {
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="التالية"
+                  title={t('invitations.nextPage')}
                 >
-                  التالية
+                  {t('invitations.nextPage')}
                 </button>
 
                 <button
                   onClick={() => goToPage(totalPages)}
                   disabled={currentPage === totalPages}
                   className="px-3 py-1 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                  title="الصفحة الأخيرة"
+                  title={t('invitations.lastPage')}
                 >
-                  الأخيرة
+                  {t('invitations.lastPage')}
                 </button>
               </div>
 
-              {/* اختيار عدد العناصر في الصفحة */}
+              {/* Items per page selector */}
               <div className="flex items-center gap-2 text-sm">
-                <label className="text-gray-600">عدد العناصر:</label>
+                <label className="text-gray-600">{t('invitations.itemsPerPage')}:</label>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
@@ -422,12 +431,12 @@ export default function InvitationsPage() {
               {searchTerm || dateFilter ? (
                 <>
                   <div className="text-5xl mb-3">🔍</div>
-                  <p>لا توجد نتائج تطابق البحث</p>
+                  <p>{t('invitations.noMatchingResults')}</p>
                 </>
               ) : (
                 <>
                   <div className="text-5xl mb-3">🎟️</div>
-                  <p>لا توجد دعوات مسجلة حتى الآن</p>
+                  <p>{t('invitations.noInvitationsYet')}</p>
                 </>
               )}
             </div>
@@ -435,10 +444,10 @@ export default function InvitationsPage() {
         </div>
       )}
 
-      {/* ملاحظة */}
+      {/* Note */}
       <div className="mt-6 bg-blue-50 border-r-4 border-blue-500 p-4 rounded-lg">
         <p className="text-sm text-blue-800">
-          <strong>💡 ملاحظة:</strong> هذا السجل يحتوي على جميع الدعوات التي استخدمها الأعضاء لإحضار ضيوف إلى الجيم.
+          <strong>{t('invitations.noteLabel')}</strong>
         </p>
       </div>
 
@@ -450,8 +459,8 @@ export default function InvitationsPage() {
           setInvitationToDelete(null)
         }}
         onConfirm={confirmDelete}
-        title="حذف دعوة"
-        message="هل أنت متأكد من حذف هذه الدعوة؟"
+        title={t('invitations.deleteModal.title')}
+        message={t('invitations.deleteModal.message')}
         itemName={invitationToDelete ? `${invitationToDelete.guestName} (${invitationToDelete.guestPhone})` : ''}
         loading={deleteLoading}
       />

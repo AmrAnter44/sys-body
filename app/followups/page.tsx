@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
 import FollowUpForm from './FollowUpForm'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface Visitor {
   id: string
@@ -35,6 +36,7 @@ interface Member {
 
 export default function FollowUpsPage() {
   const { hasPermission, loading: permissionsLoading } = usePermissions()
+  const { t, direction } = useLanguage()
 
   const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [visitors, setVisitors] = useState<Visitor[]>([])
@@ -425,16 +427,40 @@ export default function FollowUpsPage() {
           }
         }
 
+        // ✅ فلتر جديد: إخفاء المشتركين والمجددين
+        const isMember = isVisitorAMember(fu.visitor.phone)
+        const isExpired = fu.visitor.source === 'expired-member'
+        const isExpiring = fu.visitor.source === 'expiring-member'
+        const hasRenewed = isExpired && hasExpiredMemberRenewed(fu.visitor.phone)
+
+        // إخفاء الحالات التالية:
+        // 1. زائر عادي أصبح عضو نشط
+        if (isMember && !isExpired && !isExpiring) {
+          return false
+        }
+
+        // 2. عضو منتهي جدد اشتراكه
+        if (hasRenewed) {
+          return false
+        }
+
+        // 3. عضو قريب من الانتهاء لكن جدد مبكراً
+        if (isExpiring && isMember) {
+          return false
+        }
+
         return matchesSearch && matchesResult && matchesContacted && matchesPriority && matchesSource
       })
       .sort((a, b) => {
-        const aIsMember = isVisitorAMember(a.visitor.phone)
-        const bIsMember = isVisitorAMember(b.visitor.phone)
-        if (aIsMember && !bIsMember) return 1
-        if (!aIsMember && bIsMember) return -1
-        return 0
+        // ✅ ترتيب جديد حسب الأولوية
+        const aPriority = getFollowUpPriority(a)
+        const bPriority = getFollowUpPriority(b)
+
+        // ترتيب: overdue > today > upcoming > none
+        const priorityOrder: {[key: string]: number} = { overdue: 0, today: 1, upcoming: 2, none: 3 }
+        return priorityOrder[aPriority] - priorityOrder[bPriority]
       })
-  }, [allFollowUps, searchTerm, resultFilter, contactedFilter, priorityFilter, sourceFilter])
+  }, [allFollowUps, searchTerm, resultFilter, contactedFilter, priorityFilter, sourceFilter, members])
 
   // إعادة تعيين الصفحة للأولى عند تغيير الفلاتر
   useEffect(() => {
@@ -459,33 +485,33 @@ export default function FollowUpsPage() {
       postponed: 'bg-yellow-100 text-yellow-800',
       subscribed: 'bg-blue-100 text-blue-800',
     }
-    const labels = {
-      interested: 'مهتم',
-      'not-interested': 'غير مهتم',
-      postponed: 'مؤجل',
-      subscribed: 'اشترك',
+    const labels: Record<string, string> = {
+      interested: t('followups.results.interested'),
+      'not-interested': t('followups.results.notInterested'),
+      postponed: t('followups.results.postponed'),
+      subscribed: t('followups.results.subscribed'),
     }
     if (!result) return <span className="text-gray-400">-</span>
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${badges[result as keyof typeof badges] || 'bg-gray-100 text-gray-800'}`}>
-        {labels[result as keyof typeof labels] || result}
+        {labels[result] || result}
       </span>
     )
   }
 
   const getSourceLabel = (source: string) => {
-    const labels = {
-      'walk-in': 'زيارة مباشرة',
-      'invitation': '🎁 دعوة (يوم استخدام)',
-      'member-invitation': '👥 دعوة من عضو',
-      'expired-member': '❌ عضو منتهي (تجديد)',
-      'expiring-member': '⏰ اشتراك قرب ينتهي',
-      'facebook': 'فيسبوك',
-      'instagram': 'إنستجرام',
-      'friend': 'صديق',
-      'other': 'أخرى',
+    const labels: Record<string, string> = {
+      'walk-in': t('followups.sources.walkIn'),
+      'invitation': t('followups.sources.invitation'),
+      'member-invitation': t('followups.sources.memberInvitation'),
+      'expired-member': t('followups.sources.expiredMember'),
+      'expiring-member': t('followups.sources.expiringMember'),
+      'facebook': t('followups.sources.facebook'),
+      'instagram': t('followups.sources.instagram'),
+      'friend': t('followups.sources.friend'),
+      'other': t('followups.sources.other'),
     }
-    return labels[source as keyof typeof labels] || source
+    return labels[source] || source
   }
 
   const getPriorityBadge = (followUp: FollowUp) => {
@@ -494,21 +520,21 @@ export default function FollowUpsPage() {
     if (priority === 'overdue') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
-          🔥 متأخر
+          🔥 {t('followups.priority.overdue')}
         </span>
       )
     }
     if (priority === 'today') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800">
-          ⚡ اليوم
+          ⚡ {t('followups.priority.today')}
         </span>
       )
     }
     if (priority === 'upcoming') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          📅 قادم
+          📅 {t('followups.priority.upcoming')}
         </span>
       )
     }
@@ -529,33 +555,44 @@ export default function FollowUpsPage() {
     dayUse: dayUseRecords.length,
     invitations: invitations.length,
     visitors: visitors.length,
-    convertedToMembers: followUps.filter(fu => isVisitorAMember(fu.visitor.phone)).length
+    convertedToMembers: followUps.filter(fu => isVisitorAMember(fu.visitor.phone)).length,
+
+    // ✅ إحصائية جديدة: عدد المتابعات المخفية (اللي اشتركوا)
+    subscribedAndHidden: allFollowUps.filter(fu => {
+      const isMember = isVisitorAMember(fu.visitor.phone)
+      const isExpired = fu.visitor.source === 'expired-member'
+      const isExpiring = fu.visitor.source === 'expiring-member'
+      const hasRenewed = isExpired && hasExpiredMemberRenewed(fu.visitor.phone)
+
+      // نفس شروط الإخفاء
+      return (isMember && !isExpired && !isExpiring) || hasRenewed || (isExpiring && isMember)
+    }).length
   }
 
   // التحقق من الصلاحيات
   if (permissionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">جاري التحميل...</div>
+        <div className="text-xl">{t('followups.loading')}</div>
       </div>
     )
   }
 
   if (!hasPermission('canViewFollowUps')) {
-    return <PermissionDenied message="ليس لديك صلاحية عرض المتابعات" />
+    return <PermissionDenied message={t('followups.permissionDenied')} />
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir={direction}>
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <span>📝</span>
-              <span>إدارة المتابعات - Sales</span>
+              <span>{t('followups.title')}</span>
             </h1>
-            <p className="text-gray-600 mt-2">تتبع ومتابعة الزوار والعملاء المحتملين</p>
+            <p className="text-gray-600 mt-2">{t('followups.subtitle')}</p>
           </div>
           <button
             onClick={() => {
@@ -564,7 +601,7 @@ export default function FollowUpsPage() {
             }}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold shadow-lg"
           >
-            {showForm ? '❌ إغلاق' : '➕ متابعة جديدة'}
+            {showForm ? `❌ ${t('followups.close')}` : `➕ ${t('followups.addNew')}`}
           </button>
         </div>
 
@@ -573,7 +610,7 @@ export default function FollowUpsPage() {
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <label className="block text-sm font-bold text-yellow-900 mb-2">
-                ⏰ عرض الأعضاء اللي اشتراكهم هينتهي خلال:
+                ⏰ {t('followups.filters.expiringDays')}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -584,11 +621,11 @@ export default function FollowUpsPage() {
                   onChange={(e) => setExpiringDays(Number(e.target.value))}
                   className="px-4 py-2 border-2 border-yellow-400 rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 w-24"
                 />
-                <span className="text-lg font-bold text-yellow-900">يوم</span>
+                <span className="text-lg font-bold text-yellow-900">{t('followups.days')}</span>
               </div>
             </div>
             <div className="text-center">
-              <p className="text-xs text-yellow-800 mb-1">عدد الأعضاء</p>
+              <p className="text-xs text-yellow-800 mb-1">{t('followups.stats.membersCount')}</p>
               <p className="text-4xl font-bold text-yellow-900">{stats.expiringMembers}</p>
             </div>
           </div>
@@ -597,40 +634,44 @@ export default function FollowUpsPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">إجمالي</p>
+            <p className="text-xs opacity-90 mb-1">{t('followups.stats.total')}</p>
             <p className="text-3xl font-bold">{stats.total}</p>
           </div>
           <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">🔥 متأخر</p>
+            <p className="text-xs opacity-90 mb-1">🔥 {t('followups.stats.overdue')}</p>
             <p className="text-3xl font-bold">{stats.overdue}</p>
           </div>
           <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">⚡ اليوم</p>
+            <p className="text-xs opacity-90 mb-1">⚡ {t('followups.stats.today')}</p>
             <p className="text-3xl font-bold">{stats.today}</p>
           </div>
           <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">❌ منتهيين</p>
+            <p className="text-xs opacity-90 mb-1">❌ {t('followups.stats.expiredMembers')}</p>
             <p className="text-3xl font-bold">{stats.expiredMembers}</p>
           </div>
           <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">⏰ قرب ينتهي</p>
+            <p className="text-xs opacity-90 mb-1">⏰ {t('followups.stats.expiringMembers')}</p>
             <p className="text-3xl font-bold">{stats.expiringMembers}</p>
           </div>
           <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">🎁 Day Use</p>
+            <p className="text-xs opacity-90 mb-1">🎁 {t('followups.stats.dayUse')}</p>
             <p className="text-3xl font-bold">{stats.dayUse}</p>
           </div>
           <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">👥 دعوات</p>
+            <p className="text-xs opacity-90 mb-1">👥 {t('followups.stats.invitations')}</p>
             <p className="text-3xl font-bold">{stats.invitations}</p>
           </div>
           <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">👤 زوار</p>
+            <p className="text-xs opacity-90 mb-1">👤 {t('followups.stats.visitors')}</p>
             <p className="text-3xl font-bold">{stats.visitors}</p>
           </div>
           <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 shadow-lg">
-            <p className="text-xs opacity-90 mb-1">✅ اتصال</p>
+            <p className="text-xs opacity-90 mb-1">✅ {t('followups.stats.contactedToday')}</p>
             <p className="text-3xl font-bold">{stats.contactedToday}</p>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl p-4 shadow-lg">
+            <p className="text-xs opacity-90 mb-1">🎉 {t('followups.stats.subscribedAndHidden')}</p>
+            <p className="text-3xl font-bold">{stats.subscribedAndHidden}</p>
           </div>
         </div>
       </div>
@@ -667,7 +708,7 @@ export default function FollowUpsPage() {
               <div>
                 <h2 className="text-lg font-bold flex items-center gap-2">
                   <span>📋</span>
-                  <span>سجل المتابعات</span>
+                  <span>{t('followups.history.title')}</span>
                 </h2>
                 <p className="text-xs opacity-90 mt-0.5">
                   {selectedVisitorForHistory.name} - {selectedVisitorForHistory.phone}
@@ -685,13 +726,13 @@ export default function FollowUpsPage() {
               {visitorHistory.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-2">📭</div>
-                  <p className="text-sm">لا توجد متابعات</p>
+                  <p className="text-sm">{t('followups.history.noHistory')}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                     <p className="text-sm font-bold text-purple-900">
-                      المجموع: <span className="text-2xl">{visitorHistory.length}</span>
+                      {t('followups.history.total')}: <span className="text-2xl">{visitorHistory.length}</span>
                     </p>
                   </div>
 
@@ -710,9 +751,9 @@ export default function FollowUpsPage() {
                               {new Date(fu.createdAt).toLocaleDateString('ar-EG')}
                             </span>
                             {fu.contacted ? (
-                              <span className="text-green-700 font-bold text-xs">✅ تم</span>
+                              <span className="text-green-700 font-bold text-xs">✅ {t('followups.history.contacted')}</span>
                             ) : (
-                              <span className="text-orange-600 font-bold text-xs">⏳ لم يتم</span>
+                              <span className="text-orange-600 font-bold text-xs">⏳ {t('followups.history.notContacted')}</span>
                             )}
                           </div>
                         </div>
@@ -732,7 +773,7 @@ export default function FollowUpsPage() {
 
                       {fu.nextFollowUpDate && (
                         <div className="text-xs text-gray-600">
-                          📅 القادمة: <span className="font-bold">{new Date(fu.nextFollowUpDate).toLocaleDateString('ar-EG')}</span>
+                          📅 {t('followups.history.nextFollowUp')}: <span className="font-bold">{new Date(fu.nextFollowUpDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}</span>
                         </div>
                       )}
                     </div>
@@ -748,71 +789,71 @@ export default function FollowUpsPage() {
       <div className="bg-white p-4 rounded-lg shadow-md mb-6">
         <div className="grid grid-cols-5 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">🔍 بحث</label>
+            <label className="block text-sm font-medium mb-1">🔍 {t('followups.filters.search')}</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="ابحث باسم الزائر، رقم الهاتف، أو البائع..."
+              placeholder={t('followups.filters.searchPlaceholder')}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📂 المصدر</label>
+            <label className="block text-sm font-medium mb-1">📂 {t('followups.filters.source')}</label>
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
               className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">الكل</option>
-              <option value="expired-member">❌ أعضاء منتهيين</option>
-              <option value="expiring-member">⏰ أعضاء قرب ينتهي</option>
-              <option value="member-invitation">👥 دعوات أعضاء</option>
-              <option value="dayuse">🎁 Day Use</option>
-              <option value="visitors">👤 زوار</option>
+              <option value="all">{t('followups.filters.all')}</option>
+              <option value="expired-member">❌ {t('followups.sources.expiredMembers')}</option>
+              <option value="expiring-member">⏰ {t('followups.sources.expiringMembers')}</option>
+              <option value="member-invitation">👥 {t('followups.sources.memberInvitations')}</option>
+              <option value="dayuse">🎁 {t('followups.sources.dayUse')}</option>
+              <option value="visitors">👤 {t('followups.sources.visitors')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📊 الأولوية</label>
+            <label className="block text-sm font-medium mb-1">📊 {t('followups.filters.priority')}</label>
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
               className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">الكل</option>
-              <option value="overdue">🔥 متأخر</option>
-              <option value="today">⚡ اليوم</option>
-              <option value="upcoming">📅 قادم</option>
+              <option value="all">{t('followups.filters.all')}</option>
+              <option value="overdue">🔥 {t('followups.priority.overdue')}</option>
+              <option value="today">⚡ {t('followups.priority.today')}</option>
+              <option value="upcoming">📅 {t('followups.priority.upcoming')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📈 النتيجة</label>
+            <label className="block text-sm font-medium mb-1">📈 {t('followups.filters.result')}</label>
             <select
               value={resultFilter}
               onChange={(e) => setResultFilter(e.target.value)}
               className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">الكل</option>
-              <option value="interested">✅ مهتم</option>
-              <option value="not-interested">❌ غير مهتم</option>
-              <option value="postponed">⏸️ مؤجل</option>
-              <option value="subscribed">🎉 اشترك</option>
+              <option value="all">{t('followups.filters.all')}</option>
+              <option value="interested">✅ {t('followups.results.interested')}</option>
+              <option value="not-interested">❌ {t('followups.results.notInterested')}</option>
+              <option value="postponed">⏸️ {t('followups.results.postponed')}</option>
+              <option value="subscribed">🎉 {t('followups.results.subscribed')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">📞 التواصل</label>
+            <label className="block text-sm font-medium mb-1">📞 {t('followups.filters.contacted')}</label>
             <select
               value={contactedFilter}
               onChange={(e) => setContactedFilter(e.target.value)}
               className="w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">الكل</option>
-              <option value="contacted">✅ تم التواصل</option>
-              <option value="not-contacted">❌ لم يتم التواصل</option>
+              <option value="all">{t('followups.filters.all')}</option>
+              <option value="contacted">✅ {t('followups.filters.contactedYes')}</option>
+              <option value="not-contacted">❌ {t('followups.filters.contactedNo')}</option>
             </select>
           </div>
         </div>
@@ -827,7 +868,7 @@ export default function FollowUpsPage() {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            الكل ({allFollowUps.length})
+            {t('followups.filters.all')} ({allFollowUps.length})
           </button>
           <button
             onClick={() => setSourceFilter('expired-member')}
@@ -837,7 +878,7 @@ export default function FollowUpsPage() {
                 : 'bg-red-50 text-red-700 hover:bg-red-100'
             }`}
           >
-            ❌ أعضاء منتهيين ({stats.expiredMembers})
+            ❌ {t('followups.sources.expiredMembers')} ({stats.expiredMembers})
           </button>
           <button
             onClick={() => setSourceFilter('expiring-member')}
@@ -847,7 +888,7 @@ export default function FollowUpsPage() {
                 : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
             }`}
           >
-            ⏰ أعضاء قرب ينتهي ({stats.expiringMembers})
+            ⏰ {t('followups.sources.expiringMembers')} ({stats.expiringMembers})
           </button>
           <button
             onClick={() => setSourceFilter('member-invitation')}
@@ -857,7 +898,7 @@ export default function FollowUpsPage() {
                 : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
             }`}
           >
-            👥 دعوات أعضاء ({stats.invitations})
+            👥 {t('followups.sources.memberInvitations')} ({stats.invitations})
           </button>
           <button
             onClick={() => setSourceFilter('dayuse')}
@@ -867,7 +908,7 @@ export default function FollowUpsPage() {
                 : 'bg-pink-50 text-pink-700 hover:bg-pink-100'
             }`}
           >
-            🎁 Day Use ({stats.dayUse})
+            🎁 {t('followups.sources.dayUse')} ({stats.dayUse})
           </button>
           <button
             onClick={() => setSourceFilter('visitors')}
@@ -877,7 +918,7 @@ export default function FollowUpsPage() {
                 : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
             }`}
           >
-            👤 زوار ({stats.visitors})
+            👤 {t('followups.sources.visitors')} ({stats.visitors})
           </button>
         </div>
       </div>
@@ -886,30 +927,24 @@ export default function FollowUpsPage() {
       {loading ? (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">⏳</div>
-          <p className="text-xl">جاري التحميل...</p>
+          <p className="text-xl">{t('followups.loading')}</p>
         </div>
       ) : (
         <>
           {/* Mobile Cards View */}
           <div className="md:hidden space-y-4 mb-6">
             {currentFollowUps.map((followUp) => {
-              const isMember = isVisitorAMember(followUp.visitor.phone)
               const isExpired = followUp.visitor.source === 'expired-member'
               const isExpiring = followUp.visitor.source === 'expiring-member'
-              const hasRenewed = isExpired && hasExpiredMemberRenewed(followUp.visitor.phone)
 
               return (
                 <div
                   key={followUp.id}
                   className={`bg-white rounded-lg shadow-md p-4 ${
-                    hasRenewed
-                      ? 'border-r-4 border-green-500'
-                      : isExpired
+                    isExpired
                       ? 'border-r-4 border-red-500'
                       : isExpiring
                       ? 'border-r-4 border-yellow-500'
-                      : isMember
-                      ? 'border-r-4 border-green-500'
                       : 'border-r-4 border-blue-500'
                   }`}
                 >
@@ -917,19 +952,9 @@ export default function FollowUpsPage() {
                   <div className="flex justify-between items-start gap-2 mb-3">
                     <div className="flex items-center gap-2">
                       {getPriorityBadge(followUp)}
-                      {hasRenewed && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
-                          ✓ تم التجديد
-                        </span>
-                      )}
-                      {isMember && !isExpired && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
-                          ✓ عضو
-                        </span>
-                      )}
                     </div>
                     <div className="flex gap-2">
-                      {!hasRenewed && !isMember && isExpired && (
+                      {isExpired && (
                         <button
                           onClick={() => openQuickFollowUp(followUp.visitor)}
                           className="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded bg-red-50 hover:bg-red-100"
@@ -937,7 +962,7 @@ export default function FollowUpsPage() {
                           ➕
                         </button>
                       )}
-                      {!isMember && !isExpired && (
+                      {!isExpired && (
                         <button
                           onClick={() => openQuickFollowUp(followUp.visitor)}
                           className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1 rounded bg-blue-50 hover:bg-blue-100"
@@ -957,27 +982,23 @@ export default function FollowUpsPage() {
                   {/* Follow-up Info */}
                   <div className="space-y-2">
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">👤 الاسم:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">👤 {t('followups.table.name')}:</span>
                       <span className={`font-bold ${
-                        hasRenewed ? 'text-green-700' : isExpired ? 'text-red-700' : isMember ? 'text-green-700' : 'text-gray-900'
+                        isExpired ? 'text-red-700' : 'text-gray-900'
                       }`}>
                         {followUp.visitor.name}
                       </span>
                     </div>
 
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">📱 الهاتف:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">📱 {t('followups.table.phone')}:</span>
                       <a
                         href={`https://wa.me/2${followUp.visitor.phone}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg font-medium text-sm ${
-                          hasRenewed
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : isExpired
+                          isExpired
                             ? 'bg-red-600 hover:bg-red-700 text-white'
-                            : isMember
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
                             : 'bg-green-500 hover:bg-green-600 text-white'
                         }`}
                       >
@@ -987,7 +1008,7 @@ export default function FollowUpsPage() {
                     </div>
 
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">📂 المصدر:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">📂 {t('followups.table.source')}:</span>
                       <span className={`${
                         followUp.visitor.source === 'invitation'
                           ? 'bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium'
@@ -1005,43 +1026,43 @@ export default function FollowUpsPage() {
 
                     {followUp.salesName && (
                       <div className="flex items-start gap-2">
-                        <span className="text-gray-500 text-sm min-w-[70px]">🧑‍💼 البائع:</span>
+                        <span className="text-gray-500 text-sm min-w-[70px]">🧑‍💼 {t('followups.table.sales')}:</span>
                         <span className="text-orange-600 font-semibold text-sm">{followUp.salesName}</span>
                       </div>
                     )}
 
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">📝 الملاحظات:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">📝 {t('followups.table.notes')}:</span>
                       <p className="text-sm text-gray-700 flex-1">{followUp.notes}</p>
                     </div>
 
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">📊 النتيجة:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">📊 {t('followups.table.result')}:</span>
                       {getResultBadge(followUp.result)}
                     </div>
 
                     {followUp.nextFollowUpDate && (
                       <div className="flex items-start gap-2">
-                        <span className="text-gray-500 text-sm min-w-[70px]">📅 القادمة:</span>
+                        <span className="text-gray-500 text-sm min-w-[70px]">📅 {t('followups.table.nextFollowUp')}:</span>
                         <span className="text-sm font-medium">
-                          {new Date(followUp.nextFollowUpDate).toLocaleDateString('ar-EG')}
+                          {new Date(followUp.nextFollowUpDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                         </span>
                       </div>
                     )}
 
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">📅 التاريخ:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">📅 {t('followups.table.date')}:</span>
                       <span className="text-xs text-gray-500">
-                        {new Date(followUp.createdAt).toLocaleDateString('ar-EG')}
+                        {new Date(followUp.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                       </span>
                     </div>
 
                     <div className="flex items-start gap-2">
-                      <span className="text-gray-500 text-sm min-w-[70px]">📞 التواصل:</span>
+                      <span className="text-gray-500 text-sm min-w-[70px]">📞 {t('followups.table.contacted')}:</span>
                       {followUp.contacted ? (
-                        <span className="text-green-600 text-sm">✅ تم التواصل</span>
+                        <span className="text-green-600 text-sm">✅ {t('followups.labels.contactedYes')}</span>
                       ) : (
-                        <span className="text-orange-600 text-sm">⏳ لم يتم التواصل</span>
+                        <span className="text-orange-600 text-sm">⏳ {t('followups.labels.contactedNo')}</span>
                       )}
                     </div>
                   </div>
@@ -1054,17 +1075,17 @@ export default function FollowUpsPage() {
                 {searchTerm || resultFilter !== 'all' || contactedFilter !== 'all' || priorityFilter !== 'all' ? (
                   <>
                     <div className="text-5xl mb-3">🔍</div>
-                    <p>لا توجد نتائج تطابق البحث</p>
+                    <p>{t('followups.messages.noResults')}</p>
                   </>
                 ) : (
                   <>
                     <div className="text-5xl mb-3">📝</div>
-                    <p>لا توجد متابعات مسجلة حتى الآن</p>
+                    <p>{t('followups.messages.noFollowups')}</p>
                     <button
                       onClick={() => setShowForm(true)}
                       className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                     >
-                      ➕ إضافة أول متابعة
+                      ➕ {t('followups.messages.addFirst')}
                     </button>
                   </>
                 )}
@@ -1078,36 +1099,30 @@ export default function FollowUpsPage() {
               <table className="w-full">
               <thead className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-right">الأولوية</th>
-                  <th className="px-4 py-3 text-right">الزائر</th>
-                  <th className="px-4 py-3 text-right">الهاتف</th>
-                  <th className="px-4 py-3 text-right">المصدر</th>
-                  <th className="px-4 py-3 text-right">البائع</th>
-                  <th className="px-4 py-3 text-right">ملاحظات</th>
-                  <th className="px-4 py-3 text-right">النتيجة</th>
-                  <th className="px-4 py-3 text-right">المتابعة القادمة</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.priority')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.visitor')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.phone')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.source')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.sales')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.notes')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.result')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.nextFollowUp')}</th>
+                  <th className={`px-4 py-3 text-${direction === 'rtl' ? 'right' : 'left'}`}>{t('followups.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {currentFollowUps.map((followUp) => {
-                  const isMember = isVisitorAMember(followUp.visitor.phone)
                   const isExpired = followUp.visitor.source === 'expired-member'
                   const isExpiring = followUp.visitor.source === 'expiring-member'
-                  const hasRenewed = isExpired && hasExpiredMemberRenewed(followUp.visitor.phone)
 
                   return (
                   <tr
                     key={followUp.id}
                     className={`border-t transition-colors ${
-                      hasRenewed
-                        ? 'bg-green-50 hover:bg-green-100'
-                        : isExpired
+                      isExpired
                         ? 'bg-red-50 hover:bg-red-100'
                         : isExpiring
                         ? 'bg-yellow-50 hover:bg-yellow-100'
-                        : isMember
-                        ? 'bg-green-50 hover:bg-green-100'
                         : 'hover:bg-blue-50'
                     }`}
                   >
@@ -1116,28 +1131,16 @@ export default function FollowUpsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className={`font-semibold ${
-                            hasRenewed ? 'text-green-700' : isExpired ? 'text-red-700' : isMember ? 'text-green-700' : 'text-gray-900'
-                          }`}>
-                            {followUp.visitor.name}
-                          </p>
-                          {hasRenewed && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
-                              ✓ تم التجديد
-                            </span>
-                          )}
-                          {isMember && !isExpired && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">
-                              ✓ عضو
-                            </span>
-                          )}
-                        </div>
+                        <p className={`font-semibold ${
+                          isExpired ? 'text-red-700' : 'text-gray-900'
+                        }`}>
+                          {followUp.visitor.name}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {followUp.contacted ? (
-                            <span className="text-green-600">✅ تم التواصل</span>
+                            <span className="text-green-600">✅ {t('followups.labels.contactedYes')}</span>
                           ) : (
-                            <span className="text-orange-600">⏳ لم يتم التواصل</span>
+                            <span className="text-orange-600">⏳ {t('followups.labels.contactedNo')}</span>
                           )}
                         </p>
                       </div>
@@ -1148,12 +1151,8 @@ export default function FollowUpsPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg font-medium text-sm transition-colors ${
-                          hasRenewed
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : isExpired
+                          isExpired
                             ? 'bg-red-600 hover:bg-red-700 text-white'
-                            : isMember
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
                             : 'bg-green-500 hover:bg-green-600 text-white'
                         }`}
                       >
@@ -1192,7 +1191,7 @@ export default function FollowUpsPage() {
                           {followUp.notes.length > 50 ? followUp.notes.substring(0, 50) + '...' : followUp.notes}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(followUp.createdAt).toLocaleDateString('ar-EG')}
+                          {new Date(followUp.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                         </p>
                       </div>
                     </td>
@@ -1202,7 +1201,7 @@ export default function FollowUpsPage() {
                     <td className="px-4 py-3">
                       {followUp.nextFollowUpDate ? (
                         <span className="text-sm font-medium">
-                          {new Date(followUp.nextFollowUpDate).toLocaleDateString('ar-EG')}
+                          {new Date(followUp.nextFollowUpDate).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                         </span>
                       ) : (
                         <span className="text-gray-400">-</span>
@@ -1210,42 +1209,32 @@ export default function FollowUpsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 flex-wrap">
-                        {hasRenewed && (
-                          <span className="text-green-700 text-sm font-bold px-3 py-1">
-                            ✅ تم التجديد
-                          </span>
-                        )}
-                        {!hasRenewed && !isMember && isExpired && (
+                        {isExpired && (
                           <button
                             onClick={() => openQuickFollowUp(followUp.visitor)}
                             className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100"
-                            title="إضافة متابعة للتجديد"
+                            title={t('followups.actions.addFollowupRenewal')}
                           >
-                            ➕ متابعة
+                            ➕ {t('followups.actions.followup')}
                           </button>
                         )}
-                        {!isMember && !isExpired && (
+                        {!isExpired && (
                           <button
                             onClick={() => openQuickFollowUp(followUp.visitor)}
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-50 hover:bg-blue-100"
-                            title="إضافة متابعة جديدة"
+                            title={t('followups.actions.addFollowupNew')}
                           >
-                            ➕ متابعة
+                            ➕ {t('followups.actions.followup')}
                           </button>
-                        )}
-                        {isMember && !isExpired && (
-                          <span className="text-green-700 text-sm font-bold px-3 py-1">
-                            ✅ تم الاشتراك
-                          </span>
                         )}
 
                         {/* زر سجل المتابعات */}
                         <button
                           onClick={() => openHistoryModal(followUp.visitor)}
                           className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded bg-purple-50 hover:bg-purple-100"
-                          title="عرض سجل المتابعات"
+                          title={t('followups.actions.viewHistory')}
                         >
-                          📋 السجل
+                          📋 {t('followups.actions.history')}
                         </button>
                       </div>
                     </td>
@@ -1261,17 +1250,17 @@ export default function FollowUpsPage() {
                 {searchTerm || resultFilter !== 'all' || contactedFilter !== 'all' || priorityFilter !== 'all' ? (
                   <>
                     <div className="text-5xl mb-3">🔍</div>
-                    <p>لا توجد نتائج تطابق البحث</p>
+                    <p>{t('followups.messages.noResults')}</p>
                   </>
                 ) : (
                   <>
                     <div className="text-5xl mb-3">📝</div>
-                    <p>لا توجد متابعات مسجلة حتى الآن</p>
+                    <p>{t('followups.messages.noFollowups')}</p>
                     <button
                       onClick={() => setShowForm(true)}
                       className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                     >
-                      ➕ إضافة أول متابعة
+                      ➕ {t('followups.messages.addFirst')}
                     </button>
                   </>
                 )}
@@ -1285,12 +1274,12 @@ export default function FollowUpsPage() {
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 {/* معلومات الصفحة */}
                 <div className="text-sm text-gray-600">
-                  عرض {startIndex + 1} إلى {Math.min(endIndex, filteredFollowUps.length)} من {filteredFollowUps.length} متابعة
+                  {t('followups.pagination.showing')} {startIndex + 1} {t('followups.pagination.to')} {Math.min(endIndex, filteredFollowUps.length)} {t('followups.pagination.of')} {filteredFollowUps.length} {t('followups.pagination.followups')}
                 </div>
 
                 {/* عدد العناصر في الصفحة */}
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600">عدد العناصر:</label>
+                  <label className="text-sm text-gray-600">{t('followups.pagination.itemsPerPage')}:</label>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
@@ -1314,14 +1303,14 @@ export default function FollowUpsPage() {
                       disabled={currentPage === 1}
                       className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                     >
-                      الأولى
+                      {t('followups.pagination.first')}
                     </button>
                     <button
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
                       className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                     >
-                      السابقة
+                      {t('followups.pagination.previous')}
                     </button>
 
                     {/* أرقام الصفحات */}
@@ -1359,14 +1348,14 @@ export default function FollowUpsPage() {
                       disabled={currentPage === totalPages}
                       className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                     >
-                      التالية
+                      {t('followups.pagination.next')}
                     </button>
                     <button
                       onClick={() => goToPage(totalPages)}
                       disabled={currentPage === totalPages}
                       className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                     >
-                      الأخيرة
+                      {t('followups.pagination.last')}
                     </button>
                   </div>
                 )}
@@ -1374,7 +1363,7 @@ export default function FollowUpsPage() {
 
               {/* معلومات إضافية */}
               <div className="mt-4 text-center text-sm text-gray-500">
-                الصفحة {currentPage} من {totalPages}
+                {t('followups.pagination.page')} {currentPage} {t('followups.pagination.of')} {totalPages}
               </div>
             </div>
           )}
@@ -1385,26 +1374,26 @@ export default function FollowUpsPage() {
       <div className="mt-6 bg-gradient-to-br from-green-500 to-green-600 border-r-4 border-green-700 p-6 rounded-xl shadow-lg">
         <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-xl">
           <span>🎯</span>
-          <span>معدل النجاح - الزوار اللي تحولوا لأعضاء</span>
+          <span>{t('followups.successRate.title')}</span>
         </h3>
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white/90 backdrop-blur p-5 rounded-lg shadow-md">
-            <p className="text-sm text-gray-600 font-medium mb-1">إجمالي المتابعات</p>
+            <p className="text-sm text-gray-600 font-medium mb-1">{t('followups.successRate.totalFollowups')}</p>
             <p className="text-4xl font-bold text-gray-900">{stats.total}</p>
           </div>
           <div className="bg-white/90 backdrop-blur p-5 rounded-lg shadow-md">
-            <p className="text-sm text-gray-600 font-medium mb-1">تحولوا لأعضاء ✓</p>
+            <p className="text-sm text-gray-600 font-medium mb-1">{t('followups.successRate.convertedToMembers')}</p>
             <p className="text-4xl font-bold text-green-600">{stats.convertedToMembers}</p>
           </div>
           <div className="bg-white/90 backdrop-blur p-5 rounded-lg shadow-md">
-            <p className="text-sm text-gray-600 font-medium mb-1">نسبة التحويل</p>
+            <p className="text-sm text-gray-600 font-medium mb-1">{t('followups.successRate.conversionRate')}</p>
             <p className="text-4xl font-bold text-blue-600">
               {stats.total > 0 ? ((stats.convertedToMembers / stats.total) * 100).toFixed(1) : '0'}%
             </p>
           </div>
         </div>
         <p className="text-sm text-white mt-4 bg-green-700/30 p-3 rounded-lg">
-          💡 <strong>ملاحظة:</strong> السطور الخضراء = زوار أصبحوا أعضاء | السطور الحمراء = أعضاء منتهيين يحتاجون تجديد | السطور الصفراء = أعضاء اشتراكهم قرب ينتهي
+          💡 <strong>{t('followups.successRate.noteLabel')}:</strong> {t('followups.successRate.noteText')}
         </p>
       </div>
 
@@ -1412,15 +1401,15 @@ export default function FollowUpsPage() {
       <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-r-4 border-blue-500 p-5 rounded-lg">
         <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
           <span>💡</span>
-          <span>نصائح سريعة لفريق المبيعات</span>
+          <span>{t('followups.tips.title')}</span>
         </h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• 🔥 <strong>المتابعات المتأخرة:</strong> ابدأ بها أولاً - العميل قد يكون قرر بالفعل</li>
-          <li>• ⚡ <strong>متابعات اليوم:</strong> تواصل الآن للحصول على أفضل نتائج</li>
-          <li>• 💬 <strong>زر WhatsApp:</strong> اضغط على رقم الهاتف للتواصل السريع</li>
-          <li>• ⏰ <strong>السطور الصفراء:</strong> أعضاء اشتراكهم قرب ينتهي - تواصل قبل ما يروح!</li>
-          <li>• ❌ <strong>السطور الحمراء:</strong> أعضاء منتهيين - فرصة ذهبية للتجديد!</li>
-          <li>• ✅ <strong>السطور الخضراء:</strong> زوار نجحت متابعتهم - تعلم من الأسلوب!</li>
+          <li>• 🔥 <strong>{t('followups.tips.overdue.title')}:</strong> {t('followups.tips.overdue.text')}</li>
+          <li>• ⚡ <strong>{t('followups.tips.today.title')}:</strong> {t('followups.tips.today.text')}</li>
+          <li>• 💬 <strong>{t('followups.tips.whatsapp.title')}:</strong> {t('followups.tips.whatsapp.text')}</li>
+          <li>• ⏰ <strong>{t('followups.tips.yellow.title')}:</strong> {t('followups.tips.yellow.text')}</li>
+          <li>• ❌ <strong>{t('followups.tips.red.title')}:</strong> {t('followups.tips.red.text')}</li>
+          <li>• ✅ <strong>{t('followups.tips.green.title')}:</strong> {t('followups.tips.green.text')}</li>
         </ul>
       </div>
     </div>

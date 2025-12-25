@@ -34,16 +34,17 @@ export async function POST(request: Request) {
     await requirePermission(request, 'canEditMembers')
     
     const body = await request.json()
-    const { 
-      memberId, 
-      subscriptionPrice, 
-      remainingAmount, 
-      freePTSessions, 
+    const {
+      memberId,
+      subscriptionPrice,
+      remainingAmount,
+      freePTSessions,
       inBodyScans,
       invitations,
-      startDate, 
-      expiryDate, 
-      notes, 
+      remainingFreezeDays,
+      startDate,
+      expiryDate,
+      notes,
       paymentMethod,
       staffName
     } = body
@@ -84,9 +85,15 @@ export async function POST(request: Request) {
     const additionalInvitations = invitations || 0
     const totalInvitations = currentInvitations + additionalInvitations
 
+    // حساب Freeze Days الجديد (الحالي + الإضافي)
+    const currentFreezeDays = member.remainingFreezeDays || 0
+    const additionalFreezeDays = remainingFreezeDays || 0
+    const totalFreezeDays = currentFreezeDays + additionalFreezeDays
+
     console.log('💪 حصص PT: الحالية =', currentFreePT, '+ الإضافية =', additionalFreePT, '= الإجمالي =', totalFreePT)
     console.log('⚖️ InBody: الحالي =', currentInBody, '+ الإضافي =', additionalInBody, '= الإجمالي =', totalInBody)
     console.log('🎟️ Invitations: الحالية =', currentInvitations, '+ الإضافية =', additionalInvitations, '= الإجمالي =', totalInvitations)
+    console.log('❄️ Freeze Days: الحالية =', currentFreezeDays, '+ الإضافية =', additionalFreezeDays, '= الإجمالي =', totalFreezeDays)
 
     // تحديث بيانات العضو
     const updatedMember = await prisma.member.update({
@@ -97,6 +104,7 @@ export async function POST(request: Request) {
         freePTSessions: totalFreePT,
         inBodyScans: totalInBody,
         invitations: totalInvitations,
+        remainingFreezeDays: totalFreezeDays,
         startDate: startDate ? new Date(startDate) : null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         isActive: true,
@@ -159,6 +167,10 @@ export async function POST(request: Request) {
             invitations: additionalInvitations,
             previousInvitations: currentInvitations,
             totalInvitations: totalInvitations,
+            // Freeze Days في الإيصال
+            remainingFreezeDays: additionalFreezeDays,
+            previousFreezeDays: currentFreezeDays,
+            totalFreezeDays: totalFreezeDays,
             // التواريخ
             previousExpiryDate: member.expiryDate,
             newStartDate: startDate,

@@ -9,26 +9,34 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
-    
-    // البحث عن المستخدم
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { permissions: true }
+
+    // البحث عن المستخدم بالإيميل أو الاسم
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: email },
+          { name: email }  // إذا أدخل اسم بدلاً من email
+        ]
+      },
+      include: {
+        permissions: true,
+        staff: true  // ✅ جلب بيانات الموظف
+      }
     })
-    
+
     if (!user) {
       return NextResponse.json(
-        { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' },
+        { error: 'الاسم أو البريد الإلكتروني أو كلمة المرور غير صحيحة' },
         { status: 401 }
       )
     }
     
     // التحقق من كلمة المرور
     const isValidPassword = await bcrypt.compare(password, user.password)
-    
+
     if (!isValidPassword) {
       return NextResponse.json(
-        { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' },
+        { error: 'الاسم أو البريد الإلكتروني أو كلمة المرور غير صحيحة' },
         { status: 401 }
       )
     }
@@ -40,28 +48,41 @@ export async function POST(request: Request) {
         { status: 403 }
       )
     }
-    
+
+    // ✅ استخدام الاسم من جدول Staff إذا كان المستخدم موظف
+    const displayName = user.staff?.name || user.name
+
+    console.log('✅ تسجيل دخول:', {
+      email: user.email,
+      role: user.role,
+      userTableName: user.name,
+      staffTableName: user.staff?.name,
+      displayName: displayName
+    })
+
     // إنشاء JWT token
     const token = jwt.sign(
       {
         userId: user.id,
-        name: user.name,
+        name: displayName,  // ✅ استخدام الاسم من Staff
         email: user.email,
         role: user.role,
+        staffId: user.staffId,
         permissions: user.permissions
       },
       JWT_SECRET,
       { expiresIn: '7d' }
     )
-    
+
     // إرجاع التوكن
     const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
-        name: user.name,
+        name: displayName,  // ✅ استخدام الاسم من Staff
         email: user.email,
-        role: user.role
+        role: user.role,
+        staffId: user.staffId
       }
     })
     

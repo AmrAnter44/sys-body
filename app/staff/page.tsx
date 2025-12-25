@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { usePermissions } from '../../hooks/usePermissions'
 import PermissionDenied from '../../components/PermissionDenied'
 import StaffBarcodeWhatsApp from '../../components/StaffBarcodeWhatsApp'
 import ConfirmDeleteModal from '../../components/ConfirmDeleteModal'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface Staff {
   id: string
@@ -30,20 +32,42 @@ interface Attendance {
   createdAt: string
 }
 
-const POSITIONS = [
-  { value: 'مدرب', label: '💪 مدرب', icon: '💪' },
-  { value: 'ريسبشن', label: '👔 ريسبشن', icon: '👔' },
-  { value: 'بار', label: '☕ بار', icon: '☕' },
-  { value: 'HK', label: '🧹 HK (نظافة)', icon: '🧹' },
-  { value: 'مدير', label: '👨‍💼 مدير', icon: '👨‍💼' },
-  { value: 'محاسب', label: '💼 محاسب', icon: '💼' },
-  { value: 'صيانة', label: '🔧 صيانة', icon: '🔧' },
-  { value: 'أمن', label: '🛡️ أمن', icon: '🛡️' },
-  { value: 'other', label: '📝 أخرى...', icon: '📝' },
-]
+// Map Arabic position values to translation keys
+const POSITION_MAP: { [key: string]: string } = {
+  'مدرب': 'trainer',
+  'ريسبشن': 'receptionist',
+  'بار': 'barista',
+  'HK': 'housekeeping',
+  'نظافة': 'housekeeping',
+  'مدير': 'manager',
+  'محاسب': 'accountant',
+  'صيانة': 'maintenance',
+  'أمن': 'security',
+  'other': 'other',
+}
 
 export default function StaffPage() {
   const router = useRouter()
+  const { t } = useLanguage()
+
+  const POSITIONS = [
+    { value: 'مدرب', label: `💪 ${t('positions.trainer')}`, icon: '💪' },
+    { value: 'ريسبشن', label: `👔 ${t('positions.receptionist')}`, icon: '👔' },
+    { value: 'بار', label: `☕ ${t('positions.barista')}`, icon: '☕' },
+    { value: 'HK', label: `🧹 ${t('positions.housekeeping')}`, icon: '🧹' },
+    { value: 'مدير', label: `👨‍💼 ${t('positions.manager')}`, icon: '👨‍💼' },
+    { value: 'محاسب', label: `💼 ${t('positions.accountant')}`, icon: '💼' },
+    { value: 'صيانة', label: `🔧 ${t('positions.maintenance')}`, icon: '🔧' },
+    { value: 'أمن', label: `🛡️ ${t('positions.security')}`, icon: '🛡️' },
+    { value: 'other', label: `📝 ${t('positions.other')}`, icon: '📝' },
+  ]
+
+  // Helper function to translate position
+  const getPositionLabel = (position: string | null): string => {
+    if (!position) return '-'
+    const key = POSITION_MAP[position] || 'other'
+    return t(`positions.${key}` as any)
+  }
   const { hasPermission, loading: permissionsLoading } = usePermissions()
 
   const [staff, setStaff] = useState<Staff[]>([])
@@ -205,19 +229,23 @@ const handleScan = async (staffCode: string) => {
 
     if (response.ok) {
       playSuccessSound();
-      setScanMessage(data.message);
+      // ترجمة الرسالة حسب نوع العملية
+      const translatedMessage = data.action === 'check-in'
+        ? t('staff.scanner.checkInSuccess')
+        : t('staff.scanner.checkOutSuccess');
+      setScanMessage(translatedMessage);
       setLastScanTime(new Date());
       fetchTodayAttendance();
       setTimeout(() => setScanMessage(''), 5000);
     } else {
       playErrorSound();
-      setScanMessage(`❌ ${data.error || 'فشل تسجيل الحضور'}`);
+      setScanMessage(`❌ ${data.error || t('staff.scanner.errorRegister')}`);
       setTimeout(() => setScanMessage(''), 5000);
     }
   } catch (error) {
     console.error('Scan error:', error);
     playErrorSound();
-    setScanMessage('❌ حدث خطأ في تسجيل الحضور');
+    setScanMessage(t('staff.scanner.errorOccurred'));
     setTimeout(() => setScanMessage(''), 5000);
   }
 };
@@ -274,8 +302,15 @@ const handleScan = async (staffCode: string) => {
       (pos) => pos.value === staffMember.position && pos.value !== 'other'
     )
 
+    // ✅ تحويل staffCode من s022 إلى 100000022
+    let displayCode = staffMember.staffCode
+    if (staffMember.staffCode.startsWith('s') || staffMember.staffCode.startsWith('S')) {
+      const numericPart = parseInt(staffMember.staffCode.substring(1), 10)
+      displayCode = (100000000 + numericPart).toString()
+    }
+
     setFormData({
-      staffCode: staffMember.staffCode,
+      staffCode: displayCode,
       name: staffMember.name,
       phone: staffMember.phone || '',
       position: isStandardPosition ? staffMember.position || '' : 'other',
@@ -302,13 +337,13 @@ const handleScan = async (staffCode: string) => {
       formData.position === 'other' ? formData.customPosition : formData.position
 
     if (!finalPosition) {
-      setMessage('❌ يرجى تحديد الوظيفة')
+      setMessage(t('staff.messages.selectPosition'))
       setLoading(false)
       return
     }
 
     if (!formData.staffCode) {
-      setMessage('❌ يرجى إدخال رقم الموظف')
+      setMessage(t('staff.messages.enterNumber'))
       setLoading(false)
       return
     }
@@ -316,7 +351,7 @@ const handleScan = async (staffCode: string) => {
     // ✅ التحقق من أن الرقم 9 أرقام
     const numericCode = formData.staffCode.replace(/[sS]/g, '')
     if (!/^\d{9}$/.test(numericCode)) {
-      setMessage('❌ رقم الموظف يجب أن يكون 9 أرقام بالضبط (مثل: 100000022)')
+      setMessage(t('staff.messages.invalidNumber'))
       setLoading(false)
       return
     }
@@ -343,17 +378,17 @@ const handleScan = async (staffCode: string) => {
       const data = await response.json()
 
       if (response.ok) {
-        setMessage(editingStaff ? '✅ تم تحديث الموظف بنجاح!' : '✅ تم إضافة الموظف بنجاح!')
+        setMessage(editingStaff ? t('staff.messages.updated') : t('staff.messages.added'))
         setTimeout(() => setMessage(''), 3000)
         fetchStaff()
         resetForm()
       } else {
-        setMessage(`❌ ${data.error || 'فشلت العملية'}`)
+        setMessage(`❌ ${data.error || t('staff.messages.failed')}`)
         setTimeout(() => setMessage(''), 5000)
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ')
+      setMessage(t('staff.messages.error'))
     } finally {
       setLoading(false)
     }
@@ -394,18 +429,18 @@ const handleScan = async (staffCode: string) => {
       const data = await response.json()
 
       if (response.ok) {
-        setMessage('✅ تم حذف الموظف بنجاح!')
+        setMessage(t('staff.messages.deleted'))
         setTimeout(() => setMessage(''), 3000)
         fetchStaff()
         setShowDeleteModal(false)
         setStaffToDelete(null)
       } else {
-        setMessage(`❌ ${data.error || 'فشل حذف الموظف'}`)
+        setMessage(`❌ ${data.error || t('staff.messages.deleteFailed')}`)
         setTimeout(() => setMessage(''), 5000)
       }
     } catch (error) {
       console.error('Error deleting staff:', error)
-      setMessage('❌ حدث خطأ أثناء حذف الموظف')
+      setMessage(t('staff.messages.deleteError'))
       setTimeout(() => setMessage(''), 5000)
     } finally {
       setDeleteLoading(false)
@@ -449,7 +484,7 @@ const handleScan = async (staffCode: string) => {
   if (permissionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">جاري التحميل...</div>
+        <div className="text-xl">{t('staff.loading')}</div>
       </div>
     )
   }
@@ -466,13 +501,13 @@ const handleScan = async (staffCode: string) => {
           <div>
             <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
               <span className="text-5xl">🔢</span>
-              <span>سكانر الحضور والانصراف</span>
+              <span>{t('staff.scanner.title')}</span>
             </h2>
-            <p className="text-blue-100">اكتب رقم الموظف للتسجيل التلقائي</p>
+            <p className="text-blue-100">{t('staff.scanner.subtitle')}</p>
           </div>
           {lastScanTime && (
             <div className="bg-white/20 backdrop-blur px-6 py-3 rounded-xl">
-              <p className="text-sm">آخر تسجيل</p>
+              <p className="text-sm">{t('staff.scanner.lastScan')}</p>
               <p className="text-xl font-bold">{lastScanTime.toLocaleTimeString('ar-EG')}</p>
             </div>
           )}
@@ -486,11 +521,11 @@ const handleScan = async (staffCode: string) => {
             onChange={(e) => setScannerInput(e.target.value)}
             onKeyPress={handleScannerInput}
             className="w-full px-6 py-6 border-4 border-blue-400 rounded-xl text-4xl font-bold text-center focus:border-blue-600 focus:ring-4 focus:ring-blue-200 transition text-gray-800"
-            placeholder="22"
+            placeholder={t('staff.scanner.placeholder')}
             autoFocus
           />
           <p className="text-center text-gray-600 mt-3 text-sm">
-            💡 اكتب الرقم واضغط Enter أو استخدم Scanner | الموظفين: 9 أرقام (100000xxx)
+            {t('staff.scanner.hint')}
           </p>
         </div>
 
@@ -510,17 +545,26 @@ const handleScan = async (staffCode: string) => {
       {/* ✅ قسم حضور اليوم */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-4 border-green-200">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold flex items-center gap-2">
-            <span>📊</span>
-            <span>حضور اليوم</span>
-          </h3>
+          <div className="flex items-center gap-4">
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <span>📊</span>
+              <span>{t('staff.attendance.title')}</span>
+            </h3>
+            <Link
+              href="/attendance-report"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition transform hover:scale-105 shadow-lg flex items-center gap-2 text-sm font-bold"
+            >
+              <span>📋</span>
+              <span>{t('nav.staffAttendance')}</span>
+            </Link>
+          </div>
           <div className="flex gap-4">
             <div className="bg-green-100 px-6 py-3 rounded-xl text-center">
-              <p className="text-sm text-green-700">موجودين الآن</p>
+              <p className="text-sm text-green-700">{t('staff.attendance.presentNow')}</p>
               <p className="text-3xl font-bold text-green-800">{presentStaff}</p>
             </div>
             <div className="bg-blue-100 px-6 py-3 rounded-xl text-center">
-              <p className="text-sm text-blue-700">إجمالي الحضور</p>
+              <p className="text-sm text-blue-700">{t('staff.attendance.totalPresent')}</p>
               <p className="text-3xl font-bold text-blue-800">{totalCheckedIn}</p>
             </div>
           </div>
@@ -531,12 +575,12 @@ const handleScan = async (staffCode: string) => {
             <table className="w-full">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-right">الرقم</th>
-                  <th className="px-4 py-3 text-right">الاسم</th>
-                  <th className="px-4 py-3 text-right">الوظيفة</th>
-                  <th className="px-4 py-3 text-right">وقت الدخول</th>
-                  <th className="px-4 py-3 text-center">الحالة</th>
-                  <th className="px-4 py-3 text-center">المدة</th>
+                  <th className="px-4 py-3 text-right">{t('staff.attendance.number')}</th>
+                  <th className="px-4 py-3 text-right">{t('staff.attendance.name')}</th>
+                  <th className="px-4 py-3 text-right">{t('staff.attendance.position')}</th>
+                  <th className="px-4 py-3 text-right">{t('staff.attendance.checkInTime')}</th>
+                  <th className="px-4 py-3 text-center">{t('staff.attendance.status')}</th>
+                  <th className="px-4 py-3 text-center">{t('staff.attendance.duration')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -554,7 +598,7 @@ const handleScan = async (staffCode: string) => {
                           att.staff.position || ''
                         )}`}
                       >
-                        {getPositionIcon(att.staff.position || '')} {att.staff.position || '-'}
+                        {getPositionIcon(att.staff.position || '')} {getPositionLabel(att.staff.position)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
@@ -563,11 +607,11 @@ const handleScan = async (staffCode: string) => {
                     <td className="px-4 py-3 text-center">
                       {att.checkOut === null ? (
                         <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
-                          🟢 داخل
+                          🟢 {t('staff.attendance.inside')}
                         </span>
                       ) : (
                         <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-500 text-white">
-                          🔴 خارج
+                          🔴 {t('staff.attendance.outside')}
                         </span>
                       )}
                     </td>
@@ -582,7 +626,7 @@ const handleScan = async (staffCode: string) => {
         ) : (
           <div className="text-center py-12 text-gray-400">
             <div className="text-6xl mb-4">😴</div>
-            <p className="text-xl">لا يوجد حضور مسجل اليوم</p>
+            <p className="text-xl">{t('staff.attendance.noAttendance')}</p>
           </div>
         )}
       </div>
@@ -590,7 +634,7 @@ const handleScan = async (staffCode: string) => {
       {/* باقي الصفحة - إدارة الموظفين */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">👥 إدارة الموظفين</h1>
+          <h1 className="text-3xl font-bold mb-2">👥 {t('staff.title')}</h1>
 
         </div>
         <button
@@ -600,7 +644,7 @@ const handleScan = async (staffCode: string) => {
           }}
           className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition transform hover:scale-105"
         >
-          {showForm ? 'إخفاء النموذج' : '➕ إضافة موظف جديد'}
+          {showForm ? t('staff.hideForm') : `➕ ${t('staff.addNewStaff')}`}
         </button>
       </div>
 
@@ -621,12 +665,12 @@ const handleScan = async (staffCode: string) => {
             {editingStaff ? (
               <>
                 <span>✏️</span>
-                <span>تعديل موظف</span>
+                <span>{t('staff.editStaff')}</span>
               </>
             ) : (
               <>
                 <span>➕</span>
-                <span>إضافة موظف جديد</span>
+                <span>{t('staff.addStaff')}</span>
               </>
             )}
           </h2>
@@ -636,7 +680,7 @@ const handleScan = async (staffCode: string) => {
               {/* ✅ رقم الموظف */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
-                  رقم الموظف <span className="text-red-600">*</span>
+                  {t('staff.form.staffNumberRequired')}
                 </label>
                 <input
                   type="text"
@@ -652,15 +696,15 @@ const handleScan = async (staffCode: string) => {
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {editingStaff
-                    ? '⚠️ لا يمكن تغيير الرقم بعد الإنشاء'
-                    : '💡 يجب إدخال 9 أرقام بالضبط (مثال: 100000022 → s022, 100000444 → s444)'}
+                    ? t('staff.form.staffNumberLocked')
+                    : t('staff.form.staffNumberHint')}
                 </p>
               </div>
 
               {/* الاسم */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
-                  الاسم <span className="text-red-600">*</span>
+                  {t('staff.form.nameRequired')}
                 </label>
                 <input
                   type="text"
@@ -668,26 +712,26 @@ const handleScan = async (staffCode: string) => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                  placeholder="محمد أحمد"
+                  placeholder={t('staff.form.namePlaceholder')}
                 />
               </div>
 
               {/* رقم الهاتف */}
               <div>
-                <label className="block text-sm font-bold mb-2 text-gray-700">رقم الهاتف</label>
+                <label className="block text-sm font-bold mb-2 text-gray-700">{t('staff.form.phone')}</label>
                 <input
-                  type="tel"
+                  type="text"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                  placeholder="01xxxxxxxxx"
+                  placeholder={t('staff.form.phonePlaceholder')}
                 />
               </div>
 
               {/* الوظيفة */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
-                  الوظيفة <span className="text-red-600">*</span>
+                  {t('staff.form.positionRequired')}
                 </label>
                 <select
                   required={!showOtherPosition}
@@ -695,7 +739,7 @@ const handleScan = async (staffCode: string) => {
                   onChange={(e) => handlePositionChange(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-lg"
                 >
-                  <option value="">-- اختر الوظيفة --</option>
+                  <option value="">{t('staff.form.selectPosition')}</option>
                   {POSITIONS.map((pos) => (
                     <option key={pos.value} value={pos.value}>
                       {pos.label}
@@ -708,7 +752,7 @@ const handleScan = async (staffCode: string) => {
               {showOtherPosition && (
                 <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
                   <label className="block text-sm font-bold mb-2 text-gray-700">
-                    اكتب الوظيفة <span className="text-red-600">*</span>
+                    {t('staff.form.customPositionRequired')}
                   </label>
                   <input
                     type="text"
@@ -718,7 +762,7 @@ const handleScan = async (staffCode: string) => {
                       setFormData({ ...formData, customPosition: e.target.value })
                     }
                     className="w-full px-4 py-3 border-2 border-yellow-400 rounded-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition"
-                    placeholder="مثال: مساعد مدير، مصور..."
+                    placeholder={t('staff.form.customPositionPlaceholder')}
                   />
                 </div>
               )}
@@ -726,7 +770,7 @@ const handleScan = async (staffCode: string) => {
               {/* المرتب */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
-                  المرتب (ج.م)
+                  {t('staff.form.salary')}
                 </label>
                 <input
                   type="number"
@@ -737,20 +781,20 @@ const handleScan = async (staffCode: string) => {
                     setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })
                   }
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                  placeholder="0.00"
+                  placeholder={t('staff.form.salaryPlaceholder')}
                 />
               </div>
             </div>
 
             {/* ملاحظات */}
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">ملاحظات</label>
+              <label className="block text-sm font-bold mb-2 text-gray-700">{t('staff.form.notes')}</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"
                 rows={3}
-                placeholder="ملاحظات إضافية..."
+                placeholder={t('staff.form.notesPlaceholder')}
               />
             </div>
 
@@ -761,7 +805,7 @@ const handleScan = async (staffCode: string) => {
                 disabled={loading}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 font-bold text-lg shadow-lg transform transition hover:scale-105 active:scale-95"
               >
-                {loading ? '⏳ جاري الحفظ...' : editingStaff ? '✅ تحديث' : '➕ إضافة موظف'}
+                {loading ? `⏳ ${t('staff.form.saving')}` : editingStaff ? `✅ ${t('staff.form.update')}` : `➕ ${t('staff.form.addStaff')}`}
               </button>
               {editingStaff && (
                 <button
@@ -769,7 +813,7 @@ const handleScan = async (staffCode: string) => {
                   onClick={resetForm}
                   className="px-8 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 py-4 rounded-lg hover:from-gray-300 hover:to-gray-400 font-bold shadow-lg transform transition hover:scale-105 active:scale-95"
                 >
-                  إلغاء
+                  {t('staff.form.cancel')}
                 </button>
               )}
             </div>
@@ -782,7 +826,7 @@ const handleScan = async (staffCode: string) => {
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm mb-1">إجمالي الموظفين</p>
+              <p className="text-blue-100 text-sm mb-1">{t('staff.stats.totalStaff')}</p>
               <p className="text-4xl font-bold">{staff.length}</p>
             </div>
             <div className="text-5xl opacity-20">👥</div>
@@ -792,7 +836,7 @@ const handleScan = async (staffCode: string) => {
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm mb-1">الموظفين النشطين</p>
+              <p className="text-green-100 text-sm mb-1">{t('staff.stats.activeStaff')}</p>
               <p className="text-4xl font-bold">{staff.filter((s) => s.isActive).length}</p>
             </div>
             <div className="text-5xl opacity-20">✅</div>
@@ -802,7 +846,7 @@ const handleScan = async (staffCode: string) => {
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm mb-1">إجمالي المرتبات</p>
+              <p className="text-purple-100 text-sm mb-1">{t('staff.stats.totalSalaries')}</p>
               <p className="text-3xl font-bold">
                 {staff.reduce((sum, s) => sum + (s.salary || 0), 0).toFixed(0)} ج.م
               </p>
@@ -814,7 +858,7 @@ const handleScan = async (staffCode: string) => {
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm mb-1">عدد المدربين</p>
+              <p className="text-orange-100 text-sm mb-1">{t('staff.stats.coaches')}</p>
               <p className="text-4xl font-bold">{staffByPosition['مدرب'] || 0}</p>
             </div>
             <div className="text-5xl opacity-20">💪</div>
@@ -824,7 +868,7 @@ const handleScan = async (staffCode: string) => {
 
       {/* جدول الموظفين */}
       {loading ? (
-        <div className="text-center py-12">جاري التحميل...</div>
+        <div className="text-center py-12">{t('staff.loading')}</div>
       ) : (
         <>
           {/* Cards للموبايل */}
@@ -841,16 +885,18 @@ const handleScan = async (staffCode: string) => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleEdit(staffMember)}
-                      className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                      className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all hover:scale-110 active:scale-95"
+                      title={t('staff.table.edit')}
                     >
-                      ✏️ تعديل
+                      ✏️
                     </button>
                     {hasPermission('canDeleteStaff') && (
                       <button
                         onClick={() => handleDelete(staffMember)}
-                        className="text-red-600 hover:text-red-800 font-semibold text-sm"
+                        className="w-8 h-8 flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all hover:scale-110 active:scale-95"
+                        title={t('staff.table.delete')}
                       >
-                        🗑️ حذف
+                        🗑️
                       </button>
                     )}
                   </div>
@@ -874,7 +920,7 @@ const handleScan = async (staffCode: string) => {
                         </span>
                         {isStaffCurrentlyInside(staffMember.id) && (
                           <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                            🟢 داخل
+                            🟢 {t('staff.attendance.inside')}
                           </span>
                         )}
                       </div>
@@ -891,7 +937,7 @@ const handleScan = async (staffCode: string) => {
                       )}`}
                     >
                       <span>{getPositionIcon(staffMember.position || '')}</span>
-                      <span>{staffMember.position || '-'}</span>
+                      <span>{getPositionLabel(staffMember.position)}</span>
                     </span>
                   </div>
 
@@ -920,7 +966,7 @@ const handleScan = async (staffCode: string) => {
                           : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      {staffMember.isActive ? '✅ نشط' : '❌ غير نشط'}
+                      {staffMember.isActive ? `✅ ${t('staff.table.active')}` : `❌ ${t('staff.table.inactive')}`}
                     </button>
                   </div>
                 </div>
@@ -930,8 +976,8 @@ const handleScan = async (staffCode: string) => {
             {staff.length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">😕</div>
-                <p className="text-xl">لا يوجد موظفين حالياً</p>
-                <p className="text-sm mt-2">ابدأ بإضافة موظف جديد</p>
+                <p className="text-xl">{t('staff.empty.title')}</p>
+                <p className="text-sm mt-2">{t('staff.empty.subtitle')}</p>
               </div>
             )}
           </div>
@@ -942,13 +988,13 @@ const handleScan = async (staffCode: string) => {
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-right">الرقم</th>
-                    <th className="px-4 py-3 text-right">الاسم</th>
-                    <th className="px-4 py-3 text-right">الهاتف</th>
-                    <th className="px-4 py-3 text-right">الوظيفة</th>
-                    <th className="px-4 py-3 text-right">المرتب</th>
-                    <th className="px-4 py-3 text-right">الحالة</th>
-                    <th className="px-4 py-3 text-right">إجراءات</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.number')}</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.name')}</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.phone')}</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.position')}</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.salary')}</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.status')}</th>
+                    <th className="px-4 py-3 text-right">{t('staff.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -969,7 +1015,7 @@ const handleScan = async (staffCode: string) => {
                           <span className="font-semibold">{staffMember.name}</span>
                           {isStaffCurrentlyInside(staffMember.id) && (
                             <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                              🟢 داخل
+                              🟢 {t('staff.attendance.inside')}
                             </span>
                           )}
                         </div>
@@ -982,7 +1028,7 @@ const handleScan = async (staffCode: string) => {
                           )}`}
                         >
                           <span>{getPositionIcon(staffMember.position || '')}</span>
-                          <span>{staffMember.position || '-'}</span>
+                          <span>{getPositionLabel(staffMember.position)}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3 font-bold text-green-600">
@@ -997,24 +1043,26 @@ const handleScan = async (staffCode: string) => {
                               : 'bg-red-100 text-red-800 hover:bg-red-200'
                           }`}
                         >
-                          {staffMember.isActive ? '✅ نشط' : '❌ غير نشط'}
+                          {staffMember.isActive ? `✅ ${t('staff.table.active')}` : `❌ ${t('staff.table.inactive')}`}
                         </button>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2 items-center">
                           <button
                             onClick={() => handleEdit(staffMember)}
-                            className="text-blue-600 hover:text-blue-800 font-semibold transition hover:underline"
+                            className="w-9 h-9 flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all hover:scale-110 active:scale-95"
+                            title={t('staff.table.edit')}
                           >
-                            ✏️ تعديل
+                            ✏️
                           </button>
 
                           {hasPermission('canDeleteStaff') && (
                             <button
                               onClick={() => handleDelete(staffMember)}
-                              className="text-red-600 hover:text-red-800 font-semibold transition hover:underline"
+                              className="w-9 h-9 flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all hover:scale-110 active:scale-95"
+                              title={t('staff.table.delete')}
                             >
-                              🗑️ حذف
+                              🗑️
                             </button>
                           )}
 
@@ -1036,8 +1084,8 @@ const handleScan = async (staffCode: string) => {
             {staff.length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">😕</div>
-                <p className="text-xl">لا يوجد موظفين حالياً</p>
-                <p className="text-sm mt-2">ابدأ بإضافة موظف جديد</p>
+                <p className="text-xl">{t('staff.empty.title')}</p>
+                <p className="text-sm mt-2">{t('staff.empty.subtitle')}</p>
               </div>
             )}
           </div>
@@ -1052,8 +1100,8 @@ const handleScan = async (staffCode: string) => {
           setStaffToDelete(null)
         }}
         onConfirm={confirmDelete}
-        title="حذف موظف"
-        message="هل أنت متأكد من حذف هذا الموظف؟"
+        title={t('staff.deleteModal.title')}
+        message={t('staff.deleteModal.message')}
         itemName={staffToDelete ? `${staffToDelete.name} (#${staffToDelete.staffCode})` : ''}
         loading={deleteLoading}
       />

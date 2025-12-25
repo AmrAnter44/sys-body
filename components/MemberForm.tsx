@@ -5,6 +5,7 @@ import PaymentMethodSelector from '../components/Paymentmethodselector'
 import { calculateDaysBetween, formatDateYMD } from '../lib/dateFormatter'
 import { printReceiptFromData } from '../lib/printSystem'
 import { usePermissions } from '../hooks/usePermissions'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface MemberFormProps {
   onSuccess: () => void
@@ -13,6 +14,7 @@ interface MemberFormProps {
 
 export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormProps) {
   const { user } = usePermissions()
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [nextMemberNumber, setNextMemberNumber] = useState<number | null>(null)
@@ -29,8 +31,8 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
     inBodyScans: 0,
     invitations: 0,
     freePTSessions: 0,
+    remainingFreezeDays: 0,
     subscriptionPrice: 0,
-    remainingAmount: 0,
     notes: '',
     startDate: formatDateYMD(new Date()),
     expiryDate: '',
@@ -60,7 +62,7 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
         console.error('❌ خطأ في جلب رقم العضوية:', error)
         setNextMemberNumber(1001)
         setFormData(prev => ({ ...prev, memberNumber: '1001' }))
-        setMessage('⚠️ تعذر جلب رقم العضوية التالي، سيتم استخدام 1001')
+        setMessage(`⚠️ ${t('members.form.errorFetchingNumber')}`)
         setTimeout(() => setMessage(''), 3000)
       }
     }
@@ -172,24 +174,24 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setMessage('❌ يرجى اختيار صورة فقط')
+      setMessage(`❌ ${t('members.form.selectImageOnly')}`)
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setMessage('❌ حجم الصورة يجب أن يكون أقل من 5MB')
+      setMessage(`❌ ${t('members.form.imageSizeTooLarge')}`)
       return
     }
 
     try {
-      setMessage('🔄 جاري ضغط الصورة...')
+      setMessage(`🔄 ${t('members.form.compressingImage')}`)
       const compressedBase64 = await compressImage(file)
       setImagePreview(compressedBase64)
       setFormData(prev => ({ ...prev, profileImage: compressedBase64 }))
       setMessage('')
     } catch (error) {
       console.error('خطأ في ضغط الصورة:', error)
-      setMessage('❌ فشل ضغط الصورة، حاول مرة أخرى')
+      setMessage(`❌ ${t('members.form.imageCompressionFailed')}`)
     }
   }
 
@@ -229,7 +231,7 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
       const end = new Date(formData.expiryDate)
 
       if (end <= start) {
-        setMessage('❌ تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية')
+        setMessage(`❌ ${t('members.form.expiryMustBeAfterStart')}`)
         setLoading(false)
         return
       }
@@ -244,8 +246,8 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
       inBodyScans: parseInt(formData.inBodyScans.toString()),
       invitations: parseInt(formData.invitations.toString()),
       freePTSessions: parseInt(formData.freePTSessions.toString()),
+      remainingFreezeDays: parseInt(formData.remainingFreezeDays.toString()),
       subscriptionPrice: parseInt(formData.subscriptionPrice.toString()),
-      remainingAmount: parseInt(formData.remainingAmount.toString()),
       staffName: user?.name || '',
       customCreatedAt: customCreatedAt ? customCreatedAt.toISOString() : null
     }
@@ -266,20 +268,20 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
 
       if (response.ok) {
         if (formData.skipReceipt) {
-          setMessage('✅ تم إضافة العضو بنجاح! (بدون إيصال)')
+          setMessage(`✅ ${t('members.form.memberAddedWithoutReceipt')}`)
         } else {
-          setMessage('✅ تم إضافة العضو بنجاح!')
+          setMessage(`✅ ${t('members.form.memberAddedSuccessfully')}`)
         }
 
         if (data.receipt) {
           console.log('🖨️ طباعة الإيصال باستخدام النظام الموحد...')
           
           setTimeout(() => {
-            const subscriptionDays = formData.startDate && formData.expiryDate 
+            const subscriptionDays = formData.startDate && formData.expiryDate
               ? calculateDaysBetween(formData.startDate, formData.expiryDate)
               : null
 
-            const paidAmount = cleanedData.subscriptionPrice - cleanedData.remainingAmount
+            const paidAmount = cleanedData.subscriptionPrice
 
             const receiptDetails = {
               memberNumber: data.member.memberNumber,
@@ -290,7 +292,7 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
               subscriptionDays: subscriptionDays,
               subscriptionPrice: cleanedData.subscriptionPrice,
               paidAmount: paidAmount,
-              remainingAmount: cleanedData.remainingAmount,
+              remainingAmount: 0,
               inBodyScans: cleanedData.inBodyScans,
               invitations: cleanedData.invitations,
               freePTSessions: cleanedData.freePTSessions,
@@ -320,10 +322,10 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
           onSuccess()
         }, 2000)
       } else {
-        setMessage(`❌ ${data.error || 'حدث خطأ'}`)
+        setMessage(`❌ ${data.error || t('common.error')}`)
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ في الاتصال')
+      setMessage(`❌ ${t('members.form.errorConnection')}`)
       console.error('Error:', error)
     } finally {
       setLoading(false)
@@ -331,7 +333,7 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
   }
 
   const duration = calculateDuration()
-  const paidAmount = formData.subscriptionPrice - formData.remainingAmount
+  const paidAmount = formData.subscriptionPrice
 
   // دالة تطبيق العرض
   const applyOffer = (offer: any) => {
@@ -345,18 +347,19 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
       freePTSessions: offer.freePTSessions,
       inBodyScans: offer.inBodyScans,
       invitations: offer.invitations,
+      remainingFreezeDays: offer.freezeDays,
       startDate,
       expiryDate: formatDateYMD(expiryDate)
     }))
 
-    setMessage(`✅ تم تطبيق عرض: ${offer.name}`)
+    setMessage(`✅ ${t('members.form.offerApplied', { offerName: offer.name })}`)
     setTimeout(() => setMessage(''), 2000)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-3">
       {message && (
-        <div className={`p-4 rounded-lg text-center font-medium ${
+        <div className={`p-3 rounded-lg text-center font-medium text-sm ${
           message.includes('✅') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
           {message}
@@ -364,31 +367,31 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
       )}
 
       {/* قسم العروض */}
-      <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6">
-        <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-purple-800">
+      <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-4">
+        <h3 className="font-bold text-lg mb-3 flex items-center gap-2 text-purple-800">
           <span>🎁</span>
-          <span>العروض المتاحة</span>
+          <span>{t('members.form.availableOffers')}</span>
         </h3>
-        <p className="text-sm text-gray-600 mb-4">اختر عرض لملء البيانات تلقائياً</p>
+        <p className="text-xs text-gray-600 mb-3">{t('members.form.selectOfferToAutoFill')}</p>
 
         {!Array.isArray(offers) || offers.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl border-2 border-dashed border-gray-300">
-            <p className="text-gray-500 text-sm">لا توجد عروض متاحة حالياً</p>
-            <p className="text-xs text-gray-400 mt-2">يمكن للأدمن إضافة عروض من صفحة العروض</p>
+          <div className="text-center py-4 bg-white rounded-xl border-2 border-dashed border-gray-300">
+            <p className="text-gray-500 text-xs">{t('members.form.noOffersAvailable')}</p>
+            <p className="text-xs text-gray-400 mt-1">{t('members.form.adminCanAddOffers')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
             {offers.map(offer => (
               <button
                 key={offer.id}
                 type="button"
                 onClick={() => applyOffer(offer)}
-                className="bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-xl p-4 transition transform hover:scale-105 hover:shadow-lg group"
+                className="bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-xl p-3 transition transform hover:scale-105 hover:shadow-lg group"
               >
-                <div className="text-3xl mb-2">{offer.icon}</div>
-                <div className="font-bold text-purple-800 mb-1">{offer.name}</div>
-                <div className="text-2xl font-bold text-green-600 mb-2">{offer.price} ج.م</div>
-                <div className="text-xs text-gray-600 space-y-1">
+                <div className="text-2xl mb-1">{offer.icon}</div>
+                <div className="font-bold text-purple-800 mb-1 text-sm">{offer.name}</div>
+                <div className="text-xl font-bold text-green-600 mb-1">{offer.price} ج.م</div>
+                <div className="text-xs text-gray-600 space-y-0.5">
                   <div>💪 {offer.freePTSessions} PT</div>
                   <div>⚖️ {offer.inBodyScans} InBody</div>
                   <div>🎟️ {offer.invitations} دعوات</div>
@@ -398,23 +401,23 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
           </div>
         )}
 
-        <div className="mt-4 bg-blue-100 border-r-4 border-blue-500 p-3 rounded">
+        <div className="mt-3 bg-blue-100 border-r-4 border-blue-500 p-2 rounded">
           <p className="text-xs text-blue-800">
-            <strong>💡 ملاحظة:</strong> يمكنك تعديل القيم بعد اختيار العرض
+            <strong>💡 {t('members.notes')}:</strong> {t('members.form.noteCanEditAfterOffer')}
           </p>
         </div>
       </div>
 
-      <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+      <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
+        <h3 className="font-bold text-base mb-3 flex items-center gap-2">
           <span>👤</span>
-          <span>المعلومات الأساسية</span>
+          <span>{t('members.form.basicInformation')}</span>
         </h3>
 
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium">
-              رقم العضوية {!formData.isOther && '*'}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-medium">
+              {t('members.membershipNumber')} {!formData.isOther && '*'}
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -423,13 +426,13 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
                 onChange={(e) => handleOtherChange(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300"
               />
-              <span className="text-sm font-medium text-gray-700">Other (بدون رقم)</span>
+              <span className="text-xs font-medium text-gray-700">{t('members.form.otherNoNumber')}</span>
             </label>
           </div>
-          
+
           {formData.isOther ? (
             <div className="w-full px-3 py-2 border-2 border-dashed rounded-lg bg-gray-100 text-gray-500 text-center">
-              لا يوجد رقم عضوية (Other)
+              {t('members.form.noMembershipNumber')}
             </div>
           ) : (
             <input
@@ -442,75 +445,70 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
               disabled={formData.isOther}
             />
           )}
-          
+
           {!formData.isOther && nextMemberNumber && (
             <p className="text-xs text-gray-500 mt-1">
-              💡 الرقم التالي المقترح: {nextMemberNumber}
+              💡 {t('members.form.suggestedNextNumber', { number: nextMemberNumber.toString() })}
             </p>
           )}
         </div>
 
         {nextReceiptNumber && (
-          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3 mb-4">
+          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-2 mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">🧾</span>
+              <span className="text-xl">🧾</span>
               <div>
-                <p className="text-sm font-medium text-green-800">رقم الإيصال التالي</p>
-                <p className="text-2xl font-bold text-green-600">#{nextReceiptNumber}</p>
+                <p className="text-xs font-medium text-green-800">{t('members.form.nextReceiptNumber')}</p>
+                <p className="text-xl font-bold text-green-600">#{nextReceiptNumber}</p>
               </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1">الاسم *</label>
+            <label className="block text-xs font-medium mb-1">{t('members.form.nameRequired')}</label>
             <input
               type="text"
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg text-sm"
               placeholder="أحمد محمد"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              رقم الهاتف <span className="text-red-600">*</span>
-            </label>
+            <label className="block text-xs font-medium mb-1">{t('members.form.phoneRequired')}</label>
             <input
               type="tel"
               required
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg text-sm"
               placeholder="01234567890"
               dir="ltr"
             />
           </div>
-        </div>
 
-        <div className="mt-4">
-          <label className="block text-sm font-medium mb-1">اسم الموظف *</label>
-          <input
-            type="text"
-            required
-            value={formData.staffName}
-            readOnly
-            className="w-full px-3 py-2 border-2 rounded-lg bg-gray-100 cursor-not-allowed"
-            placeholder="محمد علي"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            👤 اسم الموظف الذي قام بإضافة العضو
-          </p>
+          <div>
+            <label className="block text-xs font-medium mb-1">{t('members.form.staffNameRequired')}</label>
+            <input
+              type="text"
+              required
+              value={formData.staffName}
+              readOnly
+              className="w-full px-3 py-2 border-2 rounded-lg bg-gray-100 cursor-not-allowed text-sm"
+              placeholder="محمد علي"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+        <h3 className="font-bold text-base mb-3 flex items-center gap-2">
           <span>📷</span>
-          <span>صورة البروفايل</span>
+          <span>{t('members.form.profilePicture')}</span>
         </h3>
 
         <div className="flex flex-col items-center gap-4">
@@ -548,173 +546,167 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
             htmlFor="profileImage"
             className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 cursor-pointer transition"
           >
-            {imagePreview ? '📷 تغيير الصورة' : '📷 رفع صورة'}
+            {imagePreview ? `📷 ${t('members.form.changeImage')}` : `📷 ${t('members.form.uploadImage')}`}
           </label>
-          
+
           <p className="text-xs text-gray-500 text-center">
-            يُفضل صورة بحجم 500×500 بكسل أو أكبر<br/>
-            الحد الأقصى: 5MB
+            {t('members.form.imageSizeRecommendation')}<br/>
+            {t('members.form.maxImageSize')}
           </p>
         </div>
       </div>
 
-      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-        <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+        <h3 className="font-bold text-base mb-3 flex items-center gap-2">
           <span>📅</span>
-          <span>فترة الاشتراك</span>
+          <span>{t('members.form.subscriptionPeriod')}</span>
         </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+        <div className="grid grid-cols-1 gap-3 mb-3">
           <div>
-            <label className="block text-sm font-medium mb-1">
-              تاريخ البداية <span className="text-xs text-gray-500">(yyyy-mm-dd)</span>
+            <label className="block text-xs font-medium mb-1">
+              {t('members.startDate')} <span className="text-xs text-gray-500">(yyyy-mm-dd)</span>
             </label>
             <input
               type="text"
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-sm md:text-base"
+              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-sm"
               placeholder="2025-11-18"
               pattern="\d{4}-\d{2}-\d{2}"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              تاريخ الانتهاء <span className="text-xs text-gray-500">(yyyy-mm-dd)</span>
+            <label className="block text-xs font-medium mb-1">
+              {t('members.expiryDate')} <span className="text-xs text-gray-500">(yyyy-mm-dd)</span>
             </label>
             <input
               type="text"
               value={formData.expiryDate}
               onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-sm md:text-base"
+              className="w-full px-3 py-2 border-2 rounded-lg font-mono text-sm"
               placeholder="2025-12-18"
               pattern="\d{4}-\d{2}-\d{2}"
             />
           </div>
         </div>
 
-        <div className="mb-3">
-          <p className="text-sm font-medium mb-2">⚡ إضافة سريعة:</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-2">
+          <p className="text-xs font-medium mb-2">⚡ {t('members.form.quickAdd')}:</p>
+          <div className="flex flex-wrap gap-1">
             {[1, 2, 3, 6, 9, 12].map(months => (
               <button
                 key={months}
                 type="button"
                 onClick={() => calculateExpiryFromMonths(months)}
-                className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-sm transition"
+                className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-xs transition"
               >
-                + {months} {months === 1 ? 'شهر' : 'أشهر'}
+                + {months} {months === 1 ? t('members.form.month') : t('members.form.months')}
               </button>
             ))}
           </div>
         </div>
 
         {duration !== null && (
-          <div className="bg-white border-2 border-blue-300 rounded-lg p-3">
-            <p className="text-sm">
-              <span className="font-medium">📊 مدة الاشتراك: </span>
+          <div className="bg-white border-2 border-blue-300 rounded-lg p-2">
+            <p className="text-xs">
+              <span className="font-medium">📊 {t('members.form.subscriptionDuration')}: </span>
               <span className="font-bold text-blue-600">
-                {duration} يوم
-                {duration >= 30 && ` (${Math.floor(duration / 30)} ${Math.floor(duration / 30) === 1 ? 'شهر' : 'أشهر'})`}
+                {duration} {t('members.form.daysSingle')}
+                {duration >= 30 && ` (${Math.floor(duration / 30)} ${Math.floor(duration / 30) === 1 ? t('members.form.month') : t('members.form.months')})`}
               </span>
             </p>
           </div>
         )}
       </div>
 
-      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+        <h3 className="font-bold text-base mb-3 flex items-center gap-2">
           <span>🎁</span>
-          <span>الخدمات الإضافية</span>
+          <span>{t('members.form.additionalServices')}</span>
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1">⚖️ InBody</label>
+            <label className="block text-xs font-medium mb-1">⚖️ InBody</label>
             <input
               type="number"
               min="0"
               value={formData.inBodyScans}
               onChange={(e) => setFormData({ ...formData, inBodyScans: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">🎟️ دعوات</label>
+            <label className="block text-xs font-medium mb-1">🎟️ {t('members.invitations')}</label>
             <input
               type="number"
               min="0"
               value={formData.invitations}
               onChange={(e) => setFormData({ ...formData, invitations: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">💪 حصص PT مجانية</label>
+            <label className="block text-xs font-medium mb-1">💪 {t('members.freePTSessions')}</label>
             <input
               type="number"
               min="0"
               value={formData.freePTSessions}
               onChange={(e) => setFormData({ ...formData, freePTSessions: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
+              className="w-full px-3 py-2 border-2 rounded-lg text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">❄️ أيام الفريز</label>
+            <input
+              type="number"
+              min="0"
+              value={formData.remainingFreezeDays}
+              onChange={(e) => setFormData({ ...formData, remainingFreezeDays: parseInt(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border-2 rounded-lg text-sm"
             />
           </div>
         </div>
       </div>
+      </div>
 
-      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-3">
+        <h3 className="font-bold text-base mb-3 flex items-center gap-2">
           <span>💰</span>
-          <span>المعلومات المالية</span>
+          <span>{t('members.form.financialInformation')}</span>
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">سعر الاشتراك *</label>
-            <input
-              type="number"
-              required
-              min="0"
-              value={formData.subscriptionPrice}
-              onChange={(e) => setFormData({ ...formData, subscriptionPrice: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
-              placeholder="0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">المبلغ المتبقي</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.remainingAmount}
-              onChange={(e) => setFormData({ ...formData, remainingAmount: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
-              placeholder="0"
-            />
-          </div>
+        <div className="mb-2">
+          <label className="block text-xs font-medium mb-1">{t('members.form.subscriptionPriceRequired')}</label>
+          <input
+            type="number"
+            required
+            min="0"
+            value={formData.subscriptionPrice}
+            onChange={(e) => setFormData({ ...formData, subscriptionPrice: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border-2 rounded-lg text-sm"
+            placeholder="0"
+          />
         </div>
 
-        <div className="bg-white border-2 border-yellow-300 rounded-lg p-3">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium">المبلغ المدفوع:</span>
-            <span className="font-bold text-green-600 text-lg">
-              {paidAmount} ج.م
-            </span>
-          </div>
+        <div className="bg-white border-2 border-yellow-300 rounded-lg p-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">المتبقي:</span>
-            <span className="font-bold text-red-600 text-lg">
-              {formData.remainingAmount} ج.م
+            <span className="text-xs font-medium">{t('members.form.paidAmount')}:</span>
+            <span className="font-bold text-green-600">
+              {paidAmount} {t('members.egp')}
             </span>
           </div>
         </div>
 
-        <div className="mt-4">
-          <label className="block text-sm font-medium mb-2">طريقة الدفع</label>
+        <div className="mt-3">
+          <label className="block text-xs font-medium mb-2">{t('members.paymentMethod')}</label>
           <PaymentMethodSelector
             value={formData.paymentMethod}
             onChange={(method) => setFormData({
@@ -725,29 +717,29 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
         </div>
 
         {/* ✅ خيار عدم إنشاء إيصال */}
-        <div className="mt-4">
-          <label className="flex items-center gap-2 cursor-pointer bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
+        <div className="mt-3">
+          <label className="flex items-center gap-2 cursor-pointer bg-yellow-50 border-2 border-yellow-300 rounded-lg p-2">
             <input
               type="checkbox"
               checked={formData.skipReceipt}
               onChange={(e) => setFormData({ ...formData, skipReceipt: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300"
+              className="w-4 h-4 rounded border-gray-300"
             />
-            <span className="text-sm font-bold text-yellow-800">
-              🚫 عدم إنشاء إيصال (للأدمن فقط)
+            <span className="text-xs font-bold text-yellow-800">
+              🚫 {t('members.form.skipReceiptAdminOnly')}
             </span>
           </label>
         </div>
       </div>
 
-      <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
-        <label className="block text-sm font-medium mb-2">📝 ملاحظات</label>
+      <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
+        <label className="block text-xs font-medium mb-2">📝 {t('members.notes')}</label>
         <textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          className="w-full px-3 py-2 border-2 rounded-lg"
-          rows={3}
-          placeholder="ملاحظات إضافية..."
+          className="w-full px-3 py-2 border-2 rounded-lg text-sm"
+          rows={2}
+          placeholder={`${t('members.notes')}...`}
         />
       </div>
 
@@ -755,15 +747,15 @@ export default function MemberForm({ onSuccess, customCreatedAt }: MemberFormPro
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-bold text-lg transition"
+          className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-bold transition"
         >
-          {loading ? '⏳ جاري الحفظ...' : '✅ حفظ العضو'}
+          {loading ? `⏳ ${t('members.form.saving')}` : `✅ ${t('members.form.saveMember')}`}
         </button>
       </div>
 
-      <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 text-center">
-        <p className="text-sm text-blue-800">
-          🖨️ <strong>ملاحظة:</strong> سيتم طباعة الإيصال تلقائياً بعد إضافة العضو بنجاح
+      <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 text-center">
+        <p className="text-xs text-blue-800">
+          🖨️ <strong>{t('members.notes')}:</strong> {t('members.form.receiptWillPrintAutomatically')}
         </p>
       </div>
     </form>

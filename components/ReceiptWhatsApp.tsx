@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react';
+import Toast from './Toast';
 
 interface ReceiptWhatsAppProps {
   receipt: {
@@ -23,6 +24,7 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
   const [showSendModal, setShowSendModal] = useState(false);
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
   const details = JSON.parse(receipt.itemDetails);
 
@@ -130,6 +132,16 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
     message += `شكرا لثقتكم بنا\n`;
     message += `نتمنى لكم تجربة رائعة\n\n`;
 
+    // الشروط والأحكام
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `*شروط وأحكام*\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `الساده الاعضاء حرصا منا على تقديم خدمه افضل وحفاظا على سير النظام العام للمكان بشكل مرضى يرجى الالتزام بالتعليمات الاتيه :\n\n`;
+    message += `١- الاشتراك لا يرد الا خلال ٢٤ ساعه بعد خصم قيمه الحصه\n`;
+    message += `٢- لا يجوز التمرين بخلاف الزى الرياضى\n`;
+    message += `٣- ممنوع اصطحاب الاطفال او الماكولات داخل الجيم\n`;
+    message += `٤- الاداره غير مسئوله عن المتعلقات الشخصيه\n\n`;
+
     // رابط الموقع
     message += `🌐 *الموقع الإلكتروني:*\n`;
     message += `https://www.xgym.website/`;
@@ -139,7 +151,7 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
 
   const handleSendWhatsApp = () => {
     if (!phone || phone.trim().length < 10) {
-      alert('⚠️ يرجى إدخال رقم هاتف صحيح');
+      setToast({ message: 'يرجى إدخال رقم هاتف صحيح', type: 'warning' });
       return;
     }
 
@@ -163,12 +175,12 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
       const url = `https://wa.me/2${cleanPhone}?text=${encodeURIComponent(receiptMessage)}`;
       window.open(url, '_blank');
 
-      alert('✅ سيتم فتح واتساب الآن');
+      setToast({ message: 'سيتم فتح واتساب الآن', type: 'success' });
       setShowSendModal(false);
       setPhone('');
     } catch (err) {
       console.error(err);
-      alert('❌ حدث خطأ أثناء الإرسال');
+      setToast({ message: 'حدث خطأ أثناء الإرسال', type: 'error' });
     } finally {
       setSending(false);
     }
@@ -176,6 +188,8 @@ export default function ReceiptWhatsApp({ receipt, onDetailsClick }: ReceiptWhat
 
   return (
     <>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       <div className="flex gap-2">
         {onDetailsClick && (
           <button

@@ -7,6 +7,7 @@ import PaymentMethodSelector from './Paymentmethodselector'
 import { formatDateYMD, calculateRemainingDays } from '../lib/dateFormatter'
 import ImageUpload from '../components/ImageUpload'
 import BarcodeWhatsApp from '../components/BarcodeWhatsApp'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface Member {
   id: string
@@ -17,6 +18,7 @@ interface Member {
   inBodyScans: number
   invitations: number
   freePTSessions?: number
+  remainingFreezeDays: number
   subscriptionPrice: number
   remainingAmount: number
   notes?: string
@@ -30,6 +32,7 @@ export default function MemberDetailPage() {
   const params = useParams()
   const router = useRouter()
   const memberId = params.id as string
+  const { t } = useLanguage()
 
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,6 +51,19 @@ export default function MemberDetailPage() {
     reason: ''
   })
 
+  const [editData, setEditData] = useState({
+    name: '',
+    phone: '',
+    subscriptionPrice: 0,
+    startDate: '',
+    expiryDate: '',
+    inBodyScans: 0,
+    invitations: 0,
+    freePTSessions: 0,
+    remainingFreezeDays: 0,
+    notes: ''
+  })
+
   const [activeModal, setActiveModal] = useState<string | null>(null)
 
   const fetchMember = async () => {
@@ -59,11 +75,11 @@ export default function MemberDetailPage() {
       if (foundMember) {
         setMember(foundMember)
       } else {
-        setMessage('❌ لم يتم العثور على العضو')
+        setMessage(`❌ ${t('memberDetails.memberNotFound')}`)
       }
     } catch (error) {
       console.error('Error:', error)
-      setMessage('❌ حدث خطأ في تحميل البيانات')
+      setMessage(`❌ ${t('memberDetails.errorLoadingData')}`)
     } finally {
       setLoading(false)
     }
@@ -75,12 +91,12 @@ export default function MemberDetailPage() {
 
   const handlePayment = async () => {
     if (!member || paymentData.amount <= 0) {
-      alert('يرجى إدخال مبلغ صحيح')
+      alert(t('memberDetails.paymentModal.enterValidAmount'))
       return
     }
 
     if (paymentData.amount > member.remainingAmount) {
-      alert('المبلغ أكبر من المبلغ المتبقي')
+      alert(t('memberDetails.paymentModal.amountExceedsRemaining'))
       return
     }
 
@@ -124,18 +140,18 @@ export default function MemberDetailPage() {
           setShowReceipt(true)
         }
 
-        setMessage('✅ تم دفع المبلغ بنجاح!')
+        setMessage(`✅ ${t('memberDetails.paymentModal.paymentSuccess')}`)
         setTimeout(() => setMessage(''), 3000)
-        
+
         setPaymentData({ amount: 0, paymentMethod: 'cash', notes: '' })
         setActiveModal(null)
         fetchMember()
       } else {
-        setMessage('❌ فشل تسجيل الدفع')
+        setMessage(`❌ ${t('memberDetails.paymentModal.paymentFailed')}`)
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('common.error')}`)
     } finally {
       setLoading(false)
     }
@@ -143,11 +159,11 @@ export default function MemberDetailPage() {
 
   const handleUseInBody = async () => {
     if (!member || member.inBodyScans <= 0) {
-      alert('لا توجد حصص InBody متبقية')
+      alert(t('memberDetails.noInBodySessionsRemaining'))
       return
     }
 
-    if (!confirm('هل تريد تنقيص حصة InBody؟')) return
+    if (!confirm(t('memberDetails.confirmUseInBody'))) return
 
     setLoading(true)
     try {
@@ -161,12 +177,12 @@ export default function MemberDetailPage() {
       })
 
       if (response.ok) {
-        setMessage('✅ تم تنقيص حصة InBody')
+        setMessage(`✅ ${t('memberDetails.inBodyUsed')}`)
         setTimeout(() => setMessage(''), 3000)
         fetchMember()
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('common.error')}`)
     } finally {
       setLoading(false)
     }
@@ -174,11 +190,11 @@ export default function MemberDetailPage() {
 
   const handleUseInvitation = async () => {
     if (!member || member.invitations <= 0) {
-      alert('لا توجد دعوات متبقية')
+      alert(t('memberDetails.noInvitationsRemaining'))
       return
     }
 
-    if (!confirm('هل تريد تنقيص حصة دعوة؟')) return
+    if (!confirm(t('memberDetails.confirmUseInvitation'))) return
 
     setLoading(true)
     try {
@@ -192,12 +208,12 @@ export default function MemberDetailPage() {
       })
 
       if (response.ok) {
-        setMessage('✅ تم تنقيص حصة الدعوة')
+        setMessage(`✅ ${t('memberDetails.invitationUsed')}`)
         setTimeout(() => setMessage(''), 3000)
         fetchMember()
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('common.error')}`)
     } finally {
       setLoading(false)
     }
@@ -205,11 +221,11 @@ export default function MemberDetailPage() {
 
   const handleUseFreePT = async () => {
     if (!member || member.freePTSessions <= 0) {
-      alert('لا توجد حصص PT مجانية متبقية')
+      alert(t('memberDetails.noFreePTRemaining'))
       return
     }
 
-    if (!confirm('هل تريد تنقيص حصة PT مجانية؟')) return
+    if (!confirm(t('memberDetails.confirmUseFreePT'))) return
 
     setLoading(true)
     try {
@@ -223,12 +239,12 @@ export default function MemberDetailPage() {
       })
 
       if (response.ok) {
-        setMessage('✅ تم تنقيص حصة PT مجانية')
+        setMessage(`✅ ${t('memberDetails.freePTUsed')}`)
         setTimeout(() => setMessage(''), 3000)
         fetchMember()
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('common.error')}`)
     } finally {
       setLoading(false)
     }
@@ -236,35 +252,84 @@ export default function MemberDetailPage() {
 
   const handleFreeze = async () => {
     if (!member || !member.expiryDate || freezeData.days <= 0) {
-      alert('يرجى إدخال عدد أيام صحيح')
+      alert(t('memberDetails.freezeModal.enterValidDays'))
+      return
+    }
+
+    // التحقق من رصيد الفريز الكافي
+    if (freezeData.days > member.remainingFreezeDays) {
+      alert(`رصيد الفريز غير كافٍ. المتاح: ${member.remainingFreezeDays} يوم، المطلوب: ${freezeData.days} يوم`)
       return
     }
 
     setLoading(true)
     try {
-      const currentExpiry = new Date(member.expiryDate)
-      const newExpiry = new Date(currentExpiry)
-      newExpiry.setDate(newExpiry.getDate() + freezeData.days)
+      const response = await fetch('/api/members/freeze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberId: member.id,
+          freezeDays: freezeData.days
+        })
+      })
 
+      const result = await response.json()
+
+      if (response.ok) {
+        setMessage(`✅ تم تجميد الاشتراك لمدة ${freezeData.days} يوم بنجاح`)
+        setTimeout(() => setMessage(''), 3000)
+
+        setFreezeData({ days: 0, reason: '' })
+        setActiveModal(null)
+        fetchMember()
+      } else {
+        setMessage(`❌ ${result.error || 'فشل التجميد'}`)
+        setTimeout(() => setMessage(''), 5000)
+      }
+    } catch (error) {
+      setMessage(`❌ ${t('common.error')}`)
+      setTimeout(() => setMessage(''), 3000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = async () => {
+    if (!member || !editData.name || !editData.phone) {
+      alert('يرجى إدخال الاسم ورقم الهاتف')
+      return
+    }
+
+    setLoading(true)
+    try {
       const response = await fetch('/api/members', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: member.id,
-          expiryDate: newExpiry.toISOString()
+          name: editData.name,
+          phone: editData.phone,
+          subscriptionPrice: parseInt(editData.subscriptionPrice.toString()),
+          startDate: editData.startDate,
+          expiryDate: editData.expiryDate,
+          inBodyScans: parseInt(editData.inBodyScans.toString()),
+          invitations: parseInt(editData.invitations.toString()),
+          freePTSessions: parseInt(editData.freePTSessions.toString()),
+          remainingFreezeDays: parseInt(editData.remainingFreezeDays.toString()),
+          notes: editData.notes
         })
       })
 
       if (response.ok) {
-        setMessage(`✅ تم إضافة ${freezeData.days} يوم للاشتراك`)
+        setMessage('✅ تم تحديث البيانات بنجاح!')
         setTimeout(() => setMessage(''), 3000)
-        
-        setFreezeData({ days: 0, reason: '' })
         setActiveModal(null)
         fetchMember()
+      } else {
+        setMessage('❌ فشل تحديث البيانات')
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('common.error')}`)
     } finally {
       setLoading(false)
     }
@@ -274,7 +339,7 @@ export default function MemberDetailPage() {
     return (
       <div className="container mx-auto p-6 text-center" dir="rtl">
         <div className="text-6xl mb-4">⏳</div>
-        <p className="text-xl">جاري التحميل...</p>
+        <p className="text-xl">{t('memberDetails.loading')}</p>
       </div>
     )
   }
@@ -283,12 +348,12 @@ export default function MemberDetailPage() {
     return (
       <div className="container mx-auto p-6 text-center" dir="rtl">
         <div className="text-6xl mb-4">❌</div>
-        <p className="text-xl mb-4">لم يتم العثور على العضو</p>
+        <p className="text-xl mb-4">{t('memberDetails.memberNotFound')}</p>
         <button
           onClick={() => router.push('/members')}
           className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
         >
-          العودة للأعضاء
+          {t('memberDetails.backToMembers')}
         </button>
       </div>
     )
@@ -301,14 +366,14 @@ export default function MemberDetailPage() {
     <div className="container mx-auto p-3 sm:p-4 md:p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">👤 تفاصيل العضو</h1>
-          <p className="text-sm sm:text-base text-gray-600">إدارة حساب العضو والعمليات المختلفة</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">👤 {t('memberDetails.title')}</h1>
+          <p className="text-sm sm:text-base text-gray-600">{t('memberDetails.subtitle')}</p>
         </div>
         <button
           onClick={() => router.push('/members')}
           className="bg-gray-200 text-gray-700 px-4 sm:px-6 py-2 rounded-lg hover:bg-gray-300 text-sm sm:text-base w-full sm:w-auto"
         >
-          ← العودة
+          ← {t('memberDetails.back')}
         </button>
       </div>
 
@@ -337,41 +402,45 @@ export default function MemberDetailPage() {
           </div>
 
           <div className="flex-1 text-center sm:text-right">
-            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">رقم العضوية</p>
+            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">{t('memberDetails.membershipNumber')}</p>
             <p className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-4">#{member.memberNumber}</p>
-            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">الاسم</p>
+            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">{t('memberDetails.memberName')}</p>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold">{member.name}</p>
           </div>
 
           <div className="text-center sm:text-left">
-            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">رقم الهاتف</p>
+            <p className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">{t('memberDetails.phoneNumber')}</p>
             <p className="text-lg sm:text-xl md:text-2xl font-mono">{member.phone}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
           <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
-            <p className="text-xs sm:text-sm opacity-90">الحالة</p>
+            <p className="text-xs sm:text-sm opacity-90">{t('memberDetails.status')}</p>
             <p className="text-base sm:text-lg font-bold">
-              {member.isActive && !isExpired ? '✅ نشط' : '❌ منتهي'}
+              {member.isActive && !isExpired ? `✅ ${t('memberDetails.active')}` : `❌ ${t('memberDetails.expired')}`}
             </p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
-            <p className="text-xs sm:text-sm opacity-90">تاريخ الانتهاء</p>
+            <p className="text-xs sm:text-sm opacity-90">{t('memberDetails.expiryDate')}</p>
             <p className="text-sm sm:text-base md:text-lg font-mono">
               {formatDateYMD(member.expiryDate)}
             </p>
             {daysRemaining !== null && daysRemaining > 0 && (
-              <p className="text-xs opacity-75 mt-1">باقي {daysRemaining} يوم</p>
+              <p className="text-xs opacity-75 mt-1">{t('memberDetails.daysRemaining', { days: daysRemaining.toString() })}</p>
             )}
           </div>
           <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
-            <p className="text-xs sm:text-sm opacity-90">سعر الاشتراك</p>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold">{member.subscriptionPrice} ج.م</p>
+            <p className="text-xs sm:text-sm opacity-90">❄️ أيام الفريز</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-cyan-300">{member.remainingFreezeDays}</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
-            <p className="text-xs sm:text-sm opacity-90">المبلغ المتبقي</p>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-yellow-300">{member.remainingAmount} ج.م</p>
+            <p className="text-xs sm:text-sm opacity-90">{t('memberDetails.subscriptionPrice')}</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold">{member.subscriptionPrice} {t('members.egp')}</p>
+          </div>
+          <div className="bg-white bg-opacity-20 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm opacity-90">{t('memberDetails.remainingAmount')}</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-yellow-300">{member.remainingAmount} {t('members.egp')}</p>
           </div>
         </div>
       </div>
@@ -385,27 +454,62 @@ export default function MemberDetailPage() {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
-        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <div className="bg-purple-100 p-2 sm:p-3 rounded-full">
-            <span className="text-2xl sm:text-3xl">📷</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <div className="bg-purple-100 p-2 sm:p-3 rounded-full">
+              <span className="text-2xl sm:text-3xl">📷</span>
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold">{t('memberDetails.editImage')}</h3>
+              <p className="text-xs sm:text-sm text-gray-600">{t('memberDetails.editMemberImage')}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg sm:text-xl font-bold">تعديل الصورة</h3>
-            <p className="text-xs sm:text-sm text-gray-600">تغيير صورة العضو</p>
-          </div>
+          <button
+            onClick={() => setActiveModal('edit-image')}
+            disabled={loading}
+            className="w-full bg-purple-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
+          >
+            📷 {t('memberDetails.editImage')}
+          </button>
         </div>
-        <button
-          onClick={() => setActiveModal('edit-image')}
-          disabled={loading}
-          className="w-full bg-purple-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
-        >
-          📷 تعديل الصورة
-        </button>
+
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <div className="bg-blue-100 p-2 sm:p-3 rounded-full">
+              <span className="text-2xl sm:text-3xl">✏️</span>
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold">تعديل البيانات</h3>
+              <p className="text-xs sm:text-sm text-gray-600">تعديل جميع بيانات العضو</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setEditData({
+                name: member.name,
+                phone: member.phone,
+                subscriptionPrice: member.subscriptionPrice,
+                startDate: formatDateYMD(member.startDate),
+                expiryDate: formatDateYMD(member.expiryDate),
+                inBodyScans: member.inBodyScans,
+                invitations: member.invitations,
+                freePTSessions: member.freePTSessions || 0,
+                remainingFreezeDays: member.remainingFreezeDays,
+                notes: member.notes || ''
+              })
+              setActiveModal('edit')
+            }}
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
+          >
+            ✏️ تعديل البيانات
+          </button>
+        </div>
       </div>
 
       {activeModal === 'edit-image' && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
           style={{ zIndex: 9999 }}
           onClick={(e) => {
@@ -414,7 +518,7 @@ export default function MemberDetailPage() {
         >
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold">📷 تعديل صورة العضو</h3>
+              <h3 className="text-2xl font-bold">📷 {t('memberDetails.editMemberImage')}</h3>
               <button
                 onClick={() => setActiveModal(null)}
                 className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
@@ -438,13 +542,13 @@ export default function MemberDetailPage() {
                   })
 
                   if (response.ok) {
-                    setMessage('✅ تم تحديث الصورة بنجاح')
+                    setMessage(`✅ ${t('memberDetails.imageUpdatedSuccessfully')}`)
                     setTimeout(() => setMessage(''), 3000)
                     setActiveModal(null)
                     fetchMember()
                   }
                 } catch (error) {
-                  setMessage('❌ فشل تحديث الصورة')
+                  setMessage(`❌ ${t('memberDetails.failedToUpdateImage')}`)
                 }
               }}
               disabled={loading}
@@ -455,13 +559,13 @@ export default function MemberDetailPage() {
               onClick={() => setActiveModal(null)}
               className="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
             >
-              إغلاق
+              {t('common.close')}
             </button>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-r-4 border-green-500">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
@@ -512,46 +616,42 @@ export default function MemberDetailPage() {
             استخدام حصة
           </button>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <div className="bg-green-100 p-2 sm:p-3 rounded-full">
-              <span className="text-2xl sm:text-3xl">💰</span>
-            </div>
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-r-4 border-cyan-500">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
-              <h3 className="text-lg sm:text-xl font-bold">دفع المبلغ المتبقي</h3>
-              <p className="text-xs sm:text-sm text-gray-600">المتبقي: {member.remainingAmount} ج.م</p>
+              <p className="text-gray-600 text-xs sm:text-sm">أيام الفريز</p>
+              <p className="text-3xl sm:text-4xl font-bold text-cyan-600">{member.remainingFreezeDays}</p>
             </div>
-          </div>
-          <button
-            onClick={() => setActiveModal('payment')}
-            disabled={member.remainingAmount <= 0 || loading}
-            className="w-full bg-green-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
-          >
-            دفع مبلغ
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <div className="bg-blue-100 p-2 sm:p-3 rounded-full">
-              <span className="text-2xl sm:text-3xl">❄️</span>
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl font-bold">تجميد الاشتراك (Freeze)</h3>
-              <p className="text-xs sm:text-sm text-gray-600">إضافة أيام للاشتراك</p>
-            </div>
+            <div className="text-4xl sm:text-5xl">❄️</div>
           </div>
           <button
             onClick={() => setActiveModal('freeze')}
-            disabled={!member.expiryDate || loading}
-            className="w-full bg-blue-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
+            disabled={!member.expiryDate || loading || member.remainingFreezeDays <= 0}
+            className="w-full bg-cyan-600 text-white py-2 sm:py-2.5 rounded-lg hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base"
           >
             تجميد الاشتراك
           </button>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div className="bg-green-100 p-2 sm:p-3 rounded-full">
+            <span className="text-2xl sm:text-3xl">💰</span>
+          </div>
+          <div>
+            <h3 className="text-lg sm:text-xl font-bold">دفع المبلغ المتبقي</h3>
+            <p className="text-xs sm:text-sm text-gray-600">المتبقي: {member.remainingAmount} ج.م</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setActiveModal('payment')}
+          disabled={member.remainingAmount <= 0 || loading}
+          className="w-full bg-green-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm sm:text-base"
+        >
+          دفع مبلغ
+        </button>
       </div>
 
       {activeModal === 'payment' && (
@@ -649,6 +749,13 @@ export default function MemberDetailPage() {
               </button>
             </div>
 
+            <div className="bg-cyan-50 border-r-4 border-cyan-500 p-4 rounded-lg mb-4">
+              <p className="text-sm text-cyan-800 mb-2">
+                ❄️ أيام الفريز المتاحة: <strong className="text-xl">{member.remainingFreezeDays} يوم</strong>
+              </p>
+              <p className="text-xs text-cyan-600">يمكنك استخدام أيام الفريز على دفعات</p>
+            </div>
+
             <div className="bg-blue-50 border-r-4 border-blue-500 p-4 rounded-lg mb-6">
               <p className="text-sm text-blue-800 mb-2">
                 تاريخ الانتهاء الحالي: <strong>{formatDateYMD(member.expiryDate)}</strong>
@@ -663,44 +770,45 @@ export default function MemberDetailPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  عدد الأيام المراد إضافتها <span className="text-red-600">*</span>
+                  عدد أيام التجميد <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="number"
                   value={freezeData.days}
                   onChange={(e) => setFreezeData({ ...freezeData, days: parseInt(e.target.value) || 0 })}
                   min="1"
+                  max={member.remainingFreezeDays}
                   className="w-full px-4 py-3 border-2 rounded-lg text-xl"
-                  placeholder="عدد الأيام"
+                  placeholder="0"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">السبب</label>
-                <textarea
-                  value={freezeData.reason}
-                  onChange={(e) => setFreezeData({ ...freezeData, reason: e.target.value })}
-                  className="w-full px-4 py-3 border-2 rounded-lg"
-                  rows={3}
-                  placeholder="سبب التجميد..."
-                />
+                <p className="text-xs text-gray-500 mt-1">
+                  يمكنك تجميد حتى {member.remainingFreezeDays} يوم
+                </p>
               </div>
 
               {freezeData.days > 0 && member.expiryDate && (
                 <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
                   <p className="text-sm text-green-800 mb-2">
-                    التاريخ الجديد للانتهاء:
+                    📅 التاريخ الجديد للانتهاء:
                   </p>
                   <p className="text-xl font-bold text-green-600">
                     {formatDateYMD(new Date(new Date(member.expiryDate).getTime() + freezeData.days * 24 * 60 * 60 * 1000))}
                   </p>
+                  <div className="mt-3 pt-3 border-t border-green-300">
+                    <p className="text-xs text-green-700">
+                      ✅ سيتم تجميد الاشتراك لمدة {freezeData.days} يوم
+                    </p>
+                    <p className="text-xs text-green-700">
+                      ❄️ الرصيد المتبقي: {member.remainingFreezeDays - freezeData.days} يوم
+                    </p>
+                  </div>
                 </div>
               )}
 
               <div className="flex gap-3">
                 <button
                   onClick={handleFreeze}
-                  disabled={loading || freezeData.days <= 0}
+                  disabled={loading || freezeData.days <= 0 || freezeData.days > member.remainingFreezeDays}
                   className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold"
                 >
                   {loading ? 'جاري المعالجة...' : '✅ تأكيد التجميد'}
@@ -712,6 +820,89 @@ export default function MemberDetailPage() {
                   إلغاء
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'edit' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-1">
+          <div className="bg-white rounded shadow-2xl max-w-[99vw] w-full p-1.5">
+            <div className="flex justify-between items-center mb-0.5 bg-white pb-0.5 border-b">
+              <h3 className="text-xs font-bold">✏️ #{member.memberNumber}</h3>
+              <button onClick={() => setActiveModal(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+            </div>
+
+            <div className="grid grid-cols-5 md:grid-cols-10 gap-1">
+              <div>
+                <label className="block text-[8px] mb-0">الاسم</label>
+                <input type="text" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">الهاتف</label>
+                <input type="text" value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">السعر</label>
+                <input type="number" value={editData.subscriptionPrice} onChange={(e) => setEditData({ ...editData, subscriptionPrice: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" min="0" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">البداية</label>
+                <input type="date" value={editData.startDate} onChange={(e) => setEditData({ ...editData, startDate: e.target.value })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">الانتهاء</label>
+                <input type="date" value={editData.expiryDate} onChange={(e) => setEditData({ ...editData, expiryDate: e.target.value })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">❄️ فريز</label>
+                <input type="number" value={editData.remainingFreezeDays} onChange={(e) => setEditData({ ...editData, remainingFreezeDays: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" min="0" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">⚖️ InBody</label>
+                <input type="number" value={editData.inBodyScans} onChange={(e) => setEditData({ ...editData, inBodyScans: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" min="0" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">🎟️ دعوات</label>
+                <input type="number" value={editData.invitations} onChange={(e) => setEditData({ ...editData, invitations: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" min="0" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">💪 PT</label>
+                <input type="number" value={editData.freePTSessions} onChange={(e) => setEditData({ ...editData, freePTSessions: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" min="0" />
+              </div>
+
+              <div>
+                <label className="block text-[8px] mb-0">📝 ملاحظات</label>
+                <input type="text" value={editData.notes} onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                  className="w-full px-1 py-0.5 border rounded text-[10px]" />
+              </div>
+            </div>
+
+            <div className="flex gap-1 mt-1 pt-1 border-t bg-white">
+              <button onClick={handleEdit} disabled={loading || !editData.name || !editData.phone}
+                className="flex-1 bg-blue-600 text-white py-1 rounded hover:bg-blue-700 disabled:bg-gray-400 font-bold text-[10px]">
+                {loading ? 'حفظ...' : '✅ حفظ'}
+              </button>
+              <button onClick={() => setActiveModal(null)} className="px-2 bg-gray-200 text-gray-700 py-1 rounded hover:bg-gray-300 text-[10px]">
+                إلغاء
+              </button>
             </div>
           </div>
         </div>

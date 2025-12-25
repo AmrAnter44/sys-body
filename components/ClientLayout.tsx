@@ -2,15 +2,18 @@
 
 import { ReactNode } from 'react'
 import { AdminDateProvider } from '../contexts/AdminDateContext'
+import { LanguageProvider } from '../contexts/LanguageContext'
 import Navbar from './Navbar'
 import { PreventInputScroll } from '../app/PreventInputScroll'
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
   return (
-    <AdminDateProvider>
-      <PreventInputScroll />
-      <Navbar />
-      <main>{children}</main>
-    </AdminDateProvider>
+    <LanguageProvider>
+      <AdminDateProvider>
+        <PreventInputScroll />
+        <Navbar />
+        <main>{children}</main>
+      </AdminDateProvider>
+    </LanguageProvider>
   )
 }

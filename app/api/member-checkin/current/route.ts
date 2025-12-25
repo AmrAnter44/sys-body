@@ -1,19 +1,22 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma'
 
-// GET: الحصول على عدد الأعضاء الموجودين حالياً في الجيم
+// GET: الحصول على تسجيلات دخول اليوم
 export async function GET() {
   try {
-    const currentCount = await prisma.memberCheckIn.count({
-      where: {
-        isActive: true,
-      },
-    })
+    // ✅ الحصول على تسجيلات دخول اليوم
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
 
-    // الحصول على قائمة بأسماء الأعضاء الموجودين
-    const currentMembers = await prisma.memberCheckIn.findMany({
+    const endOfDay = new Date()
+    endOfDay.setHours(23, 59, 59, 999)
+
+    const todayCheckIns = await prisma.memberCheckIn.findMany({
       where: {
-        isActive: true,
+        checkInTime: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
       },
       include: {
         member: {
@@ -31,8 +34,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      count: currentCount,
-      members: currentMembers,
+      count: todayCheckIns.length,
+      members: todayCheckIns,
     })
   } catch (error) {
     console.error('Error getting current count:', error)

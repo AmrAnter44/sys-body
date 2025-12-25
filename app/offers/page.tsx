@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface Offer {
   id: string
@@ -12,13 +13,16 @@ interface Offer {
   freePTSessions: number
   inBodyScans: number
   invitations: number
+  freezeDays: number
   icon: string
   isActive: boolean
+  upgradeEligibilityDays?: number | null
   createdAt: string
   updatedAt: string
 }
 
 export default function OffersPage() {
+  const { t, direction } = useLanguage()
   const [offers, setOffers] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -35,7 +39,9 @@ export default function OffersPage() {
     freePTSessions: '',
     inBodyScans: '',
     invitations: '',
-    icon: '📅'
+    freezeDays: '',
+    icon: '📅',
+    upgradeEligibilityDays: '7'
   })
 
   useEffect(() => {
@@ -53,12 +59,12 @@ export default function OffersPage() {
       } else {
         console.warn('⚠️ البيانات المستلمة ليست array:', data)
         setOffers([])
-        setError('البيانات المستلمة غير صحيحة')
+        setError(t('offers.messages.dataError'))
       }
     } catch (error) {
       console.error('Error fetching offers:', error)
       setOffers([])
-      setError('فشل جلب العروض')
+      setError(t('offers.messages.fetchError'))
     } finally {
       setLoading(false)
     }
@@ -84,14 +90,14 @@ export default function OffersPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'فشل في حفظ العرض')
+        throw new Error(errorData.error || t('offers.messages.saveError'))
       }
 
-      setSuccess(editingOffer ? '✅ تم تحديث العرض بنجاح' : '✅ تم إضافة العرض بنجاح')
+      setSuccess(editingOffer ? `✅ ${t('offers.messages.updateSuccess')}` : `✅ ${t('offers.messages.addSuccess')}`)
       resetForm()
       fetchOffers()
     } catch (error: any) {
-      setError(error.message || 'حدث خطأ أثناء حفظ العرض')
+      setError(error.message || t('offers.messages.saveErrorGeneral'))
     }
   }
 
@@ -104,17 +110,19 @@ export default function OffersPage() {
       freePTSessions: offer.freePTSessions.toString(),
       inBodyScans: offer.inBodyScans.toString(),
       invitations: offer.invitations.toString(),
-      icon: offer.icon
+      freezeDays: offer.freezeDays.toString(),
+      icon: offer.icon,
+      upgradeEligibilityDays: offer.upgradeEligibilityDays?.toString() || '7'
     })
     setShowForm(true)
   }
 
   const handleDelete = async (offer: Offer) => {
     const confirmed = await confirm({
-      title: '⚠️ حذف العرض',
-      message: `هل أنت متأكد من حذف عرض "${offer.name}"؟\nلا يمكن التراجع عن هذا الإجراء!`,
-      confirmText: 'نعم، احذف',
-      cancelText: 'إلغاء',
+      title: `⚠️ ${t('offers.deleteConfirmTitle')}`,
+      message: t('offers.deleteConfirmMessage', { name: offer.name }),
+      confirmText: t('offers.confirmDelete'),
+      cancelText: t('offers.cancelDelete'),
       type: 'danger'
     })
 
@@ -127,13 +135,13 @@ export default function OffersPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'فشل في حذف العرض')
+        throw new Error(errorData.error || t('offers.messages.deleteError'))
       }
 
-      setSuccess('✅ تم حذف العرض بنجاح')
+      setSuccess(`✅ ${t('offers.messages.deleteSuccess')}`)
       fetchOffers()
     } catch (error: any) {
-      setError(error.message || 'حدث خطأ أثناء حذف العرض')
+      setError(error.message || t('offers.messages.deleteErrorGeneral'))
     }
   }
 
@@ -149,13 +157,13 @@ export default function OffersPage() {
       })
 
       if (!response.ok) {
-        throw new Error('فشل في تحديث حالة العرض')
+        throw new Error(t('offers.messages.toggleError'))
       }
 
-      setSuccess('✅ تم تحديث حالة العرض')
+      setSuccess(`✅ ${t('offers.messages.toggleSuccess')}`)
       fetchOffers()
     } catch (error: any) {
-      setError(error.message || 'حدث خطأ أثناء تحديث حالة العرض')
+      setError(error.message || t('offers.messages.toggleErrorGeneral'))
     }
   }
 
@@ -167,7 +175,9 @@ export default function OffersPage() {
       freePTSessions: '',
       inBodyScans: '',
       invitations: '',
-      icon: '📅'
+      freezeDays: '',
+      icon: '📅',
+      upgradeEligibilityDays: '7'
     })
     setEditingOffer(null)
     setShowForm(false)
@@ -176,20 +186,20 @@ export default function OffersPage() {
   const iconOptions = ['📅', '⭐', '🎁', '💎', '🔥', '✨', '🏆', '💪']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50" dir={direction}>
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-2">🎁 إدارة العروض</h1>
-              <p className="text-gray-600">إضافة وتعديل وحذف عروض الاشتراكات</p>
+              <h1 className="text-4xl font-bold text-gray-800 mb-2">🎁 {t('offers.title')}</h1>
+              <p className="text-gray-600">{t('offers.subtitle')}</p>
             </div>
             <button
               onClick={() => setShowForm(!showForm)}
               className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:scale-105 transition-transform"
             >
-              {showForm ? '✖ إلغاء' : '➕ إضافة عرض جديد'}
+              {showForm ? `✖ ${t('offers.cancel')}` : `➕ ${t('offers.addNewOffer')}`}
             </button>
           </div>
 
@@ -209,48 +219,48 @@ export default function OffersPage() {
           {showForm && (
             <div className="mb-8 bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl border-2 border-purple-200">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                {editingOffer ? '✏️ تعديل العرض' : '➕ عرض جديد'}
+                {editingOffer ? `✏️ ${t('offers.editOffer')}` : `➕ ${t('offers.newOffer')}`}
               </h2>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">اسم العرض *</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.offerName')} *</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                    placeholder="مثال: شهر، شهرين، 3 شهور"
+                    placeholder={t('offers.offerNamePlaceholder')}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">المدة (بالأيام) *</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.duration')} *</label>
                   <input
                     type="number"
                     value={formData.duration}
                     onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                     className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                    placeholder="مثال: 30"
+                    placeholder={t('offers.durationPlaceholder')}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">السعر (جنيه) *</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.price')} *</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                    placeholder="مثال: 800"
+                    placeholder={t('offers.pricePlaceholder')}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">حصص PT مجانية</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.freePTSessions')}</label>
                   <input
                     type="number"
                     value={formData.freePTSessions}
@@ -261,7 +271,7 @@ export default function OffersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">InBody مجاني</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.inBodyScans')}</label>
                   <input
                     type="number"
                     value={formData.inBodyScans}
@@ -272,7 +282,7 @@ export default function OffersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">دعوات مجانية</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.freeInvitations')}</label>
                   <input
                     type="number"
                     value={formData.invitations}
@@ -282,8 +292,34 @@ export default function OffersPage() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-gray-700 font-bold mb-2">❄️ أيام الفريز</label>
+                  <input
+                    type="number"
+                    value={formData.freezeDays}
+                    onChange={(e) => setFormData({ ...formData, freezeDays: e.target.value })}
+                    className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                    placeholder="0"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">عدد أيام الفريز المسموح بها لهذا العرض</p>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.upgradeEligibilityDays')}</label>
+                  <input
+                    type="number"
+                    value={formData.upgradeEligibilityDays}
+                    onChange={(e) => setFormData({ ...formData, upgradeEligibilityDays: e.target.value })}
+                    className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                    placeholder="7"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{t('offers.upgradeEligibilityDaysHelp')}</p>
+                </div>
+
                 <div className="md:col-span-2">
-                  <label className="block text-gray-700 font-bold mb-2">الأيقونة</label>
+                  <label className="block text-gray-700 font-bold mb-2">{t('offers.icon')}</label>
                   <div className="flex gap-3">
                     {iconOptions.map((icon) => (
                       <button
@@ -307,14 +343,14 @@ export default function OffersPage() {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-bold hover:scale-105 transition-transform"
                   >
-                    {editingOffer ? '💾 حفظ التعديلات' : '➕ إضافة العرض'}
+                    {editingOffer ? `💾 ${t('offers.saveChanges')}` : `➕ ${t('offers.addOffer')}`}
                   </button>
                   <button
                     type="button"
                     onClick={resetForm}
                     className="px-8 bg-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-400 transition-colors"
                   >
-                    إلغاء
+                    {t('offers.cancel')}
                   </button>
                 </div>
               </form>
@@ -325,13 +361,13 @@ export default function OffersPage() {
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
-              <p className="mt-4 text-gray-600">جاري التحميل...</p>
+              <p className="mt-4 text-gray-600">{t('offers.loading')}</p>
             </div>
           ) : !Array.isArray(offers) || offers.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-xl">
               <p className="text-2xl text-gray-400 mb-2">🎁</p>
-              <p className="text-gray-600">لا توجد عروض حالياً</p>
-              <p className="text-gray-500 text-sm mt-2">قم بإضافة عرض جديد للبدء</p>
+              <p className="text-gray-600">{t('offers.noOffers')}</p>
+              <p className="text-gray-500 text-sm mt-2">{t('offers.addFirstOffer')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -347,7 +383,7 @@ export default function OffersPage() {
                       <span className="text-4xl">{offer.icon}</span>
                       <div>
                         <h3 className="text-xl font-bold text-gray-800">{offer.name}</h3>
-                        <p className="text-sm text-gray-500">{offer.duration} يوم</p>
+                        <p className="text-sm text-gray-500">{offer.duration} {t('offers.days')}</p>
                       </div>
                     </div>
                     <button
@@ -358,26 +394,39 @@ export default function OffersPage() {
                           : 'bg-gray-100 text-gray-700'
                       }`}
                     >
-                      {offer.isActive ? '✓ نشط' : '✕ معطل'}
+                      {offer.isActive ? `✓ ${t('offers.active')}` : `✕ ${t('offers.inactive')}`}
                     </button>
                   </div>
 
                   <div className="space-y-2 mb-6">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">السعر:</span>
-                      <span className="text-2xl font-bold text-purple-600">{offer.price} جنيه</span>
+                      <span className="text-gray-600">{t('offers.price')}</span>
+                      <span className="text-2xl font-bold text-purple-600">{offer.price} {t('offers.priceEGP')}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">حصص PT:</span>
+                      <span className="text-gray-600">{t('offers.ptSessions')}</span>
                       <span className="font-bold text-gray-800">{offer.freePTSessions}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">InBody:</span>
+                      <span className="text-gray-600">{t('offers.inBody')}</span>
                       <span className="font-bold text-gray-800">{offer.inBodyScans}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">دعوات:</span>
+                      <span className="text-gray-600">{t('offers.invitations')}</span>
                       <span className="font-bold text-gray-800">{offer.invitations}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">❄️ أيام الفريز</span>
+                      <span className="font-bold text-blue-600">{offer.freezeDays}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-t pt-2 mt-2">
+                      <span className="text-gray-600">{t('offers.upgradeWindow')}</span>
+                      <span className="font-bold text-blue-600">
+                        {offer.upgradeEligibilityDays !== null && offer.upgradeEligibilityDays !== undefined
+                          ? `${offer.upgradeEligibilityDays} ${t('offers.days')}`
+                          : t('offers.noUpgrade')
+                        }
+                      </span>
                     </div>
                   </div>
 
@@ -386,13 +435,13 @@ export default function OffersPage() {
                       onClick={() => handleEdit(offer)}
                       className="flex-1 bg-blue-500 text-white py-2 rounded-lg font-bold hover:bg-blue-600 transition-colors"
                     >
-                      ✏️ تعديل
+                      ✏️ {t('offers.edit')}
                     </button>
                     <button
                       onClick={() => handleDelete(offer)}
                       className="flex-1 bg-red-500 text-white py-2 rounded-lg font-bold hover:bg-red-600 transition-colors"
                     >
-                      🗑️ حذف
+                      🗑️ {t('offers.delete')}
                     </button>
                   </div>
                 </div>

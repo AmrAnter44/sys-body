@@ -132,6 +132,34 @@ export async function POST(request: Request) {
       // (لا نحدثه، بل نتركه كما هو ونفتح سجل جديد)
     }
 
+    // التحقق من آخر سجل انصراف (حتى لو تم تسجيل الانصراف)
+    const lastCheckOut = await prisma.attendance.findFirst({
+      where: {
+        staffId: staff.id,
+        checkOut: { not: null },
+      },
+      orderBy: {
+        checkOut: 'desc',
+      },
+    })
+
+    // إذا كان هناك انصراف خلال آخر 10 دقائق، منع تسجيل حضور جديد
+    if (lastCheckOut && lastCheckOut.checkOut) {
+      const minutesSinceCheckOut = (now.getTime() - lastCheckOut.checkOut.getTime()) / (1000 * 60)
+
+      if (minutesSinceCheckOut < 10) {
+        const remainingMinutes = Math.ceil(10 - minutesSinceCheckOut)
+        return NextResponse.json(
+          {
+            error: `⏳ يجب الانتظار ${remainingMinutes} دقيقة قبل تسجيل حضور جديد`,
+            action: 'error',
+            remainingMinutes,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     // إنشاء سجل حضور جديد
     const newAttendance = await prisma.attendance.create({
       data: {

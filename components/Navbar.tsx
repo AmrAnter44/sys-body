@@ -5,42 +5,40 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { usePermissions } from '../hooks/usePermissions'
 import type { Permissions } from '../types/permissions'
-import LinkModal from './LinkModal'
 import AdminDateOverride from './AdminDateOverride'
 import { useAdminDate } from '../contexts/AdminDateContext'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const { hasPermission, user, isAdmin } = usePermissions()
   const { setCustomCreatedAt } = useAdminDate()
+  const { t, locale } = useLanguage()
   const [quickSearchId, setQuickSearchId] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchMessage, setSearchMessage] = useState<{type: 'success' | 'error' | 'warning', text: string, staff?: any} | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showLinkModal, setShowLinkModal] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
   const allLinks = [
-    { href: '/', label: 'الرئيسية', icon: '🏠', permission: null, roleRequired: null },
-    { href: '/members', label: 'الأعضاء', icon: '👥', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
-    { href: '/pt', label: 'PT', icon: '💪', permission: 'canViewPT' as keyof Permissions, roleRequired: null },
-    { href: '/coach/dashboard', label: 'كوتش', icon: '🏋️', permission: 'canRegisterPTAttendance' as keyof Permissions, roleRequired: 'COACH' },
-    { href: '/dayuse', label: 'يوم استخدام', icon: '📊', permission: 'canViewDayUse' as keyof Permissions, roleRequired: null },
-    { href: '/invitations', label: 'الدعوات', icon: '🎟️', permission: 'canViewVisitors' as keyof Permissions, roleRequired: null },
-    { href: '/staff', label: 'الموظفين', icon: '👷', permission: 'canViewStaff' as keyof Permissions, roleRequired: null },
-    { href: '/receipts', label: 'الإيصالات', icon: '🧾', permission: 'canViewReceipts' as keyof Permissions, roleRequired: null },
-    { href: '/expenses', label: 'المصروفات', icon: '💸', permission: 'canViewExpenses' as keyof Permissions, roleRequired: null },
-    { href: '/visitors', label: 'الزوار', icon: '🚶', permission: 'canViewVisitors' as keyof Permissions, roleRequired: null },
-    { href: '/followups', label: 'المتابعات', icon: '📝', permission: 'canViewFollowUps' as keyof Permissions, roleRequired: null },
-    { href: '/search', label: 'البحث', icon: '🔍', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
-    { href: '/offers', label: 'العروض', icon: '🎁', permission: 'canAccessSettings' as keyof Permissions, roleRequired: null },
-    { href: '/closing', label: 'التقفيل', icon: '💰', permission: 'canAccessClosing' as keyof Permissions, roleRequired: null },
-    { href: '/attendance-report', label: 'حضور موظفين', icon: '📋', permission: 'canViewAttendance' as keyof Permissions, roleRequired: null },
-    { href: '/member-attendance', label: 'حضور أعضاء', icon: '🏋️', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
+    { href: '/members', label: t('nav.members'), icon: '👥', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
+    { href: '/pt', label: t('nav.pt'), icon: '💪', permission: 'canViewPT' as keyof Permissions, roleRequired: null },
+    { href: '/coach/dashboard', label: t('nav.coach'), icon: '🏋️', permission: 'canRegisterPTAttendance' as keyof Permissions, roleRequired: 'COACH' },
+    { href: '/coach/rotations', label: t('nav.rotations'), icon: '🔄', permission: 'canRegisterPTAttendance' as keyof Permissions, roleRequired: 'COACH' },
+    { href: '/dayuse', label: t('nav.dayUse'), icon: '📊', permission: 'canViewDayUse' as keyof Permissions, roleRequired: null },
+    { href: '/invitations', label: t('nav.invitations'), icon: '🎟️', permission: 'canViewVisitors' as keyof Permissions, roleRequired: null },
+    { href: '/staff', label: t('nav.staff'), icon: '👷', permission: 'canViewStaff' as keyof Permissions, roleRequired: null },
+    { href: '/receipts', label: t('nav.receipts'), icon: '🧾', permission: 'canViewReceipts' as keyof Permissions, roleRequired: null },
+    { href: '/expenses', label: t('nav.expenses'), icon: '💸', permission: 'canViewExpenses' as keyof Permissions, roleRequired: null },
+    { href: '/visitors', label: t('nav.visitors'), icon: '🚶', permission: 'canViewVisitors' as keyof Permissions, roleRequired: null },
+    { href: '/followups', label: t('nav.followups'), icon: '📝', permission: 'canViewFollowUps' as keyof Permissions, roleRequired: null },
+    { href: '/search', label: t('nav.search'), icon: '🔍', permission: 'canViewMembers' as keyof Permissions, roleRequired: null },
+    { href: '/closing', label: t('nav.closing'), icon: '💰', permission: 'canAccessClosing' as keyof Permissions, roleRequired: null },
+    { href: '/settings', label: t('nav.settings'), icon: '⚙️', permission: null, roleRequired: null },
   ]
 
   // Filter links based on permissions and role
@@ -64,7 +62,7 @@ export default function Navbar() {
         setTimeout(() => {
           searchInputRef.current?.focus()
           searchInputRef.current?.select()
-        }, 100)
+        }, 10)
       }
       // ESC to close
       if (e.key === 'Escape') {
@@ -263,12 +261,12 @@ export default function Navbar() {
         playAlarmSound()
         setSearchMessage({ type: 'error', text: 'حدث خطأ في تسجيل الحضور' })
       }
-      
+
       setQuickSearchId('')
       setTimeout(() => {
         setSearchMessage(null)
         searchInputRef.current?.focus()
-      }, 4000)
+      }, 1500)
       setIsSearching(false)
       return
     }
@@ -302,7 +300,7 @@ export default function Navbar() {
         setTimeout(() => {
           setSearchMessage(null)
           searchInputRef.current?.focus()
-        }, 2000)
+        }, 1500)
       } else {
         playAlarmSound()
         setSearchMessage({ type: 'error', text: `🚨 لم يتم العثور على رقم "${inputValue}"` })
@@ -310,7 +308,7 @@ export default function Navbar() {
         setTimeout(() => {
           setSearchMessage(null)
           searchInputRef.current?.focus()
-        }, 2000)
+        }, 1500)
       }
     } catch (error) {
       console.error('Quick search error:', error)
@@ -321,7 +319,7 @@ export default function Navbar() {
     }
   }
 
-  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleQuickSearch()
     }
@@ -337,58 +335,90 @@ export default function Navbar() {
   }
 
   const getRoleLabel = (role: string) => {
-    const labels = {
-      'ADMIN': '👑 مدير',
-      'MANAGER': '📊 مشرف',
-      'STAFF': '👷 موظف',
-      'COACH': '🏋️ كوتش'
+    const roleKey = role.toLowerCase()
+    return t(`roles.${roleKey}` as any) || role
+  }
+
+  const getPositionLabel = (position: string | null): string => {
+    if (!position) return '-'
+    const POSITION_MAP: { [key: string]: string } = {
+      'مدرب': 'trainer',
+      'ريسبشن': 'receptionist',
+      'بار': 'barista',
+      'HK': 'housekeeping',
+      'نظافة': 'housekeeping',
+      'مدير': 'manager',
+      'محاسب': 'accountant',
+      'صيانة': 'maintenance',
+      'أمن': 'security',
+      'other': 'other',
     }
-    return labels[role as keyof typeof labels] || role
+    const key = POSITION_MAP[position] || 'other'
+    return t(`positions.${key}` as any)
   }
 
   return (
     <>
-      {/* ✅ Navbar بتصميم صفين */}
-      <nav className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg sticky top-0 z-40">
-        <div className="container mx-auto px-2 sm:px-4">
-          {/* الصف الأول: اللوجو + البحث السريع + اسم المستخدم */}
-          <div className="flex items-center justify-between h-14 sm:h-16 gap-2 border-b border-white/20 lg:border-0">
-            {/* Hamburger Menu + Logo */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Hamburger Button - يظهر في الموبايل والتابلت فقط */}
+      {/* ✅ Navbar أفقية مع أيقونات عمودية على اليمين */}
+      <nav className="navbar-gradient backdrop-blur-md text-white shadow-xl sticky top-0 z-40 border-b border-white/10">
+        <div className="w-full px-2 sm:px-4 relative z-10">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo + Hamburger Menu - على اليسار */}
+            <div className="flex items-center gap-2 flex-shrink-0 py-1.5">
+              {/* Logo Button - للصفحة الرئيسية */}
+              <Link
+                href="/"
+                className="logo-breathing"
+                title={t('nav.home')}
+              >
+                <img
+                  src="/icon.png"
+                  alt="Home"
+                  className="w-12 h-12 sm:w-14 sm:h-14 drop-shadow-2xl"
+                />
+              </Link>
+
+              {/* Hamburger Menu - على الموبايل فقط */}
               <button
                 onClick={() => setShowDrawer(!showDrawer)}
-                className="lg:hidden p-2 hover:bg-white/20 rounded-lg transition"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-all hover:scale-110 active:scale-95 lg:hidden"
                 aria-label="القائمة"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-
-              <img src='/icon.png' alt="logo" className='w-6 h-6 sm:w-8 sm:h-8'/>
-              <span className="font-bold text-base sm:text-xl">X GYM</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Admin Date Override Button */}
-              <AdminDateOverride
-                isAdmin={isAdmin}
-                onDateChange={(date) => setCustomCreatedAt(date)}
-              />
+            {/* روابط التنقل - في الوسط على Desktop */}
+            <div className="hidden lg:flex lg:justify-center lg:flex-wrap gap-1 xl:gap-1.5 py-1.5 flex-1">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-2 xl:px-2.5 py-1 xl:py-1.5 rounded-lg transition-all hover:bg-white/15 text-center flex items-center justify-center gap-1 hover:scale-105 active:scale-95 border border-transparent ${
+                    pathname === link.href ? 'bg-white/20 font-bold border-white/30 shadow-lg' : 'hover:border-white/20'
+                  }`}
+                >
+                  <span className="text-sm xl:text-base drop-shadow">{link.icon}</span>
+                  <span className="text-xs whitespace-nowrap">{link.label}</span>
+                </Link>
+              ))}
+            </div>
 
-              {/* User Icon with Name - Dropdown */}
+            {/* الأيقونات الثلاثة عمودية على اليمين */}
+            <div className="flex flex-col gap-1 py-1">
+              {/* User Icon - Dropdown */}
               {user && (
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-2 bg-white/20 px-3 py-2 rounded-lg hover:bg-white/30 transition"
+                    className="flex items-center justify-center bg-white/10 backdrop-blur-sm p-1.5 rounded-full hover:bg-white/20 transition-all hover:scale-110 active:scale-95 border border-white/20"
+                    title={user.name}
                   >
-                    <div className="w-8 h-8 bg-white/30 rounded-full flex items-center justify-center font-bold text-sm">
+                    <div className="w-7 h-7 bg-gradient-to-br from-white/40 to-white/20 rounded-full flex items-center justify-center font-bold text-sm shadow-lg">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="hidden sm:block text-sm font-medium">{user.name}</span>
-                    <span className="text-xs">▼</span>
                   </button>
 
                   {/* Dropdown Menu */}
@@ -401,11 +431,15 @@ export default function Navbar() {
                       />
 
                       {/* Menu */}
-                      <div className="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden z-40 border-2 border-blue-500">
+                      <div
+                        dir={locale === 'ar' ? 'rtl' : 'ltr'}
+                        className={`absolute mt-2 w-64 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden z-40 border-2 border-blue-500/50 ${
+                          locale === 'ar' ? 'left-0' : 'right-0'
+                        }`}>
                         {/* User Info */}
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4">
+                        <div className="navbar-gradient backdrop-blur-sm text-white p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center font-bold text-lg">
+                            <div className="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center font-bold text-lg">
                               {user.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -422,19 +456,23 @@ export default function Navbar() {
                             <Link
                               href="/admin/users"
                               onClick={() => setShowUserMenu(false)}
-                              className="px-4 py-3 text-gray-700 hover:bg-blue-50 transition flex items-center gap-2"
+                              className={`px-4 py-3 text-gray-700 hover:bg-blue-50/80 transition-all flex items-center gap-2 ${
+                                locale === 'ar' ? 'hover:translate-x-1' : 'hover:-translate-x-1'
+                              }`}
                             >
                               <span>👥</span>
-                              <span>إدارة المستخدمين</span>
+                              <span>{t('auth.manageUsers')}</span>
                             </Link>
                           )}
 
                           <button
                             onClick={handleLogout}
-                            className="w-full text-right px-4 py-3 text-red-600 hover:bg-red-50 transition flex items-center gap-2 font-bold"
+                            className={`w-full px-4 py-3 text-red-600 hover:bg-red-50/80 transition-all flex items-center gap-2 font-bold ${
+                              locale === 'ar' ? 'text-right hover:translate-x-1' : 'text-left hover:-translate-x-1'
+                            }`}
                           >
                             <span>🚪</span>
-                            <span>تسجيل الخروج</span>
+                            <span>{t('auth.logout')}</span>
                           </button>
                         </div>
                       </div>
@@ -443,46 +481,19 @@ export default function Navbar() {
                 </div>
               )}
 
-              {/* Link Button */}
-              <button
-                onClick={() => setShowLinkModal(true)}
-                className="px-3 sm:px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition flex items-center gap-1 sm:gap-2 font-bold flex-shrink-0"
-                title="مشاركة اللينك"
-              >
-                <span>🔗</span>
-                <span className="hidden sm:inline text-sm">Link</span>
-              </button>
-
               {/* Quick Search Button */}
               <button
                 onClick={() => {
                   setShowSearchModal(true)
                   setSearchMessage(null)
-                  setTimeout(() => searchInputRef.current?.focus(), 100)
+                  setTimeout(() => searchInputRef.current?.focus(), 10)
                 }}
-                className="px-3 sm:px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition flex items-center gap-1 sm:gap-2 font-bold flex-shrink-0"
+                className="w-9 h-9 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-all hover:scale-110 active:scale-95 flex items-center justify-center font-bold flex-shrink-0 border border-white/20 shadow-lg"
+                title="بحث سريع (Ctrl+K)"
               >
-                <span>🔍</span>
-                <span className="text-sm sm:text-base">بحث</span>
-                <kbd className="hidden lg:inline-block px-2 py-1 bg-white/20 rounded text-xs">Ctrl+K</kbd>
+                <span className="text-base">🔍</span>
               </button>
             </div>
-          </div>
-
-          {/* الصف الثاني: روابط التنقل - يظهر في Desktop فقط */}
-          <div className="hidden lg:flex lg:justify-center gap-1 py-2 lg:py-3">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-2 py-2 rounded-lg transition-all hover:bg-white/20 text-center flex items-center justify-center gap-1 ${
-                  pathname === link.href ? 'bg-white/30 font-bold' : ''
-                }`}
-              >
-                <span className="text-lg">{link.icon}</span>
-                <span className="text-sm whitespace-nowrap">{link.label}</span>
-              </Link>
-            ))}
           </div>
         </div>
       </nav>
@@ -497,12 +508,16 @@ export default function Navbar() {
           />
 
           {/* Drawer */}
-          <div className="fixed top-0 right-0 h-full w-72 sm:w-80 bg-white z-[101] shadow-2xl lg:hidden animate-slideRight overflow-y-auto">
+          <div className={`fixed top-0 h-full w-72 sm:w-80 bg-white/95 backdrop-blur-lg z-[101] shadow-2xl lg:hidden overflow-y-auto border-blue-500 ${
+            locale === 'ar'
+              ? 'right-0 animate-slideRight border-l-4'
+              : 'left-0 animate-slideLeft border-r-4'
+          }`}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between sticky top-0">
+            <div className="navbar-gradient backdrop-blur-sm text-white p-4 flex items-center justify-between sticky top-0">
               <div className="flex items-center gap-3">
                 <img src='/icon.png' alt="logo" className='w-8 h-8'/>
-                <span className="font-bold text-xl">القائمة</span>
+                <span className="font-bold text-xl">{t('nav.menu')}</span>
               </div>
               <button
                 onClick={() => setShowDrawer(false)}
@@ -521,13 +536,13 @@ export default function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setShowDrawer(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:translate-x-2 ${
                     pathname === link.href
-                      ? 'bg-blue-100 text-blue-700 font-bold'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 font-bold shadow-md border-r-4 border-blue-500'
+                      : 'text-gray-700 hover:bg-gray-100/80'
                   }`}
                 >
-                  <span className="text-2xl">{link.icon}</span>
+                  <span className="text-2xl drop-shadow">{link.icon}</span>
                   <span className="text-base">{link.label}</span>
                 </Link>
               ))}
@@ -554,7 +569,7 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition mb-2"
                     >
                       <span>👥</span>
-                      <span className="text-sm">إدارة المستخدمين</span>
+                      <span className="text-sm">{t('auth.manageUsers')}</span>
                     </Link>
                   )}
 
@@ -563,7 +578,7 @@ export default function Navbar() {
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-bold"
                   >
                     <span>🚪</span>
-                    <span>تسجيل الخروج</span>
+                    <span>{t('auth.logout')}</span>
                   </button>
                 </div>
               </div>
@@ -572,157 +587,123 @@ export default function Navbar() {
         </>
       )}
 
-      {/* Search Modal/Popup */}
+      {/* Search Dropdown - Compact Version */}
       {showSearchModal && (
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 z-[9998] animate-fadeIn"
+            className="fixed inset-0 z-[9998] bg-black/20"
             onClick={() => {
               setShowSearchModal(false)
               setQuickSearchId('')
               setSearchMessage(null)
             }}
           />
-          
-          {/* Modal */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-full max-w-2xl px-4 animate-scaleIn">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-blue-500">
+
+          {/* Dropdown Panel */}
+          <div
+            dir={locale === 'ar' ? 'rtl' : 'ltr'}
+            className={`fixed top-16 z-[9999] w-96 max-w-[calc(100vw-2rem)] ${
+              locale === 'ar' ? 'left-2 sm:left-4' : 'right-2 sm:right-4'
+            }`}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-500/30 overflow-hidden">
               {/* Header */}
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold text-blue-600 flex items-center gap-3">
-                  <span>🔍</span>
-                  <span>البحث السريع</span>
-                </h2>
+              <div className="navbar-gradient text-white p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔍</span>
+                  <h3 className="font-bold text-base">{t('nav.quickSearch')}</h3>
+                </div>
                 <button
                   onClick={() => {
                     setShowSearchModal(false)
                     setQuickSearchId('')
                     setSearchMessage(null)
                   }}
-                  className="text-gray-400 hover:text-gray-600 text-3xl"
+                  className="hover:bg-white/20 rounded-lg p-1 transition text-lg"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* Instructions */}
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 mb-4">
-                <p className="text-blue-800 font-bold mb-2">📝 كيفية الاستخدام:</p>
-                <ul className="text-blue-700 space-y-1 text-sm">
-                  <li>• <strong>للبحث عن عضو:</strong> اكتب الرقم (1-8 خانات) مباشرة (مثال: <code className="bg-white px-2 py-1 rounded">1001</code>)</li>
-                  <li>• <strong>لتسجيل حضور موظف:</strong> اكتب 9 أرقام (مثال: <code className="bg-white px-2 py-1 rounded">100000022</code>)</li>
-                </ul>
-              </div>
-
               {/* Search Input */}
-              <div className="mb-6">
-                <div className="flex gap-3">
+              <div className="p-4">
+                <div className="flex gap-2 mb-3">
                   <input
                     ref={searchInputRef}
                     type="text"
                     value={quickSearchId}
                     onChange={(e) => setQuickSearchId(e.target.value)}
-                    onKeyPress={handleSearchKeyPress}
-                    placeholder="1001 أو 100000022"
-                    className="flex-1 px-4 py-3 md:px-6 md:py-4 border-4 border-blue-300 rounded-xl text-xl md:text-2xl lg:text-3xl font-bold text-center focus:border-blue-600 focus:ring-4 focus:ring-blue-200 transition text-gray-800"
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder={locale === 'ar' ? '1001 أو 100000022' : '1001 or 100000022'}
+                    className="flex-1 px-3 py-2 border-2 border-blue-300 rounded-lg text-lg font-bold text-center focus:border-blue-600 focus:outline-none text-gray-800"
                     disabled={isSearching}
                     autoFocus
                   />
                   <button
                     onClick={handleQuickSearch}
                     disabled={isSearching || !quickSearchId.trim()}
-                    className="px-4 py-3 md:px-8 md:py-4 bg-blue-600 text-white text-base md:text-xl font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-400 transition"
+                    className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 active:scale-95"
                   >
                     {isSearching ? '⏳' : '🔍'}
                   </button>
                 </div>
-              </div>
 
-              {/* Message Area */}
-              {searchMessage && (
-                <div className={`p-6 rounded-2xl border-4 animate-slideDown ${
-                  searchMessage.type === 'success' 
-                    ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-500'
-                    : searchMessage.type === 'warning'
-                    ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-500'
-                    : 'bg-gradient-to-r from-red-50 to-red-100 border-red-500'
-                }`}>
-                  <div className="flex items-start gap-4">
-                    <div className="text-5xl">
-                      {searchMessage.type === 'success' ? '✅' : searchMessage.type === 'warning' ? '⚠️' : '🚨'}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`text-2xl font-bold ${
-                        searchMessage.type === 'success' 
-                          ? 'text-green-800'
-                          : searchMessage.type === 'warning'
-                          ? 'text-yellow-800'
-                          : 'text-red-800'
-                      }`}>
-                        {searchMessage.text}
-                      </p>
-                      {searchMessage.staff && (
-                        <div className="mt-3 bg-white/50 rounded-xl p-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-xs text-gray-600">الموظف</p>
-                              <p className="text-sm font-bold text-gray-800">{searchMessage.staff.name}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-600">الوظيفة</p>
-                              <p className="text-sm font-bold text-gray-800">{searchMessage.staff.position || '-'}</p>
-                            </div>
+                {/* Instructions - Compact */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>{t('nav.searchMember')}</strong> {t('nav.searchMemberDesc')} <code className="bg-white px-1 rounded text-xs">1001</code>)
+                  </p>
+                  <p className="text-xs text-blue-800 mt-1">
+                    <strong>{t('nav.staffCheckIn')}</strong> {t('nav.staffCheckInDesc')} <code className="bg-white px-1 rounded text-xs">100000022</code>)
+                  </p>
+                </div>
+
+                {/* Message Area - Compact */}
+                {searchMessage && (
+                  <div className={`p-3 rounded-lg border-2 ${
+                    searchMessage.type === 'success'
+                      ? 'bg-green-50 border-green-400'
+                      : searchMessage.type === 'warning'
+                      ? 'bg-yellow-50 border-yellow-400'
+                      : 'bg-red-50 border-red-400'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      <div className="text-2xl flex-shrink-0">
+                        {searchMessage.type === 'success' ? '✅' : searchMessage.type === 'warning' ? '⚠️' : '🚨'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold ${
+                          searchMessage.type === 'success'
+                            ? 'text-green-800'
+                            : searchMessage.type === 'warning'
+                            ? 'text-yellow-800'
+                            : 'text-red-800'
+                        }`}>
+                          {searchMessage.text}
+                        </p>
+                        {searchMessage.staff && (
+                          <div className="mt-2 bg-white/60 rounded p-2 text-xs">
+                            <p><strong>{t('nav.employee')}:</strong> {searchMessage.staff.name}</p>
+                            <p><strong>{t('nav.position')}:</strong> {getPositionLabel(searchMessage.staff.position)}</p>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Hint */}
-              <div className="mt-6 text-center text-sm text-gray-500">
-                <p>💡 اضغط <kbd className="px-2 py-1 bg-gray-200 rounded">Enter</kbd> للبحث أو <kbd className="px-2 py-1 bg-gray-200 rounded">ESC</kbd> للإغلاق</p>
+                {/* Hint */}
+                <div className="mt-3 text-center text-xs text-gray-500">
+                  <kbd className="px-2 py-0.5 bg-gray-200 rounded text-xs">Enter</kbd> {t('nav.searchHintEnter')} · <kbd className="px-2 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> {t('nav.searchHintEsc')}
+                </div>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* Link Modal */}
-      {showLinkModal && (
-        <LinkModal onClose={() => setShowLinkModal(false)} />
-      )}
-
       <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-          }
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
         @keyframes slideRight {
           from {
             transform: translateX(100%);
@@ -732,20 +713,73 @@ export default function Navbar() {
           }
         }
 
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
+        @keyframes slideLeft {
+          from {
+            transform: translateX(-100%);
+          }
+          to {
+            transform: translateX(0);
+          }
         }
 
-        .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out;
+        @keyframes gradientShift {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
         }
 
-        .animate-slideDown {
-          animation: slideDown 0.4s ease-out;
+        @keyframes logoBreathing {
+          0%, 100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+          }
+          50% {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.6));
+          }
+        }
+
+        .navbar-gradient {
+          background: linear-gradient(
+            -45deg,
+            rgba(59, 130, 246, 0.95),
+            rgba(99, 102, 241, 0.95),
+            rgba(139, 92, 246, 0.95),
+            rgba(168, 85, 247, 0.95),
+            rgba(59, 130, 246, 0.95)
+          );
+          background-size: 300% 300%;
+          animation: gradientShift 2s ease infinite;
+        }
+
+        .logo-breathing {
+          display: inline-block;
+          animation: logoBreathing 3s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .logo-breathing:hover {
+          animation: none;
+          transform: scale(1.15) rotate(5deg);
+          filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.8));
+        }
+
+        .logo-breathing:active {
+          transform: scale(0.95);
         }
 
         .animate-slideRight {
-          animation: slideRight 0.3s ease-out;
+          animation: slideRight 0.2s ease-out;
+        }
+
+        .animate-slideLeft {
+          animation: slideLeft 0.2s ease-out;
         }
       `}</style>
     </>

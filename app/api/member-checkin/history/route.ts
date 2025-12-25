@@ -58,18 +58,32 @@ export async function GET(request: Request) {
       endDate.setHours(23, 59, 59, 999)
 
       // تجميع البيانات حسب اليوم للجرافات
+      // ✅ استخدام datetime بدلاً من date لتجنب مشاكل timezone
       const dailyStats = await prisma.$queryRaw<
-        Array<{ date: string; count: number }>
+        Array<{ date: string; count: bigint }>
       >`
         SELECT
-          DATE(checkInTime) as date,
-          COUNT(*) as count
+          strftime('%Y-%m-%d', checkInTime) as date,
+          CAST(COUNT(*) as INTEGER) as count
         FROM MemberCheckIn
         WHERE checkInTime >= ${startDate.toISOString()}
           AND checkInTime <= ${endDate.toISOString()}
-        GROUP BY DATE(checkInTime)
+        GROUP BY strftime('%Y-%m-%d', checkInTime)
         ORDER BY date ASC
       `
+
+      // تحويل BigInt إلى Number
+      const formattedDailyStats = dailyStats.map(stat => ({
+        date: stat.date,
+        count: Number(stat.count)
+      }))
+
+      console.log('📊 إحصائيات يومية:', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        totalDays: formattedDailyStats.length,
+        totalCheckIns: formattedDailyStats.reduce((sum, s) => sum + s.count, 0)
+      })
 
       // الأعضاء الأكثر زيارة
       const topMembers = await prisma.memberCheckIn.groupBy({
@@ -110,7 +124,7 @@ export async function GET(request: Request) {
 
       stats = {
         totalCheckIns: checkIns.length,
-        dailyStats,
+        dailyStats: formattedDailyStats,
         topMembers: topMembersWithInfo,
       }
     }

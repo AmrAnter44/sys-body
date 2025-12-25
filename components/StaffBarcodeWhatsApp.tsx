@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Toast from './Toast'
 
 interface StaffBarcodeWhatsAppProps {
   staffCode: string
@@ -12,6 +13,7 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
   const [showBarcodeModal, setShowBarcodeModal] = useState(false)
   const [barcodeImage, setBarcodeImage] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null)
 
   // توليد الباركود عن طريق API
   const handleGenerateBarcode = async () => {
@@ -36,11 +38,11 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
         setBarcodeImage(data.barcode)
         setShowBarcodeModal(true)
       } else {
-        alert('حدث خطأ أثناء توليد الباركود')
+        setToast({ message: 'حدث خطأ أثناء توليد الباركود', type: 'error' })
       }
     } catch (error) {
       console.error('Error generating barcode:', error)
-      alert('حدث خطأ أثناء توليد الباركود')
+      setToast({ message: 'حدث خطأ أثناء توليد الباركود', type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -55,7 +57,10 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
   }
 
   const handleSendBarcode = () => {
-    if (!barcodeImage) return alert('يجب توليد الباركود أولاً')
+    if (!barcodeImage) {
+      setToast({ message: 'يجب توليد الباركود أولاً', type: 'warning' })
+      return
+    }
 
     handleDownloadBarcode()
 
@@ -68,12 +73,14 @@ export default function StaffBarcodeWhatsApp({ staffCode, staffName, staffPhone 
       const url = `https://wa.me/2${phone}?text=${encodeURIComponent(message)}`
       window.open(url, '_blank')
 
-      alert('✅ تم تحميل صورة الباركود!\n📱 سيتم فتح واتساب الآن، قم بإرفاق الصورة المحملة مع الرسالة.')
+      setToast({ message: 'تم تحميل صورة الباركود!\nسيتم فتح واتساب الآن، قم بإرفاق الصورة المحملة مع الرسالة.', type: 'success' })
     }, 500)
   }
 
   return (
     <>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* أزرار مدمجة صغيرة */}
       <div className="flex gap-2">
         <button

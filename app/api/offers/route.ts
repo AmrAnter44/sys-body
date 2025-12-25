@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     await requirePermission(request, 'canAccessSettings')
 
     const body = await request.json()
-    const { name, duration, price, freePTSessions, inBodyScans, invitations, icon } = body
+    const { name, duration, price, freePTSessions, inBodyScans, invitations, freezeDays, icon, upgradeEligibilityDays } = body
 
     // التحقق من البيانات المطلوبة
     if (!name || !duration || price === undefined) {
@@ -46,7 +46,9 @@ export async function POST(request: Request) {
         freePTSessions: parseInt(freePTSessions) || 0,
         inBodyScans: parseInt(inBodyScans) || 0,
         invitations: parseInt(invitations) || 0,
-        icon: icon || '📅'
+        freezeDays: parseInt(freezeDays) || 0,
+        icon: icon || '📅',
+        upgradeEligibilityDays: upgradeEligibilityDays ? parseInt(upgradeEligibilityDays) : null
       }
     })
 
@@ -79,7 +81,7 @@ export async function PUT(request: Request) {
     await requirePermission(request, 'canAccessSettings')
 
     const body = await request.json()
-    const { id, name, duration, price, freePTSessions, inBodyScans, invitations, icon, isActive } = body
+    const { id, name, duration, price, freePTSessions, inBodyScans, invitations, freezeDays, icon, isActive, upgradeEligibilityDays } = body
 
     if (!id) {
       return NextResponse.json(
@@ -97,8 +99,10 @@ export async function PUT(request: Request) {
         freePTSessions: parseInt(freePTSessions) || 0,
         inBodyScans: parseInt(inBodyScans) || 0,
         invitations: parseInt(invitations) || 0,
+        freezeDays: parseInt(freezeDays) || 0,
         icon: icon || '📅',
-        isActive: isActive !== undefined ? isActive : true
+        isActive: isActive !== undefined ? isActive : true,
+        upgradeEligibilityDays: upgradeEligibilityDays ? parseInt(upgradeEligibilityDays) : null
       }
     })
 

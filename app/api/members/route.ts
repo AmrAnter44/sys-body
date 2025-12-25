@@ -90,6 +90,7 @@ export async function POST(request: Request) {
       inBodyScans,
       invitations,
       freePTSessions,
+      remainingFreezeDays,
       subscriptionPrice,
       remainingAmount,
       notes,
@@ -152,6 +153,7 @@ export async function POST(request: Request) {
     const cleanInBodyScans = parseInt((inBodyScans || 0).toString())
     const cleanInvitations = parseInt((invitations || 0).toString())
     const cleanFreePTSessions = parseInt((freePTSessions || 0).toString())
+    const cleanRemainingFreezeDays = parseInt((remainingFreezeDays || 0).toString())
     const cleanSubscriptionPrice = parseInt(subscriptionPrice.toString())
     const cleanRemainingAmount = parseInt((remainingAmount || 0).toString())
 
@@ -192,6 +194,7 @@ export async function POST(request: Request) {
       inBodyScans: cleanInBodyScans,
       invitations: cleanInvitations,
       freePTSessions: cleanFreePTSessions,
+      remainingFreezeDays: cleanRemainingFreezeDays,
       subscriptionPrice: cleanSubscriptionPrice,
       remainingAmount: cleanRemainingAmount,
       notes,
@@ -283,6 +286,7 @@ export async function POST(request: Request) {
           freePTSessions: cleanFreePTSessions,
           inBodyScans: cleanInBodyScans,
           invitations: cleanInvitations,
+          remainingFreezeDays: cleanRemainingFreezeDays,
           startDate: startDate,
           expiryDate: expiryDate,
           subscriptionDays: subscriptionDays,
@@ -382,6 +386,9 @@ export async function PUT(request: Request) {
     }
     if (data.freePTSessions !== undefined) {
       updateData.freePTSessions = parseInt(data.freePTSessions.toString())
+    }
+    if (data.remainingFreezeDays !== undefined) {
+      updateData.remainingFreezeDays = parseInt(data.remainingFreezeDays.toString())
     }
     if (data.subscriptionPrice !== undefined) {
       updateData.subscriptionPrice = parseInt(data.subscriptionPrice.toString())

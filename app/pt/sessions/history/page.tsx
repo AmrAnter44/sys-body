@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLanguage } from '../../../../contexts/LanguageContext'
+import { useConfirm } from '../../../../hooks/useConfirm'
+import { useSuccess } from '../../../../hooks/useSuccess'
+import ConfirmDialog from '../../../../components/ConfirmDialog'
+import SuccessDialog from '../../../../components/SuccessDialog'
 
 interface PTSessionRecord {
   id: string
@@ -20,6 +25,9 @@ interface PTSessionRecord {
 
 export default function PTSessionHistoryPage() {
   const router = useRouter()
+  const { t } = useLanguage()
+  const { confirm, isOpen: isConfirmOpen, options: confirmOptions, handleConfirm, handleCancel } = useConfirm()
+  const { show: showSuccess, isOpen: isSuccessOpen, options: successOptions, handleClose: handleSuccessClose } = useSuccess()
   const [sessions, setSessions] = useState<PTSessionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -44,7 +52,15 @@ export default function PTSessionHistoryPage() {
   }
 
   const handleDelete = async (sessionId: string, ptNumber: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذا السجل؟ سيتم إعادة الجلسة للعداد.')) return
+    const confirmed = await confirm({
+      title: t('pt.sessionHistory.deleteConfirm.title'),
+      message: t('pt.sessionHistory.deleteConfirm.message', { ptNumber: ptNumber.toString() }),
+      confirmText: t('pt.sessionHistory.deleteConfirm.confirm'),
+      cancelText: t('pt.sessionHistory.deleteConfirm.cancel'),
+      type: 'danger'
+    })
+
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/pt/sessions?sessionId=${sessionId}`, {
@@ -52,13 +68,25 @@ export default function PTSessionHistoryPage() {
       })
 
       if (response.ok) {
-        alert('✅ تم حذف السجل بنجاح')
+        await showSuccess({
+          title: t('pt.sessionHistory.success.title'),
+          message: t('pt.sessionHistory.success.message'),
+          type: 'success'
+        })
         fetchSessions()
       } else {
-        alert('❌ فشل حذف السجل')
+        await showSuccess({
+          title: t('pt.sessionHistory.error.title'),
+          message: t('pt.sessionHistory.error.deleteFailed'),
+          type: 'error'
+        })
       }
     } catch (error) {
-      alert('❌ حدث خطأ')
+      await showSuccess({
+        title: t('pt.sessionHistory.error.title'),
+        message: t('pt.sessionHistory.error.deleteError'),
+        type: 'error'
+      })
     }
   }
 
@@ -91,14 +119,14 @@ export default function PTSessionHistoryPage() {
     <div className="container mx-auto p-6" dir="rtl">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">📊 سجل حضور جلسات PT</h1>
-          <p className="text-gray-600">مراجعة جميع سجلات حضور جلسات التدريب الشخصي</p>
+          <h1 className="text-3xl font-bold mb-2">📊 {t('pt.sessionHistory.title')}</h1>
+          <p className="text-gray-600">{t('pt.sessionHistory.subtitle')}</p>
         </div>
         <button
           onClick={() => router.push('/pt/sessions/register')}
           className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
         >
-          ➕ تسجيل حضور جديد
+          ➕ {t('pt.sessionHistory.registerNew')}
         </button>
       </div>
 
@@ -107,7 +135,7 @@ export default function PTSessionHistoryPage() {
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm mb-1">إجمالي الجلسات</p>
+              <p className="text-blue-100 text-sm mb-1">{t('pt.sessionHistory.totalSessions')}</p>
               <p className="text-4xl font-bold">{totalSessions}</p>
             </div>
             <div className="text-5xl opacity-20">📊</div>
@@ -117,7 +145,7 @@ export default function PTSessionHistoryPage() {
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm mb-1">جلسات اليوم</p>
+              <p className="text-green-100 text-sm mb-1">{t('pt.sessionHistory.todaySessions')}</p>
               <p className="text-4xl font-bold">{todaySessions}</p>
             </div>
             <div className="text-5xl opacity-20">📅</div>
@@ -127,7 +155,7 @@ export default function PTSessionHistoryPage() {
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm mb-1">عدد العملاء</p>
+              <p className="text-purple-100 text-sm mb-1">{t('pt.sessionHistory.numberOfClients')}</p>
               <p className="text-4xl font-bold">{uniquePTs}</p>
             </div>
             <div className="text-5xl opacity-20">👥</div>
@@ -137,14 +165,14 @@ export default function PTSessionHistoryPage() {
 
       {/* الفلاتر */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-bold mb-4">🔍 الفلاتر والبحث</h2>
-        
+        <h2 className="text-xl font-bold mb-4">🔍 {t('pt.sessionHistory.filtersAndSearch')}</h2>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">بحث عام</label>
+            <label className="block text-sm font-medium mb-2">{t('pt.sessionHistory.generalSearch')}</label>
             <input
               type="text"
-              placeholder="اسم العميل، المدرب، رقم PT..."
+              placeholder={t('pt.sessionHistory.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg"
@@ -152,10 +180,10 @@ export default function PTSessionHistoryPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">رقم PT محدد</label>
+            <label className="block text-sm font-medium mb-2">{t('pt.sessionHistory.specificPTNumber')}</label>
             <input
               type="number"
-              placeholder="رقم PT..."
+              placeholder={t('pt.sessionHistory.ptNumberPlaceholder')}
               value={filterPTNumber}
               onChange={(e) => setFilterPTNumber(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg"
@@ -163,7 +191,7 @@ export default function PTSessionHistoryPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">من تاريخ</label>
+            <label className="block text-sm font-medium mb-2">{t('pt.sessionHistory.fromDate')}</label>
             <input
               type="date"
               value={dateFrom}
@@ -173,7 +201,7 @@ export default function PTSessionHistoryPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">إلى تاريخ</label>
+            <label className="block text-sm font-medium mb-2">{t('pt.sessionHistory.toDate')}</label>
             <input
               type="date"
               value={dateTo}
@@ -193,7 +221,7 @@ export default function PTSessionHistoryPage() {
             }}
             className="mt-4 text-sm text-blue-600 hover:text-blue-700"
           >
-            ❌ مسح الفلاتر
+            ❌ {t('pt.sessionHistory.clearFilters')}
           </button>
         )}
       </div>
@@ -201,24 +229,24 @@ export default function PTSessionHistoryPage() {
       {/* جدول السجلات */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
-          <div className="text-center py-12">جاري التحميل...</div>
+          <div className="text-center py-12">{t('pt.sessionHistory.loading')}</div>
         ) : filteredSessions.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            لا توجد سجلات حضور
+            {t('pt.sessionHistory.noRecords')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-right">رقم PT</th>
-                  <th className="px-4 py-3 text-right">العميل</th>
-                  <th className="px-4 py-3 text-right">المدرب</th>
-                  <th className="px-4 py-3 text-right">تاريخ الجلسة</th>
-                  <th className="px-4 py-3 text-right">وقت الجلسة</th>
-                  <th className="px-4 py-3 text-right">ملاحظات</th>
-                  <th className="px-4 py-3 text-right">تاريخ التسجيل</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.ptNumber')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.client')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.coach')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.sessionDate')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.sessionTime')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.notes')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.registrationDate')}</th>
+                  <th className="px-4 py-3 text-right">{t('pt.sessionHistory.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -275,7 +303,7 @@ export default function PTSessionHistoryPage() {
                           onClick={() => handleDelete(session.id, session.ptNumber)}
                           className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
                         >
-                          🗑️ حذف
+                          🗑️ {t('pt.sessionHistory.delete')}
                         </button>
                       </td>
                     </tr>
@@ -291,10 +319,32 @@ export default function PTSessionHistoryPage() {
       {filteredSessions.length > 0 && (
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-gray-700">
-            عرض <span className="font-bold">{filteredSessions.length}</span> سجل من إجمالي <span className="font-bold">{sessions.length}</span> سجل
+            {t('pt.sessionHistory.showing', { count: filteredSessions.length.toString(), total: sessions.length.toString() })}
           </p>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        title={confirmOptions.title}
+        message={confirmOptions.message}
+        confirmText={confirmOptions.confirmText}
+        cancelText={confirmOptions.cancelText}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        type={confirmOptions.type}
+      />
+
+      {/* Success/Error Dialog */}
+      <SuccessDialog
+        isOpen={isSuccessOpen}
+        title={successOptions.title}
+        message={successOptions.message}
+        buttonText={successOptions.buttonText}
+        onClose={handleSuccessClose}
+        type={successOptions.type}
+      />
     </div>
   )
 }

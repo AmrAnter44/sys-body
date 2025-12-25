@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma'
 
-// POST: تسجيل خروج تلقائي للأعضاء الذين مر على دخولهم ساعتين
+// POST: حذف التسجيلات القديمة (أكثر من ساعتين)
 export async function POST() {
   try {
     const now = new Date()
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
 
-    // البحث عن جميع التسجيلات النشطة التي تجاوزت مدة الساعتين
+    // البحث عن جميع التسجيلات التي مر عليها أكثر من ساعتين
     const expiredCheckIns = await prisma.memberCheckIn.findMany({
       where: {
-        isActive: true,
-        expectedCheckOutTime: {
-          lte: now,
+        checkInTime: {
+          lte: twoHoursAgo,
         },
       },
     })
@@ -19,29 +19,24 @@ export async function POST() {
     if (expiredCheckIns.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'لا توجد تسجيلات تحتاج خروج تلقائي',
-        checkedOut: 0,
+        message: 'لا توجد تسجيلات قديمة',
+        deleted: 0,
       })
     }
 
-    // تحديث جميع التسجيلات المنتهية
-    const result = await prisma.memberCheckIn.updateMany({
+    // حذف جميع التسجيلات القديمة
+    const result = await prisma.memberCheckIn.deleteMany({
       where: {
-        isActive: true,
-        expectedCheckOutTime: {
-          lte: now,
+        checkInTime: {
+          lte: twoHoursAgo,
         },
-      },
-      data: {
-        isActive: false,
-        actualCheckOutTime: now,
       },
     })
 
     return NextResponse.json({
       success: true,
-      message: `تم تسجيل خروج ${result.count} عضو تلقائياً`,
-      checkedOut: result.count,
+      message: `تم حذف ${result.count} تسجيل قديم`,
+      deleted: result.count,
       members: expiredCheckIns.map((c) => c.memberId),
     })
   } catch (error) {
@@ -53,16 +48,16 @@ export async function POST() {
   }
 }
 
-// GET: معاينة الأعضاء الذين سيتم تسجيل خروجهم
+// GET: معاينة التسجيلات القديمة (أكثر من ساعتين)
 export async function GET() {
   try {
     const now = new Date()
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
 
     const expiredCheckIns = await prisma.memberCheckIn.findMany({
       where: {
-        isActive: true,
-        expectedCheckOutTime: {
-          lte: now,
+        checkInTime: {
+          lte: twoHoursAgo,
         },
       },
       include: {

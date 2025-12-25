@@ -66,6 +66,10 @@ export interface Permissions {
   // صلاحيات الإعدادات والإدارة
   canAccessSettings: boolean
   canAccessAdmin: boolean
+
+  // صلاحيات اختبار اللياقة
+  canCreateFitnessTest: boolean
+  canViewFitnessTests: boolean
 }
 
 /**
@@ -165,6 +169,8 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canAccessClosing: true,
     canAccessSettings: true,
     canAccessAdmin: true,
+    canCreateFitnessTest: true,
+    canViewFitnessTests: true,
   },
   MANAGER: {
     canViewMembers: true,
@@ -205,6 +211,8 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canAccessClosing: true,
     canAccessSettings: false,
     canAccessAdmin: false,
+    canCreateFitnessTest: false,
+    canViewFitnessTests: true,
   },
   STAFF: {
     canViewMembers: true,
@@ -245,6 +253,8 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canAccessClosing: false,
     canAccessSettings: false,
     canAccessAdmin: false,
+    canCreateFitnessTest: false,
+    canViewFitnessTests: false,
   },
   COACH: {
     // الكوتش يرى فقط حصصه الخاصة
@@ -286,6 +296,8 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permissions> = {
     canAccessClosing: false,
     canAccessSettings: false,
     canAccessAdmin: false,
+    canCreateFitnessTest: true,
+    canViewFitnessTests: true,
   },
 }
 
@@ -331,6 +343,8 @@ export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
   canAccessClosing: 'الوصول للتقفيل',
   canAccessSettings: 'الوصول للإعدادات',
   canAccessAdmin: 'الوصول للوحة الإدارة',
+  canCreateFitnessTest: 'إنشاء اختبار لياقة',
+  canViewFitnessTests: 'عرض اختبارات اللياقة',
 }
 
 /**
@@ -425,6 +439,13 @@ export const PERMISSION_GROUPS = {
       'canAccessAdmin',
     ] as Array<keyof Permissions>,
   },
+  fitnessTests: {
+    label: '📋 اختبارات اللياقة',
+    permissions: [
+      'canCreateFitnessTest',
+      'canViewFitnessTests',
+    ] as Array<keyof Permissions>,
+  },
 }
 
 /**
@@ -469,6 +490,8 @@ export const PERMISSION_ICONS: Record<keyof Permissions, string> = {
   canAccessClosing: '🔒',
   canAccessSettings: '⚙️',
   canAccessAdmin: '👨‍💼',
+  canCreateFitnessTest: '➕',
+  canViewFitnessTests: '👁️',
 }
 
 /**

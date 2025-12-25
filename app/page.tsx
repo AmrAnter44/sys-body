@@ -1,13 +1,15 @@
 // app/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export default function HomePage() {
   const router = useRouter()
+  const { t, locale } = useLanguage()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   
@@ -16,25 +18,38 @@ export default function HomePage() {
     activePT: 0,
     todayRevenue: 0,
     totalReceipts: 0,
-    currentlyInside: 0,
     todayCheckIns: 0,
   })
 
   const [revenueChartData, setRevenueChartData] = useState<any[]>([])
   const [attendanceChartData, setAttendanceChartData] = useState<any[]>([])
-  const [receiptTypesData, setReceiptTypesData] = useState<any[]>([])
+  const [receiptsData, setReceiptsData] = useState<any[]>([])
 
   useEffect(() => {
     checkAuth()
   }, [])
 
+  // إعادة تحميل البيانات عند تغيير اللغة
+  useEffect(() => {
+    if (user) {
+      fetchStats()
+    }
+  }, [locale])
+
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me')
-      
+
       if (response.ok) {
         const data = await response.json()
         setUser(data.user)
+
+        // إذا كان المستخدم مدرب، يوجه لصفحته الخاصة
+        if (data.user.role === 'COACH') {
+          router.push('/coach')
+          return
+        }
+
         fetchStats()
       } else {
         // لو مش مسجل دخول، يروح على صفحة اللوجن
@@ -62,10 +77,7 @@ export default function HomePage() {
       const receiptsRes = await fetch('/api/receipts')
       const receipts = await receiptsRes.json()
 
-      // 🆕 جلب إحصائيات الحضور
-      const currentRes = await fetch('/api/member-checkin/current')
-      const currentData = await currentRes.json()
-
+      // جلب إحصائيات الحضور
       const statsRes = await fetch('/api/member-checkin/stats')
       const statsData = await statsRes.json()
 
@@ -84,29 +96,36 @@ export default function HomePage() {
         activePT,
         todayRevenue,
         totalReceipts: receipts.length,
-        currentlyInside: currentData.count || 0,
         todayCheckIns: statsData.stats?.totalCheckIns || 0,
       })
 
-      // 📊 تجهيز بيانات جراف الإيرادات (آخر 7 أيام)
-      const last7Days = []
-      for (let i = 6; i >= 0; i--) {
+      // 📊 تجهيز بيانات جراف الإيرادات (آخر 14 يوم)
+      const last14Days = []
+      for (let i = 13; i >= 0; i--) {
         const date = new Date()
         date.setDate(date.getDate() - i)
-        const dateStr = date.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })
+        const dateStr = date.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        })
         const dateKey = date.toDateString()
 
         const dayReceipts = receipts.filter((r: any) => {
           return new Date(r.createdAt).toDateString() === dateKey
         })
         const dayRevenue = dayReceipts.reduce((sum: number, r: any) => sum + r.amount, 0)
+        const dayCount = dayReceipts.length
 
-        last7Days.push({
+        last14Days.push({
           date: dateStr,
-          إيرادات: dayRevenue
+          fullDate: date.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US'),
+          revenue: dayRevenue,
+          count: dayCount
         })
       }
-      setRevenueChartData(last7Days)
+      setRevenueChartData(last14Days)
+      setReceiptsData(receipts)
 
       // 📊 تجهيز بيانات جراف الحضور (آخر 7 أيام)
       const startDate = new Date()
@@ -118,27 +137,16 @@ export default function HomePage() {
 
       if (historyData.stats?.dailyStats) {
         const formattedData = historyData.stats.dailyStats.map((item: any) => ({
-          date: new Date(item.date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }),
-          حضور: item.count
+          date: new Date(item.date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+          }),
+          fullDate: new Date(item.date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US'),
+          attendance: item.count
         }))
         setAttendanceChartData(formattedData)
       }
-
-      // 📊 تجهيز بيانات أنواع الإيصالات
-      const typeGroups: any = {}
-      receipts.forEach((r: any) => {
-        const type = r.type || 'أخرى'
-        if (!typeGroups[type]) {
-          typeGroups[type] = 0
-        }
-        typeGroups[type] += r.amount
-      })
-
-      const pieData = Object.entries(typeGroups).map(([name, value]) => ({
-        name,
-        value: value as number
-      }))
-      setReceiptTypesData(pieData)
 
     } catch (error) {
       console.error('Error fetching stats:', error)
@@ -146,13 +154,50 @@ export default function HomePage() {
   }
 
   const handleLogout = async () => {
-    if (!confirm('هل تريد تسجيل الخروج؟')) return
+    if (!confirm(t('dashboard.confirmLogout'))) return
 
     await fetch('/api/auth/logout', { method: 'POST' })
     window.location.href = '/login'
   }
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+  // مكون Tooltip مخصص للإيرادات
+  const CustomRevenueTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-4 rounded-lg shadow-xl border-2 border-blue-500">
+          <p className="font-bold text-gray-800 mb-2">{payload[0].payload.fullDate}</p>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <p className="text-sm text-gray-600">
+              {t('dashboard.revenue')}: <span className="font-bold text-blue-600">{payload[0].value.toLocaleString()}</span> {t('members.egp')}
+            </p>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {t('receipts.stats.todayReceipts')}: {payload[0].payload.count}
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // مكون Tooltip مخصص للحضور
+  const CustomAttendanceTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-4 rounded-lg shadow-xl border-2 border-green-500">
+          <p className="font-bold text-gray-800 mb-2">{payload[0].payload.fullDate}</p>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <p className="text-sm text-gray-600">
+              {t('dashboard.attendance')}: <span className="font-bold text-green-600">{payload[0].value}</span> {t('members.members')}
+            </p>
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
 
   // لو لسه بيتحقق من الـ Authentication
   if (loading) {
@@ -160,36 +205,36 @@ export default function HomePage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 animate-spin">⏳</div>
-          <p className="text-xl text-gray-600">جاري التحميل...</p>
+          <p className="text-xl text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-bold mb-2">مرحباً {user?.name} 👋</h1>
-          <p className="text-gray-600">نظام شامل وسريع لإدارة جميع عمليات الصالة الرياضية</p>
-        </div>
-        
-        {user?.role === 'ADMIN' && (
-          <Link
-            href="/admin/users"
-            className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 font-bold flex items-center gap-2"
-          >
-            <span>👑</span>
-            <span>إدارة المستخدمين</span>
-          </Link>
-        )}
+    <div className="container mx-auto p-6 relative">
+      {/* Logo في الخلفية بشفافية 50% */}
+      <div className="fixed left-0 top-1/2 -translate-y-1/2 pointer-events-none z-0" style={{ left: '-10%' }}>
+        <img
+          src="/icon.png"
+          alt="Background Logo"
+          className="w-96 h-96 md:w-[600px] md:h-[600px] opacity-50 select-none"
+          style={{ opacity: 0.5 }}
+        />
       </div>
+
+      {/* المحتوى الأساسي */}
+      <div className="relative z-10">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">{t('dashboard.welcome', { name: user?.name })} 👋</h1>
+          <p className="text-gray-600">{t('dashboard.welcomeMessage')}</p>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm">إجمالي الأعضاء</p>
+              <p className="text-gray-500 text-sm">{t('dashboard.totalMembers')}</p>
               <p className="text-3xl font-bold">{stats.members}</p>
             </div>
             <div className="text-4xl">👥</div>
@@ -199,7 +244,7 @@ export default function HomePage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm">جلسات PT النشطة</p>
+              <p className="text-gray-500 text-sm">{t('dashboard.activePTSessions')}</p>
               <p className="text-3xl font-bold">{stats.activePT}</p>
             </div>
             <div className="text-4xl">💪</div>
@@ -209,7 +254,7 @@ export default function HomePage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm">إيرادات اليوم</p>
+              <p className="text-gray-500 text-sm">{t('dashboard.todayRevenue')}</p>
               <p className="text-3xl font-bold">{stats.todayRevenue.toFixed(0)}</p>
             </div>
             <div className="text-4xl">💰</div>
@@ -219,28 +264,17 @@ export default function HomePage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 text-sm">إجمالي الإيصالات</p>
+              <p className="text-gray-500 text-sm">{t('dashboard.totalReceipts')}</p>
               <p className="text-3xl font-bold">{stats.totalReceipts}</p>
             </div>
             <div className="text-4xl">🧾</div>
           </div>
         </div>
 
-        {/* 🆕 إحصائيات الحضور */}
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-lg shadow-md border-2 border-green-400">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-700 text-sm font-semibold">موجودين الآن</p>
-              <p className="text-3xl font-bold text-green-800">{stats.currentlyInside}</p>
-            </div>
-            <div className="text-4xl">🏋️</div>
-          </div>
-        </div>
-
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-lg shadow-md border-2 border-blue-400">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-700 text-sm font-semibold">حضور اليوم</p>
+              <p className="text-blue-700 text-sm font-semibold">{t('dashboard.todayAttendance')}</p>
               <p className="text-3xl font-bold text-blue-800">{stats.todayCheckIns}</p>
             </div>
             <div className="text-4xl">📊</div>
@@ -248,85 +282,61 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 📊 الجرافات */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* جراف الإيرادات */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800">💰 الإيرادات - آخر 7 أيام</h2>
+      {/* 📊 جراف الإيرادات */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-xl border-2 border-blue-200 hover:shadow-2xl transition-shadow duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <span className="text-3xl">💰</span>
+                <span>{t('dashboard.revenueLast14Days')}</span>
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">{t('dashboard.revenueChartSubtitle')}</p>
+            </div>
           </div>
           {revenueChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                  }}
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={revenueChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" opacity={0.5} />
+                <XAxis
+                  dataKey="date"
+                  stroke="#64748b"
+                  style={{ fontSize: '12px', fontWeight: 600 }}
+                  tick={{ fill: '#475569' }}
                 />
+                <YAxis
+                  stroke="#64748b"
+                  style={{ fontSize: '12px', fontWeight: 600 }}
+                  tick={{ fill: '#475569' }}
+                />
+                <Tooltip content={<CustomRevenueTooltip />} />
                 <Line
                   type="monotone"
-                  dataKey="إيرادات"
+                  dataKey="revenue"
                   stroke="#3b82f6"
-                  strokeWidth={3}
-                  dot={{ fill: '#3b82f6', r: 5 }}
-                  activeDot={{ r: 7 }}
+                  strokeWidth={4}
+                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6, stroke: '#fff' }}
+                  activeDot={{ r: 8, stroke: '#fff', strokeWidth: 3 }}
+                  fill="url(#revenueGradient)"
                 />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-400">
-              جاري تحميل البيانات...
-            </div>
-          )}
-        </div>
-
-        {/* جراف الحضور */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800">🏋️ حضور الأعضاء - آخر 7 أيام</h2>
-          </div>
-          {attendanceChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={attendanceChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                  }}
-                />
-                <Bar
-                  dataKey="حضور"
-                  fill="#10b981"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-400">
-              جاري تحميل البيانات...
+            <div className="flex flex-col items-center justify-center h-[400px]">
+              <div className="text-6xl mb-4 animate-pulse">📊</div>
+              <p className="text-gray-400 font-semibold">{t('dashboard.loadingData')}</p>
             </div>
           )}
         </div>
       </div>
-
-      <button
-        onClick={handleLogout}
-        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mt-4"
-      >
-        🚪 تسجيل الخروج
-      </button>
+      </div>
     </div>
-    
+
   )
 }

@@ -32,32 +32,29 @@ export async function POST(request: Request) {
       )
     }
 
-    // التحقق من وجود تسجيل دخول نشط
-    const existingCheckIn = await prisma.memberCheckIn.findFirst({
-      where: {
-        memberId,
-        isActive: true,
-      },
-    })
-
-    if (existingCheckIn) {
-      return NextResponse.json({
-        success: true,
-        checkIn: existingCheckIn,
-        message: 'العضو مسجل دخول بالفعل',
-        alreadyCheckedIn: true,
-      })
+    // التحقق من أن العضو غير مجمد
+    if (member.isFrozen) {
+      return NextResponse.json(
+        { error: 'الاشتراك مجمد حالياً ❄️' },
+        { status: 400 }
+      )
     }
 
     // إنشاء تسجيل دخول جديد
     const now = new Date()
-    const expectedCheckOut = new Date(now.getTime() + 2 * 60 * 60 * 1000) // +2 ساعة
+
+    console.log('📍 تسجيل حضور جديد:', {
+      memberId,
+      memberName: member.name,
+      checkInTime: now.toISOString(),
+      localTime: now.toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })
+    })
 
     const checkIn = await prisma.memberCheckIn.create({
       data: {
         memberId,
+        checkInTime: now,
         checkInMethod: method,
-        expectedCheckOutTime: expectedCheckOut,
       },
     })
 
@@ -89,10 +86,10 @@ export async function GET(request: Request) {
       )
     }
 
-    const activeCheckIn = await prisma.memberCheckIn.findFirst({
+    // إرجاع آخر تسجيل دخول للعضو
+    const latestCheckIn = await prisma.memberCheckIn.findFirst({
       where: {
         memberId,
-        isActive: true,
       },
       include: {
         member: {
@@ -102,12 +99,15 @@ export async function GET(request: Request) {
           },
         },
       },
+      orderBy: {
+        checkInTime: 'desc',
+      },
     })
 
     return NextResponse.json({
       success: true,
-      checkIn: activeCheckIn,
-      isCheckedIn: !!activeCheckIn,
+      checkIn: latestCheckIn,
+      isCheckedIn: !!latestCheckIn,
     })
   } catch (error) {
     console.error('Error getting check-in status:', error)

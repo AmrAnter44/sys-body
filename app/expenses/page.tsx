@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useLanguage } from '../../contexts/LanguageContext'
 import PermissionDenied from '../../components/PermissionDenied'
 import { useAdminDate } from '../../contexts/AdminDateContext'
 
@@ -25,6 +26,7 @@ interface Expense {
 export default function ExpensesPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading } = usePermissions()
+  const { t, direction } = useLanguage()
   const { customCreatedAt } = useAdminDate()
 
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -38,13 +40,15 @@ export default function ExpensesPage() {
     expenseId: null,
     expenseName: ''
   })
-  
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+
   const [formData, setFormData] = useState({
     type: 'gym_expense' as 'gym_expense' | 'staff_loan',
     amount: 0,
     description: '',
     notes: '',
     staffId: '',
+    createdAt: '',
   })
 
   const fetchExpenses = async () => {
@@ -74,12 +78,31 @@ export default function ExpensesPage() {
     fetchStaff()
   }, [])
 
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense)
+    setFormData({
+      type: expense.type as 'gym_expense' | 'staff_loan',
+      amount: expense.amount,
+      description: expense.description,
+      notes: expense.notes || '',
+      staffId: expense.staff?.id || '',
+      createdAt: new Date(expense.createdAt).toISOString().split('T')[0],
+    })
+    setShowForm(true)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setMessage('')
 
     try {
+      // إذا كان تعديل، استخدم handleUpdate
+      if (editingExpense) {
+        await handleUpdate()
+        return
+      }
+
       // إذا كانت سلفة موظف، ضع اسم الموظف في الوصف تلقائياً
       const dataToSend: any = { ...formData }
       if (formData.type === 'staff_loan' && formData.staffId) {
@@ -107,18 +130,60 @@ export default function ExpensesPage() {
           description: '',
           notes: '',
           staffId: '',
+          createdAt: '',
         })
 
-        setMessage('✅ تم إضافة المصروف بنجاح!')
+        setMessage(`✅ ${t('expenses.messages.addSuccess')}`)
         setTimeout(() => setMessage(''), 3000)
         fetchExpenses()
         setShowForm(false)
       } else {
-        setMessage('❌ فشل إضافة المصروف')
+        setMessage(`❌ ${t('expenses.messages.addError')}`)
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ')
+      setMessage(`❌ ${t('expenses.messages.error')}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingExpense) return
+
+    try {
+      const dataToSend: any = {
+        id: editingExpense.id,
+        description: formData.description,
+        createdAt: formData.createdAt,
+      }
+
+      const response = await fetch('/api/expenses', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend),
+      })
+
+      if (response.ok) {
+        setFormData({
+          type: 'gym_expense',
+          amount: 0,
+          description: '',
+          notes: '',
+          staffId: '',
+          createdAt: '',
+        })
+        setEditingExpense(null)
+        setMessage(`✅ ${t('expenses.messages.updateSuccess')}`)
+        setTimeout(() => setMessage(''), 3000)
+        fetchExpenses()
+        setShowForm(false)
+      } else {
+        setMessage(`❌ ${t('expenses.messages.updateError')}`)
+      }
+    } catch (error) {
+      console.error(error)
+      setMessage(`❌ ${t('expenses.messages.error')}`)
     } finally {
       setLoading(false)
     }
@@ -138,11 +203,11 @@ export default function ExpensesPage() {
     try {
       await fetch(`/api/expenses?id=${deleteConfirm.expenseId}`, { method: 'DELETE' })
       fetchExpenses()
-      setMessage('✅ تم حذف المصروف بنجاح')
+      setMessage(`✅ ${t('expenses.messages.deleteSuccess')}`)
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       console.error('Error:', error)
-      setMessage('❌ فشل حذف المصروف')
+      setMessage(`❌ ${t('expenses.messages.deleteError')}`)
       setTimeout(() => setMessage(''), 3000)
     } finally {
       setDeleteConfirm({ show: false, expenseId: null, expenseName: '' })
@@ -175,7 +240,7 @@ export default function ExpensesPage() {
   }
 
   const getTypeLabel = (type: string) => {
-    return type === 'gym_expense' ? 'مصروف جيم' : 'سلفة موظف'
+    return type === 'gym_expense' ? t('expenses.types.gymExpense') : t('expenses.types.staffLoan')
   }
 
   const getTypeColor = (type: string) => {
@@ -187,28 +252,43 @@ export default function ExpensesPage() {
   // ✅ التحقق من الصلاحيات
   if (permissionsLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">جاري التحميل...</div>
+      <div className="flex justify-center items-center min-h-screen" dir={direction}>
+        <div className="text-xl">{t('expenses.loading')}</div>
       </div>
     )
   }
 
   if (!hasPermission('canViewFinancials')) {
-    return <PermissionDenied message="ليس لديك صلاحية عرض المصروفات" />
+    return <PermissionDenied message={t('expenses.noPermission')} />
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:px-6" dir="rtl">
+    <div className="container mx-auto px-4 py-6 md:px-6" dir={direction}>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">💸 المصروفات</h1>
-          <p className="text-gray-600">إدارة مصروفات الجيم وسلف الموظفين</p>
+          <h1 className="text-3xl font-bold">💸 {t('expenses.title')}</h1>
+          <p className="text-gray-600">{t('expenses.subtitle')}</p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false)
+              setEditingExpense(null)
+              setFormData({
+                type: 'gym_expense',
+                amount: 0,
+                description: '',
+                notes: '',
+                staffId: '',
+                createdAt: '',
+              })
+            } else {
+              setShowForm(true)
+            }
+          }}
           className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700"
         >
-          {showForm ? 'إخفاء النموذج' : '➕ إضافة مصروف جديد'}
+          {showForm ? t('expenses.hideForm') : `➕ ${t('expenses.addExpense')}`}
         </button>
       </div>
 
@@ -223,8 +303,8 @@ export default function ExpensesPage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm">إجمالي المصروفات</p>
-              <p className="text-3xl font-bold text-orange-600">{getTotalExpenses()} ج.م</p>
+              <p className="text-gray-600 text-sm">{t('expenses.stats.totalExpenses')}</p>
+              <p className="text-3xl font-bold text-orange-600">{getTotalExpenses()} {t('members.egp')}</p>
             </div>
             <div className="text-4xl">💸</div>
           </div>
@@ -233,9 +313,9 @@ export default function ExpensesPage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm">مصروفات الجيم</p>
+              <p className="text-gray-600 text-sm">{t('expenses.stats.gymExpenses')}</p>
               <p className="text-3xl font-bold text-orange-600">
-                {expenses.filter(e => e.type === 'gym_expense').reduce((sum, e) => sum + e.amount, 0)} ج.م
+                {expenses.filter(e => e.type === 'gym_expense').reduce((sum, e) => sum + e.amount, 0)} {t('members.egp')}
               </p>
             </div>
             <div className="text-4xl">🔧</div>
@@ -245,9 +325,9 @@ export default function ExpensesPage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm">سلف الموظفين</p>
+              <p className="text-gray-600 text-sm">{t('expenses.stats.staffLoans')}</p>
               <p className="text-3xl font-bold text-purple-600">
-                {expenses.filter(e => e.type === 'staff_loan').reduce((sum, e) => sum + e.amount, 0)} ج.م
+                {expenses.filter(e => e.type === 'staff_loan').reduce((sum, e) => sum + e.amount, 0)} {t('members.egp')}
               </p>
             </div>
             <div className="text-4xl">💵</div>
@@ -258,33 +338,38 @@ export default function ExpensesPage() {
       {/* Form */}
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-xl font-semibold mb-4">إضافة مصروف جديد</h2>
-          
+          <h2 className="text-xl font-semibold mb-4">
+            {editingExpense ? '✏️ تعديل المصروف' : t('expenses.form.title')}
+          </h2>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* نوع المصروف - معطل في وضع التعديل */}
               <div>
-                <label className="block text-sm font-medium mb-1">نوع المصروف *</label>
+                <label className="block text-sm font-medium mb-1">{t('expenses.form.expenseType')}</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as any, staffId: '' })}
                   className="w-full px-3 py-2 border rounded-lg"
                   required
+                  disabled={!!editingExpense}
                 >
-                  <option value="gym_expense">مصروف جيم</option>
-                  <option value="staff_loan">سلفة موظف</option>
+                  <option value="gym_expense">{t('expenses.types.gymExpense')}</option>
+                  <option value="staff_loan">{t('expenses.types.staffLoan')}</option>
                 </select>
               </div>
 
               {formData.type === 'staff_loan' && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">الموظف *</label>
+                  <label className="block text-sm font-medium mb-1">{t('expenses.form.staff')}</label>
                   <select
                     value={formData.staffId}
                     onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
                     required
+                    disabled={!!editingExpense}
                   >
-                    <option value="">اختر الموظف</option>
+                    <option value="">{t('expenses.form.selectStaff')}</option>
                     {(staffList || []).map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.name}
@@ -294,8 +379,9 @@ export default function ExpensesPage() {
                 </div>
               )}
 
+              {/* المبلغ - معطل في وضع التعديل */}
               <div>
-                <label className="block text-sm font-medium mb-1">المبلغ *</label>
+                <label className="block text-sm font-medium mb-1">{t('expenses.form.amount')}</label>
                 <input
                   type="number"
                   required
@@ -304,33 +390,51 @@ export default function ExpensesPage() {
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="0.00"
+                  placeholder={t('expenses.form.amountPlaceholder')}
+                  disabled={!!editingExpense}
                 />
               </div>
 
+              {/* الوصف - قابل للتعديل */}
               {formData.type === 'gym_expense' && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">الوصف *</label>
+                  <label className="block text-sm font-medium mb-1">{t('expenses.form.description')}</label>
                   <input
                     type="text"
                     required
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="وصف المصروف"
+                    placeholder={t('expenses.form.descriptionPlaceholder')}
+                  />
+                </div>
+              )}
+
+              {/* التاريخ - يظهر فقط في وضع التعديل */}
+              {editingExpense && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">📅 التاريخ</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.createdAt}
+                    onChange={(e) => setFormData({ ...formData, createdAt: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
               )}
             </div>
 
+            {/* الملاحظات - معطل في وضع التعديل */}
             <div>
-              <label className="block text-sm font-medium mb-1">ملاحظات</label>
+              <label className="block text-sm font-medium mb-1">{t('expenses.form.notes')}</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg"
                 rows={3}
-                placeholder="ملاحظات إضافية..."
+                placeholder={t('expenses.form.notesPlaceholder')}
+                disabled={!!editingExpense}
               />
             </div>
 
@@ -339,7 +443,12 @@ export default function ExpensesPage() {
               disabled={loading}
               className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 disabled:bg-gray-400"
             >
-              {loading ? 'جاري الحفظ...' : 'إضافة مصروف'}
+              {loading
+                ? t('expenses.form.saving')
+                : editingExpense
+                  ? '💾 حفظ التعديل'
+                  : t('expenses.form.submit')
+              }
             </button>
           </form>
         </div>
@@ -352,15 +461,15 @@ export default function ExpensesPage() {
           onChange={(e) => setFilterType(e.target.value as any)}
           className="px-4 py-2 border rounded-lg"
         >
-          <option value="all">جميع المصروفات</option>
-          <option value="gym_expense">مصروفات الجيم</option>
-          <option value="staff_loan">سلف الموظفين</option>
+          <option value="all">{t('expenses.filter.all')}</option>
+          <option value="gym_expense">{t('expenses.filter.gymExpenses')}</option>
+          <option value="staff_loan">{t('expenses.filter.staffLoans')}</option>
         </select>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="text-center py-12">جاري التحميل...</div>
+        <div className="text-center py-12">{t('expenses.loading')}</div>
       ) : (
         <>
           {/* Cards للموبايل */}
@@ -375,12 +484,22 @@ export default function ExpensesPage() {
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(expense.type)}`}>
                     {getTypeLabel(expense.type)}
                   </span>
-                  <button
-                    onClick={() => handleDelete(expense)}
-                    className="text-red-600 hover:text-red-800 font-bold text-sm"
-                  >
-                    🗑️ حذف
-                  </button>
+                  <div className="flex gap-2">
+                    {hasPermission('canEditExpense') && (
+                      <button
+                        onClick={() => handleEdit(expense)}
+                        className="text-blue-600 hover:text-blue-800 font-bold text-sm"
+                      >
+                        ✏️ تعديل
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(expense)}
+                      className="text-red-600 hover:text-red-800 font-bold text-sm"
+                    >
+                      🗑️ {t('expenses.actions.delete')}
+                    </button>
+                  </div>
                 </div>
 
                 {/* محتوى الكارت */}
@@ -396,14 +515,14 @@ export default function ExpensesPage() {
                   {/* المبلغ */}
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500 text-sm">💰</span>
-                    <span className="text-2xl font-bold text-orange-600">{expense.amount} ج.م</span>
+                    <span className="text-2xl font-bold text-orange-600">{expense.amount} {t('common.currency')}</span>
                   </div>
 
                   {/* التاريخ */}
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500 text-sm">📅</span>
                     <span className="text-gray-700">
-                      {new Date(expense.createdAt).toLocaleDateString('ar-EG')}
+                      {new Date(expense.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                     </span>
                   </div>
 
@@ -419,7 +538,7 @@ export default function ExpensesPage() {
                             : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
+                        {expense.isPaid ? `✅ ${t('expenses.status.paid')}` : `❌ ${t('expenses.status.unpaid')}`}
                       </button>
                     </div>
                   )}
@@ -439,7 +558,7 @@ export default function ExpensesPage() {
             {filteredExpenses.length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">💸</div>
-                <p className="text-xl">لا توجد مصروفات حالياً</p>
+                <p className="text-xl">{t('expenses.empty')}</p>
               </div>
             )}
           </div>
@@ -449,13 +568,13 @@ export default function ExpensesPage() {
             <table className="w-full">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-right">النوع</th>
-                  <th className="px-4 py-3 text-right">الموظف</th>
-                  <th className="px-4 py-3 text-right">الوصف</th>
-                  <th className="px-4 py-3 text-right">المبلغ</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
-                  <th className="px-4 py-3 text-right">التاريخ</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.type')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.staff')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.description')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.amount')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.status')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.date')}</th>
+                  <th className={`px-4 py-3 ${direction === 'rtl' ? 'text-right' : 'text-left'}`}>{t('expenses.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -470,7 +589,7 @@ export default function ExpensesPage() {
                       {expense.staff ? expense.staff.name : '-'}
                     </td>
                     <td className="px-4 py-3">{expense.description}</td>
-                    <td className="px-4 py-3 font-bold text-orange-600">{expense.amount} ج.م</td>
+                    <td className="px-4 py-3 font-bold text-orange-600">{expense.amount} {t('common.currency')}</td>
                     <td className="px-4 py-3">
                       {expense.type === 'staff_loan' && (
                         <button
@@ -481,20 +600,30 @@ export default function ExpensesPage() {
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
-                          {expense.isPaid ? '✅ مدفوعة' : '❌ غير مدفوعة'}
+                          {expense.isPaid ? `✅ ${t('expenses.status.paid')}` : `❌ ${t('expenses.status.unpaid')}`}
                         </button>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {new Date(expense.createdAt).toLocaleDateString('ar-EG')}
+                      {new Date(expense.createdAt).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'en-US')}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(expense)}
-                        className="text-red-600 hover:text-red-800 font-bold"
-                      >
-                        🗑️ حذف
-                      </button>
+                      <div className="flex gap-2">
+                        {hasPermission('canEditExpense') && (
+                          <button
+                            onClick={() => handleEdit(expense)}
+                            className="text-blue-600 hover:text-blue-800 font-bold"
+                          >
+                            ✏️ تعديل
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(expense)}
+                          className="text-red-600 hover:text-red-800 font-bold"
+                        >
+                          🗑️ {t('expenses.actions.delete')}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -504,7 +633,7 @@ export default function ExpensesPage() {
             {filteredExpenses.length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">💸</div>
-                <p className="text-xl">لا توجد مصروفات حالياً</p>
+                <p className="text-xl">{t('expenses.empty')}</p>
               </div>
             )}
           </div>
@@ -522,7 +651,7 @@ export default function ExpensesPage() {
 
           {/* Modal */}
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-full max-w-md px-4 animate-scaleIn">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 border-4 border-red-500">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 border-4 border-red-500" dir={direction}>
               {/* Icon */}
               <div className="flex justify-center mb-4">
                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
@@ -532,12 +661,12 @@ export default function ExpensesPage() {
 
               {/* Title */}
               <h2 className="text-2xl font-bold text-center mb-3 text-red-600">
-                تأكيد الحذف
+                {t('expenses.deleteModal.title')}
               </h2>
 
               {/* Message */}
               <p className="text-center text-gray-700 mb-2">
-                هل أنت متأكد من حذف المصروف؟
+                {t('expenses.deleteModal.message')}
               </p>
               <p className="text-center text-lg font-bold text-gray-900 mb-6 bg-gray-100 p-3 rounded-lg">
                 {deleteConfirm.expenseName}
@@ -549,13 +678,13 @@ export default function ExpensesPage() {
                   onClick={cancelDelete}
                   className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-bold"
                 >
-                  ✕ إلغاء
+                  ✕ {t('expenses.deleteModal.cancel')}
                 </button>
                 <button
                   onClick={confirmDelete}
                   className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-bold"
                 >
-                  🗑️ حذف
+                  🗑️ {t('expenses.deleteModal.confirm')}
                 </button>
               </div>
             </div>

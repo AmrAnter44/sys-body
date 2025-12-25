@@ -151,15 +151,23 @@ export async function POST(request: Request) {
 // PUT - تحديث مصروف
 export async function PUT(request: Request) {
   try {
-    // ✅ التحقق من صلاحية الوصول للإعدادات
-    await requirePermission(request, 'canAccessSettings')
-    
+    // ✅ التحقق من صلاحية تعديل المصروف
+    await requirePermission(request, 'canEditExpense')
+
     const body = await request.json()
-    const { id, ...data } = body
+    const { id, description, createdAt, isPaid } = body
+
+    // تحضير البيانات للتحديث
+    const updateData: any = {}
+
+    // السماح بتعديل الوصف والتاريخ وحالة الدفع فقط
+    if (description !== undefined) updateData.description = description
+    if (createdAt !== undefined) updateData.createdAt = new Date(createdAt)
+    if (isPaid !== undefined) updateData.isPaid = isPaid
 
     const expense = await prisma.expense.update({
       where: { id },
-      data,
+      data: updateData,
       include: {
         staff: true
       }
@@ -168,21 +176,21 @@ export async function PUT(request: Request) {
     return NextResponse.json(expense)
   } catch (error: any) {
     console.error('Error updating expense:', error)
-    
+
     if (error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: 'يجب تسجيل الدخول أولاً' },
         { status: 401 }
       )
     }
-    
+
     if (error.message.includes('Forbidden')) {
       return NextResponse.json(
         { error: 'ليس لديك صلاحية تعديل المصروفات' },
         { status: 403 }
       )
     }
-    
+
     return NextResponse.json({ error: 'فشل تحديث المصروف' }, { status: 500 })
   }
 }

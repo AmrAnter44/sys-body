@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useLanguage } from '../../contexts/LanguageContext'
 import PermissionDenied from '../../components/PermissionDenied'
 import { formatDateYMD } from '../../lib/dateFormatter'
 import { useConfirm } from '../../hooks/useConfirm'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import PaymentMethodSelector from '../../components/Paymentmethodselector'
 
 interface Staff {
   id: string
@@ -35,6 +37,7 @@ interface PTSession {
 export default function PTPage() {
   const router = useRouter()
   const { hasPermission, loading: permissionsLoading, user } = usePermissions()
+  const { t } = useLanguage()
   const { confirm, isOpen, options, handleConfirm, handleCancel } = useConfirm()
 
   const [sessions, setSessions] = useState<PTSession[]>([])
@@ -54,6 +57,11 @@ export default function PTPage() {
     paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay' | 'wallet'
   })
 
+  // فلاتر إضافية
+  const [filterCoach, setFilterCoach] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expiring' | 'expired'>('all')
+  const [filterSessions, setFilterSessions] = useState<'all' | 'low' | 'zero'>('all')
+
   const [formData, setFormData] = useState({
     ptNumber: '',
     clientName: '',
@@ -65,7 +73,7 @@ export default function PTPage() {
     remainingAmount: 0,
     startDate: formatDateYMD(new Date()),
     expiryDate: '',
-    paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay',
+    paymentMethod: 'cash' as 'cash' | 'visa' | 'instapay' | 'wallet',
     staffName: user?.name || '',
   })
 
@@ -114,6 +122,42 @@ export default function PTPage() {
       console.error('Error fetching coaches:', error)
     } finally {
       setCoachesLoading(false)
+    }
+  }
+
+  // دالة جلب بيانات العضو بناءً على رقم العضوية وملء الحقول تلقائياً
+  const fetchMemberByNumber = async (memberNumber: string) => {
+    if (!memberNumber.trim()) return
+
+    try {
+      const response = await fetch('/api/members')
+      if (!response.ok) return
+
+      const members = await response.json()
+      const member = members.find((m: any) => m.memberNumber?.toString() === memberNumber.trim())
+
+      if (member) {
+        setFormData(prev => ({
+          ...prev,
+          clientName: member.name,
+          phone: member.phone
+        }))
+        setMessage(`✅ تم تحميل بيانات العضو: ${member.name}`)
+        setTimeout(() => setMessage(''), 3000)
+      } else {
+        setMessage(`⚠️ لم يتم العثور على عضو برقم ${memberNumber}`)
+        setTimeout(() => setMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error('Error fetching member:', error)
+    }
+  }
+
+  // دالة لمعالجة ضغط Enter على حقل ID
+  const handleIdKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      fetchMemberByNumber(formData.ptNumber)
     }
   }
 
@@ -208,16 +252,16 @@ export default function PTPage() {
       const result = await response.json()
 
       if (response.ok) {
-        setMessage(editingSession ? '✅ تم تحديث جلسة PT بنجاح!' : '✅ تم إضافة جلسة PT بنجاح!')
+        setMessage(editingSession ? t('pt.messages.sessionUpdated') : t('pt.messages.sessionAdded'))
         setTimeout(() => setMessage(''), 3000)
         fetchSessions()
         resetForm()
       } else {
-        setMessage(`❌ ${result.error || 'فشلت العملية'}`)
+        setMessage(`${t('pt.messages.operationFailed')} - ${result.error || ''}`)
       }
     } catch (error) {
       console.error(error)
-      setMessage('❌ حدث خطأ')
+      setMessage(t('pt.messages.error'))
     } finally {
       setLoading(false)
     }
@@ -225,10 +269,10 @@ export default function PTPage() {
 
   const handleDelete = async (ptNumber: number) => {
     const confirmed = await confirm({
-      title: '⚠️ حذف اشتراك PT',
-      message: `هل أنت متأكد من حذف اشتراك PT رقم ${ptNumber}؟\nسيتم حذف جميع الجلسات المرتبطة به!\nلا يمكن التراجع عن هذا الإجراء.`,
-      confirmText: 'نعم، احذف',
-      cancelText: 'إلغاء',
+      title: t('pt.deleteConfirm.title'),
+      message: t('pt.deleteConfirm.message', { ptNumber: ptNumber.toString() }),
+      confirmText: t('pt.deleteConfirm.confirm'),
+      cancelText: t('pt.deleteConfirm.cancel'),
       type: 'danger'
     })
 
@@ -239,14 +283,14 @@ export default function PTPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'فشل حذف الاشتراك')
+        throw new Error(errorData.error || t('pt.messages.deleteFailed'))
       }
 
-      setMessage('✅ تم حذف اشتراك PT بنجاح')
+      setMessage(t('pt.messages.sessionDeleted'))
       fetchSessions()
     } catch (error: any) {
       console.error('Error:', error)
-      setMessage(`❌ ${error.message || 'حدث خطأ في الحذف'}`)
+      setMessage(`${t('pt.messages.deleteFailed')} - ${error.message || ''}`)
     }
     setTimeout(() => setMessage(''), 3000)
   }
@@ -287,29 +331,54 @@ export default function PTPage() {
       const result = await response.json()
 
       if (response.ok) {
-        setMessage('✅ تم دفع المبلغ المتبقي بنجاح!')
+        setMessage(t('pt.messages.paymentSuccess'))
         setTimeout(() => setMessage(''), 3000)
         fetchSessions()
         setShowPaymentModal(false)
         setPaymentSession(null)
       } else {
-        setMessage(`❌ ${result.error || 'فشل الدفع'}`)
+        setMessage(`${t('pt.messages.paymentFailed')} - ${result.error || ''}`)
       }
     } catch (error) {
       console.error('Error paying remaining:', error)
-      setMessage('❌ حدث خطأ في الدفع')
+      setMessage(t('pt.messages.paymentFailed'))
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredSessions = sessions.filter(
-    (session) =>
+  const filteredSessions = sessions.filter((session) => {
+    // البحث النصي
+    const matchesSearch =
       session.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       session.coachName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       session.ptNumber.toString().includes(searchTerm) ||
       session.phone.includes(searchTerm)
-  )
+
+    // فلتر المدرب
+    const matchesCoach = filterCoach === '' || session.coachName === filterCoach
+
+    // فلتر الحالة
+    let matchesStatus = true
+    if (filterStatus !== 'all') {
+      const isExpired = session.expiryDate && new Date(session.expiryDate) < new Date()
+      const isExpiringSoon =
+        session.expiryDate &&
+        new Date(session.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
+        !isExpired
+
+      if (filterStatus === 'expired') matchesStatus = isExpired
+      else if (filterStatus === 'expiring') matchesStatus = isExpiringSoon
+      else if (filterStatus === 'active') matchesStatus = !isExpired && !isExpiringSoon
+    }
+
+    // فلتر الجلسات
+    let matchesSessions = true
+    if (filterSessions === 'zero') matchesSessions = session.sessionsRemaining === 0
+    else if (filterSessions === 'low') matchesSessions = session.sessionsRemaining > 0 && session.sessionsRemaining <= 3
+
+    return matchesSearch && matchesCoach && matchesStatus && matchesSessions
+  })
 
   const totalSessions = sessions.reduce((sum, s) => sum + s.sessionsPurchased, 0)
   const remainingSessions = sessions.reduce((sum, s) => sum + s.sessionsRemaining, 0)
@@ -319,13 +388,13 @@ export default function PTPage() {
   if (permissionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">جاري التحميل...</div>
+        <div className="text-xl">{t('pt.loading')}</div>
       </div>
     )
   }
 
   if (!hasPermission('canViewPT')) {
-    return <PermissionDenied message="ليس لديك صلاحية عرض جلسات PT" />
+    return <PermissionDenied message={t('pt.noPermission')} />
   }
 
   const isCoach = user?.role === 'COACH'
@@ -334,9 +403,9 @@ export default function PTPage() {
     <div className="container mx-auto p-4 sm:p-6" dir="rtl">
       <div className="mb-6">
         <div className="mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">💪 إدارة جلسات PT</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">💪 {t('pt.title')}</h1>
           <p className="text-sm sm:text-base text-gray-600">
-            {isCoach ? 'عرض جلسات التدريب الشخصي' : 'إضافة وتعديل وحذف جلسات التدريب الشخصي'}
+            {isCoach ? t('pt.viewSessions') : t('pt.manageSessions')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -345,14 +414,14 @@ export default function PTPage() {
             className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-purple-700 hover:to-purple-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <span>💰</span>
-            <span>حاسبة التحصيل</span>
+            <span>{t('pt.commissionCalculator')}</span>
           </button>
           <button
             onClick={() => router.push('/pt/sessions/history')}
             className="flex-1 min-w-[140px] sm:flex-none bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-3 sm:px-6 py-2 rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <span>📊</span>
-            <span>سجل الحضور</span>
+            <span>{t('pt.attendanceLog')}</span>
           </button>
           {!isCoach && (
             <button
@@ -362,7 +431,7 @@ export default function PTPage() {
               }}
               className="w-full sm:w-auto bg-blue-600 text-white px-3 sm:px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              {showForm ? 'إخفاء النموذج' : '➕ إضافة جلسة PT جديدة'}
+              {showForm ? t('pt.hideForm') : `➕ ${t('pt.addNewSession')}`}
             </button>
           )}
         </div>
@@ -381,14 +450,14 @@ export default function PTPage() {
       {!isCoach && showForm && (
         <div className="bg-white p-6 rounded-xl shadow-lg mb-6 border-2 border-blue-100">
           <h2 className="text-xl font-semibold mb-4">
-            {editingSession ? 'تعديل جلسة PT' : 'إضافة جلسة PT جديدة'}
+            {editingSession ? t('pt.editSession') : t('pt.addSession')}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  رقم ID <span className="text-red-600">*</span>
+                  {t('pt.ptId')} <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="number"
@@ -396,14 +465,16 @@ export default function PTPage() {
                   disabled={!!editingSession}
                   value={formData.ptNumber}
                   onChange={(e) => setFormData({ ...formData, ptNumber: e.target.value })}
+                  onKeyPress={handleIdKeyPress}
                   className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100"
-                  placeholder="مثال: 1001"
+                  placeholder={t('pt.ptIdPlaceholder')}
                 />
+                <p className="text-xs text-gray-500 mt-1">💡 اضغط Enter لتحميل بيانات العضو تلقائياً</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  اسم العميل <span className="text-red-600">*</span>
+                  {t('pt.clientName')} <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -411,13 +482,13 @@ export default function PTPage() {
                   value={formData.clientName}
                   onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="اسم العميل"
+                  placeholder={t('pt.clientNamePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  رقم الهاتف <span className="text-red-600">*</span>
+                  {t('pt.phoneNumber')} <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="tel"
@@ -425,17 +496,17 @@ export default function PTPage() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="01xxxxxxxxx"
+                  placeholder={t('pt.phonePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  اسم الكوتش <span className="text-red-600">*</span>
+                  {t('pt.coachName')} <span className="text-red-600">*</span>
                 </label>
                 {coachesLoading ? (
                   <div className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-500">
-                    جاري تحميل الكوتشات...
+                    {t('pt.loadingCoaches')}
                   </div>
                 ) : coaches.length === 0 ? (
                   <div className="space-y-2">
@@ -445,10 +516,10 @@ export default function PTPage() {
                       value={formData.coachName}
                       onChange={(e) => setFormData({ ...formData, coachName: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="اسم الكوتش"
+                      placeholder={t('pt.coachNamePlaceholder')}
                     />
                     <p className="text-xs text-amber-600">
-                      ⚠️ لا يوجد كوتشات نشطين. يمكنك الإدخال يدوياً
+                      ⚠️ {t('pt.noActiveCoaches')}
                     </p>
                   </div>
                 ) : (
@@ -458,7 +529,7 @@ export default function PTPage() {
                     onChange={(e) => setFormData({ ...formData, coachName: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg bg-white"
                   >
-                    <option value="">-- اختر الكوتش --</option>
+                    <option value="">{t('pt.selectCoach')}</option>
                     {coaches.map((coach) => (
                       <option key={coach.id} value={coach.name}>
                         {coach.name} {coach.phone && `(${coach.phone})`}
@@ -470,7 +541,7 @@ export default function PTPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  عدد الجلسات <span className="text-red-600">*</span>
+                  {t('pt.sessionsCount')} <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="number"
@@ -479,13 +550,13 @@ export default function PTPage() {
                   value={formData.sessionsPurchased}
                   onChange={(e) => handleSessionsChange(parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="8"
+                  placeholder={t('pt.sessionsPlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  السعر الإجمالي (ج.م) <span className="text-red-600">*</span>
+                  {t('pt.totalPrice')} <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="number"
@@ -495,13 +566,13 @@ export default function PTPage() {
                   value={formData.totalPrice}
                   onChange={(e) => handleTotalPriceChange(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border rounded-lg bg-yellow-50 border-yellow-300"
-                  placeholder="1600"
+                  placeholder={t('pt.totalPricePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  الباقي (ج.م)
+                  {t('pt.remainingAmount')}
                 </label>
                 <input
                   type="number"
@@ -510,16 +581,16 @@ export default function PTPage() {
                   value={formData.remainingAmount}
                   onChange={(e) => setFormData({ ...formData, remainingAmount: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border rounded-lg bg-orange-50 border-orange-300"
-                  placeholder="0"
+                  placeholder={t('pt.remainingAmountPlaceholder')}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  💡 المبلغ المتبقي غير المدفوع
+                  {t('pt.remainingAmountNote')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  سعر الجلسة (تلقائي)
+                  {t('pt.pricePerSession')}
                 </label>
                 <input
                   type="number"
@@ -528,44 +599,44 @@ export default function PTPage() {
                   value={formData.pricePerSession}
                   onChange={(e) => handlePricePerSessionChange(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border rounded-lg bg-gray-50"
-                  placeholder="200"
+                  placeholder={t('pt.pricePerSessionPlaceholder')}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  💡 يتم حسابه تلقائياً من الإجمالي ÷ عدد الجلسات
+                  {t('pt.pricePerSessionNote')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  تاريخ البداية <span className="text-xs text-gray-500">(yyyy-mm-dd)</span>
+                  {t('pt.startDate')} <span className="text-xs text-gray-500">{t('pt.startDateFormat')}</span>
                 </label>
                 <input
                   type="text"
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg font-mono"
-                  placeholder="2025-11-18"
+                  placeholder={t('pt.startDatePlaceholder')}
                   pattern="\d{4}-\d{2}-\d{2}"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  تاريخ الانتهاء <span className="text-xs text-gray-500">(yyyy-mm-dd)</span>
+                  {t('pt.expiryDate')} <span className="text-xs text-gray-500">{t('pt.startDateFormat')}</span>
                 </label>
                 <input
                   type="text"
                   value={formData.expiryDate}
                   onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg font-mono"
-                  placeholder="2025-12-18"
+                  placeholder={t('pt.expiryDatePlaceholder')}
                   pattern="\d{4}-\d{2}-\d{2}"
                 />
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-medium mb-2">⚡ إضافة سريعة:</p>
+              <p className="text-sm font-medium mb-2">{t('pt.quickAdd')}</p>
               <div className="flex flex-wrap gap-2">
                 {[1, 2, 3, 6, 9, 12].map(months => (
                   <button
@@ -574,55 +645,45 @@ export default function PTPage() {
                     onClick={() => calculateExpiryFromMonths(months)}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-sm transition font-medium"
                   >
-                    + {months} {months === 1 ? 'شهر' : 'أشهر'}
+                    + {months} {months === 1 ? t('pt.month') : t('pt.months')}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">طريقة الدفع</label>
-              <select
+              <PaymentMethodSelector
                 value={formData.paymentMethod}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    paymentMethod: e.target.value as 'cash' | 'visa' | 'instapay',
-                  })
-                }
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="cash">💵 كاش</option>
-                <option value="visa">💳 فيزا</option>
-                <option value="instapay">📱 انستاباي</option>
-              </select>
+                onChange={(method) => setFormData({ ...formData, paymentMethod: method as 'cash' | 'visa' | 'instapay' | 'wallet' })}
+                required={false}
+              />
             </div>
 
             {formData.sessionsPurchased > 0 && formData.totalPrice > 0 && (
               <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">💰 الإجمالي النهائي:</span>
+                  <span className="text-lg font-semibold">{t('pt.finalTotal')}</span>
                   <span className="text-2xl font-bold text-green-600">
-                    {formData.totalPrice.toFixed(2)} ج.م
+                    {formData.totalPrice.toFixed(2)} {t('pt.egp')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
-                  <span>سعر الجلسة الواحدة:</span>
+                  <span>{t('pt.pricePerSessionSingle')}</span>
                   <span className="font-semibold">
-                    {formData.pricePerSession.toFixed(2)} ج.م
+                    {formData.pricePerSession.toFixed(2)} {t('pt.egp')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center mt-2 text-sm border-t pt-2">
-                  <span className="font-semibold text-blue-700">المدفوع:</span>
+                  <span className="font-semibold text-blue-700">{t('pt.paidAmount')}</span>
                   <span className="font-bold text-blue-600">
-                    {(formData.totalPrice - formData.remainingAmount).toFixed(2)} ج.م
+                    {(formData.totalPrice - formData.remainingAmount).toFixed(2)} {t('pt.egp')}
                   </span>
                 </div>
                 {formData.remainingAmount > 0 && (
                   <div className="flex justify-between items-center mt-1 text-sm">
-                    <span className="font-semibold text-orange-700">الباقي:</span>
+                    <span className="font-semibold text-orange-700">{t('pt.remaining')}</span>
                     <span className="font-bold text-orange-600">
-                      {formData.remainingAmount.toFixed(2)} ج.م
+                      {formData.remainingAmount.toFixed(2)} {t('pt.egp')}
                     </span>
                   </div>
                 )}
@@ -635,7 +696,7 @@ export default function PTPage() {
                 disabled={loading}
                 className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
               >
-                {loading ? 'جاري الحفظ...' : editingSession ? 'تحديث' : 'إضافة جلسة PT'}
+                {loading ? t('pt.saving') : editingSession ? t('pt.updateButton') : t('pt.addSessionButton')}
               </button>
               {editingSession && (
                 <button
@@ -643,7 +704,7 @@ export default function PTPage() {
                   onClick={resetForm}
                   className="px-6 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
                 >
-                  إلغاء
+                  {t('pt.cancelButton')}
                 </button>
               )}
             </div>
@@ -655,7 +716,7 @@ export default function PTPage() {
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm mb-1">إجمالي الجلسات</p>
+              <p className="text-blue-100 text-sm mb-1">{t('pt.totalSessions')}</p>
               <p className="text-4xl font-bold">{totalSessions}</p>
             </div>
             <div className="text-5xl opacity-20">💪</div>
@@ -665,7 +726,7 @@ export default function PTPage() {
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm mb-1">الجلسات المتبقية</p>
+              <p className="text-green-100 text-sm mb-1">{t('pt.remainingSessions')}</p>
               <p className="text-4xl font-bold">{remainingSessions}</p>
             </div>
             <div className="text-5xl opacity-20">⏳</div>
@@ -675,7 +736,7 @@ export default function PTPage() {
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm mb-1">PT نشطة</p>
+              <p className="text-purple-100 text-sm mb-1">{t('pt.activePTs')}</p>
               <p className="text-4xl font-bold">{activePTs}</p>
             </div>
             <div className="text-5xl opacity-20">🔥</div>
@@ -684,17 +745,82 @@ export default function PTPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <input
-          type="text"
-          placeholder="🔍 ابحث برقم PT أو اسم العميل أو الكوتش أو رقم الهاتف..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-3 border-2 rounded-lg text-lg"
-        />
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder={`🔍 ${t('pt.searchPlaceholder')}`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 border-2 rounded-lg text-lg"
+          />
+        </div>
+
+        {/* الفلاتر */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* فلتر المدرب */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t('pt.filterByCoach')}</label>
+            <select
+              value={filterCoach}
+              onChange={(e) => setFilterCoach(e.target.value)}
+              className="w-full px-3 py-2 border-2 rounded-lg"
+            >
+              <option value="">{t('pt.allCoaches')}</option>
+              {Array.from(new Set(sessions.map(s => s.coachName))).sort().map(coach => (
+                <option key={coach} value={coach}>{coach}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* فلتر الحالة */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t('pt.filterByStatus')}</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="w-full px-3 py-2 border-2 rounded-lg"
+            >
+              <option value="all">{t('pt.allStatus')}</option>
+              <option value="active">{t('pt.statusActive')}</option>
+              <option value="expiring">{t('pt.statusExpiring')}</option>
+              <option value="expired">{t('pt.statusExpired')}</option>
+            </select>
+          </div>
+
+          {/* فلتر الجلسات */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t('pt.filterBySessions')}</label>
+            <select
+              value={filterSessions}
+              onChange={(e) => setFilterSessions(e.target.value as any)}
+              className="w-full px-3 py-2 border-2 rounded-lg"
+            >
+              <option value="all">{t('pt.allSessions')}</option>
+              <option value="low">{t('pt.sessionsLow')}</option>
+              <option value="zero">{t('pt.sessionsZero')}</option>
+            </select>
+          </div>
+        </div>
+
+        {/* زر إعادة تعيين الفلاتر */}
+        {(filterCoach || filterStatus !== 'all' || filterSessions !== 'all') && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                setFilterCoach('')
+                setFilterStatus('all')
+                setFilterSessions('all')
+              }}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
+            >
+              🔄 {t('pt.resetFilters')}
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
-        <div className="text-center py-12">جاري التحميل...</div>
+        <div className="text-center py-12">{t('pt.loading')}</div>
       ) : (
         <>
           {/* Desktop Table - Hidden on mobile/tablet */}
@@ -703,15 +829,15 @@ export default function PTPage() {
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-right">رقم PT</th>
-                    <th className="px-4 py-3 text-right">العميل</th>
-                    <th className="px-4 py-3 text-right">الكوتش</th>
-                    <th className="px-4 py-3 text-right">الجلسات</th>
-                    <th className="px-4 py-3 text-right">السعر</th>
-                    <th className="px-4 py-3 text-right">الإجمالي</th>
-                    <th className="px-4 py-3 text-right">الباقي</th>
-                    <th className="px-4 py-3 text-right">التواريخ</th>
-                    {!isCoach && <th className="px-4 py-3 text-right">إجراءات</th>}
+                    <th className="px-4 py-3 text-right">{t('pt.ptNumber')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.client')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.coach')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.sessions')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.price')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.total')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.remaining')}</th>
+                    <th className="px-4 py-3 text-right">{t('pt.dates')}</th>
+                    {!isCoach && <th className="px-4 py-3 text-right">{t('pt.actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -751,12 +877,12 @@ export default function PTPage() {
                             >
                               {session.sessionsRemaining}
                             </p>
-                            <p className="text-xs text-gray-500">من {session.sessionsPurchased}</p>
+                            <p className="text-xs text-gray-500">{t('pt.of')} {session.sessionsPurchased}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">{session.pricePerSession} ج.م</td>
+                        <td className="px-4 py-3">{session.pricePerSession} {t('pt.egp')}</td>
                         <td className="px-4 py-3 font-bold text-green-600">
-                          {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} ج.م
+                          {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} {t('pt.egp')}
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -766,22 +892,22 @@ export default function PTPage() {
                                 : 'text-green-600'
                             }`}
                           >
-                            {(session.remainingAmount || 0).toFixed(0)} ج.م
+                            {(session.remainingAmount || 0).toFixed(0)} {t('pt.egp')}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-xs font-mono">
                             {session.startDate && (
-                              <p>من: {formatDateYMD(session.startDate)}</p>
+                              <p>{t('pt.from')} {formatDateYMD(session.startDate)}</p>
                             )}
                             {session.expiryDate && (
                               <p className={isExpired ? 'text-red-600 font-bold' : ''}>
-                                إلى: {formatDateYMD(session.expiryDate)}
+                                {t('pt.to')} {formatDateYMD(session.expiryDate)}
                               </p>
                             )}
-                            {isExpired && <p className="text-red-600 font-bold">❌ منتهية</p>}
+                            {isExpired && <p className="text-red-600 font-bold">{t('pt.expired')}</p>}
                             {!isExpired && isExpiringSoon && (
-                              <p className="text-orange-600 font-bold">⚠️ قريبة الانتهاء</p>
+                              <p className="text-orange-600 font-bold">{t('pt.expiringSoon')}</p>
                             )}
                           </div>
                         </td>
@@ -793,20 +919,20 @@ export default function PTPage() {
                                 disabled={session.sessionsRemaining === 0}
                                 className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                               >
-                                ✅ حضور
+                                {t('pt.attendance')}
                               </button>
                               <button
                                 onClick={() => handleRenew(session)}
                                 className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
                               >
-                                🔄 تجديد
+                                {t('pt.renew')}
                               </button>
                               {(session.remainingAmount || 0) > 0 && (
                                 <button
                                   onClick={() => handleOpenPaymentModal(session)}
                                   className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700"
                                 >
-                                  💰 دفع الباقي
+                                  {t('pt.payRemaining')}
                                 </button>
                               )}
                               {session.qrCode && (
@@ -817,31 +943,35 @@ export default function PTPage() {
                                       setShowQRModal(true)
                                     }}
                                     className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 flex items-center gap-1"
-                                    title="عرض Barcode"
                                   >
-                                    🔢 Barcode
+                                    {t('pt.barcode')}
                                   </button>
                                   <button
                                     onClick={() => {
                                       const checkInUrl = `${window.location.origin}/pt/check-in`
-                                      const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
+                                      const text = t('pt.whatsappWithBarcode', {
+                                        clientName: session.clientName,
+                                        qrCode: session.qrCode,
+                                        checkInUrl,
+                                        sessionsRemaining: session.sessionsRemaining.toString(),
+                                        sessionsPurchased: session.sessionsPurchased.toString(),
+                                        coachName: session.coachName
+                                      })
                                       const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
                                       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
                                       window.open(whatsappUrl, '_blank')
                                     }}
                                     className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 flex items-center gap-1"
-                                    title="إرسال عبر WhatsApp"
                                   >
-                                    💬 واتس
+                                    {t('pt.whatsapp')}
                                   </button>
                                 </>
                               )}
                               <button
                                 onClick={() => handleDelete(session.ptNumber)}
                                 className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center gap-1"
-                                title="حذف الاشتراك"
                               >
-                                🗑️ حذف
+                                {t('pt.delete')}
                               </button>
                             </div>
                           </td>
@@ -876,7 +1006,7 @@ export default function PTPage() {
                       <div className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                         session.sessionsRemaining === 0 ? 'bg-red-500' : session.sessionsRemaining <= 3 ? 'bg-orange-500' : 'bg-green-500'
                       } text-white`}>
-                        {session.sessionsRemaining} / {session.sessionsPurchased} حصة
+                        {session.sessionsRemaining} / {session.sessionsPurchased} {t('pt.session')}
                       </div>
                     </div>
                   </div>
@@ -887,7 +1017,7 @@ export default function PTPage() {
                     <div className="pb-2.5 border-b-2 border-gray-100">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-base">👤</span>
-                        <span className="text-xs text-gray-500 font-semibold">العميل</span>
+                        <span className="text-xs text-gray-500 font-semibold">{t('pt.client')}</span>
                       </div>
                       <div className="text-base font-bold text-gray-800">{session.clientName}</div>
                       <div className="text-sm font-mono text-gray-600 mt-1">{session.phone}</div>
@@ -897,7 +1027,7 @@ export default function PTPage() {
                     <div className="pb-2.5 border-b-2 border-gray-100">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-base">🏋️</span>
-                        <span className="text-xs text-gray-500 font-semibold">الكوتش</span>
+                        <span className="text-xs text-gray-500 font-semibold">{t('pt.coach')}</span>
                       </div>
                       <div className="text-base font-bold text-gray-800">{session.coachName}</div>
                     </div>
@@ -907,17 +1037,17 @@ export default function PTPage() {
                       <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-2.5">
                         <div className="flex items-center gap-1 mb-1">
                           <span className="text-sm">💰</span>
-                          <span className="text-xs text-blue-700 font-semibold">السعر/حصة</span>
+                          <span className="text-xs text-blue-700 font-semibold">{t('pt.pricePerSessionShort')}</span>
                         </div>
-                        <div className="text-base font-bold text-blue-600">{session.pricePerSession} ج.م</div>
+                        <div className="text-base font-bold text-blue-600">{session.pricePerSession} {t('pt.egp')}</div>
                       </div>
                       <div className="bg-green-50 border-2 border-green-200 rounded-lg p-2.5">
                         <div className="flex items-center gap-1 mb-1">
                           <span className="text-sm">💵</span>
-                          <span className="text-xs text-green-700 font-semibold">الإجمالي</span>
+                          <span className="text-xs text-green-700 font-semibold">{t('pt.total')}</span>
                         </div>
                         <div className="text-base font-bold text-green-600">
-                          {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} ج.م
+                          {(session.sessionsPurchased * session.pricePerSession).toFixed(0)} {t('pt.egp')}
                         </div>
                       </div>
                     </div>
@@ -927,10 +1057,10 @@ export default function PTPage() {
                       <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-2.5">
                         <div className="flex items-center gap-1 mb-1">
                           <span className="text-sm">⚠️</span>
-                          <span className="text-xs text-orange-700 font-semibold">المبلغ المتبقي</span>
+                          <span className="text-xs text-orange-700 font-semibold">{t('pt.remainingAmountLabel')}</span>
                         </div>
                         <div className="text-base font-bold text-orange-600">
-                          {(session.remainingAmount || 0).toFixed(0)} ج.م
+                          {(session.remainingAmount || 0).toFixed(0)} {t('pt.egp')}
                         </div>
                       </div>
                     )}
@@ -944,22 +1074,22 @@ export default function PTPage() {
                           <span className="text-sm">📅</span>
                           <span className={`text-xs font-semibold ${
                             isExpired ? 'text-red-700' : isExpiringSoon ? 'text-orange-700' : 'text-gray-700'
-                          }`}>الفترة</span>
+                          }`}>{t('pt.period')}</span>
                         </div>
                         <div className="space-y-1 text-xs font-mono">
                           {session.startDate && (
-                            <div className="text-gray-700">من: {formatDateYMD(session.startDate)}</div>
+                            <div className="text-gray-700">{t('pt.from')} {formatDateYMD(session.startDate)}</div>
                           )}
                           {session.expiryDate && (
                             <div className={isExpired ? 'text-red-600 font-bold' : 'text-gray-700'}>
-                              إلى: {formatDateYMD(session.expiryDate)}
+                              {t('pt.to')} {formatDateYMD(session.expiryDate)}
                             </div>
                           )}
                           {isExpired && (
-                            <div className="text-red-600 font-bold">❌ منتهية</div>
+                            <div className="text-red-600 font-bold">{t('pt.expired')}</div>
                           )}
                           {!isExpired && isExpiringSoon && (
-                            <div className="text-orange-600 font-bold">⚠️ قريبة الانتهاء</div>
+                            <div className="text-orange-600 font-bold">{t('pt.expiringSoon')}</div>
                           )}
                         </div>
                       </div>
@@ -973,15 +1103,13 @@ export default function PTPage() {
                           disabled={session.sessionsRemaining === 0}
                           className="bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-1"
                         >
-                          <span>✅</span>
-                          <span>حضور</span>
+                          {t('pt.attendance')}
                         </button>
                         <button
                           onClick={() => handleRenew(session)}
                           className="bg-purple-600 text-white py-2 rounded-lg text-sm hover:bg-purple-700 font-bold flex items-center justify-center gap-1"
                         >
-                          <span>🔄</span>
-                          <span>تجديد</span>
+                          {t('pt.renew')}
                         </button>
                         {(session.remainingAmount || 0) > 0 && (
                           <button
@@ -989,7 +1117,7 @@ export default function PTPage() {
                             className="col-span-2 bg-orange-600 text-white py-2 rounded-lg text-sm hover:bg-orange-700 font-bold flex items-center justify-center gap-1"
                           >
                             <span>💰</span>
-                            <span>دفع الباقي ({(session.remainingAmount || 0).toFixed(0)} ج.م)</span>
+                            <span>{t('pt.payRemaining').replace('💰 ', '')} ({(session.remainingAmount || 0).toFixed(0)} {t('pt.egp')})</span>
                           </button>
                         )}
                         {session.qrCode && (
@@ -1001,21 +1129,26 @@ export default function PTPage() {
                               }}
                               className="bg-blue-500 text-white py-2 rounded-lg text-sm hover:bg-blue-600 font-bold flex items-center justify-center gap-1"
                             >
-                              <span>🔢</span>
-                              <span>Barcode</span>
+                              {t('pt.barcode')}
                             </button>
                             <button
                               onClick={() => {
                                 const checkInUrl = `${window.location.origin}/pt/check-in`
-                                const text = `مرحباً ${session.clientName}! 👋\n\nBarcode الخاص باشتراك PT:\n${session.qrCode}\n\n✅ لتسجيل حضورك:\n${checkInUrl}\n\nالصق الكود لتسجيل الحضور تلقائياً!\n\nالحصص المتبقية: ${session.sessionsRemaining} من ${session.sessionsPurchased}\nالكوتش: ${session.coachName}\n\nبالتوفيق! 🏋️\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
+                                const text = t('pt.whatsappWithBarcode', {
+                                  clientName: session.clientName,
+                                  qrCode: session.qrCode,
+                                  checkInUrl,
+                                  sessionsRemaining: session.sessionsRemaining.toString(),
+                                  sessionsPurchased: session.sessionsPurchased.toString(),
+                                  coachName: session.coachName
+                                })
                                 const phone = session.phone.startsWith('0') ? '2' + session.phone : session.phone
                                 const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
                                 window.open(whatsappUrl, '_blank')
                               }}
                               className="bg-green-500 text-white py-2 rounded-lg text-sm hover:bg-green-600 font-bold flex items-center justify-center gap-1"
                             >
-                              <span>💬</span>
-                              <span>واتس</span>
+                              {t('pt.whatsapp')}
                             </button>
                           </>
                         )}
@@ -1024,7 +1157,7 @@ export default function PTPage() {
                           className="bg-red-600 text-white py-2 rounded-lg text-sm hover:bg-red-700 font-bold flex items-center justify-center gap-1 col-span-2"
                         >
                           <span>🗑️</span>
-                          <span>حذف الاشتراك</span>
+                          <span>{t('pt.deleteSubscription')}</span>
                         </button>
                       </div>
                     )}
@@ -1037,7 +1170,7 @@ export default function PTPage() {
           {filteredSessions.length === 0 && (
             <div className="bg-white rounded-lg shadow-md p-12 text-center text-gray-500">
               <div className="text-6xl mb-4">📋</div>
-              <p className="text-xl">{searchTerm ? 'لا توجد نتائج للبحث' : 'لا توجد جلسات PT حالياً'}</p>
+              <p className="text-xl">{searchTerm ? t('pt.noSearchResults') : t('pt.noSessions')}</p>
             </div>
           )}
         </>
@@ -1048,7 +1181,7 @@ export default function PTPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">📱 Barcode - {selectedSession.clientName}</h2>
+              <h2 className="text-2xl font-bold">{t('pt.barcodeModal.title')} - {selectedSession.clientName}</h2>
               <button
                 onClick={() => {
                   setShowQRModal(false)
@@ -1065,21 +1198,21 @@ export default function PTPage() {
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <span className="text-gray-600">رقم PT:</span>
+                    <span className="text-gray-600">{t('pt.ptNumber')}:</span>
                     <span className="font-bold mr-2">#{selectedSession.ptNumber}</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">الكوتش:</span>
+                    <span className="text-gray-600">{t('pt.coach')}:</span>
                     <span className="font-bold mr-2">{selectedSession.coachName}</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">الحصص المتبقية:</span>
+                    <span className="text-gray-600">{t('pt.barcodeModal.sessionsRemaining')}</span>
                     <span className="font-bold mr-2 text-green-600">
                       {selectedSession.sessionsRemaining} / {selectedSession.sessionsPurchased}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">الهاتف:</span>
+                    <span className="text-gray-600">{t('pt.barcodeModal.phone')}</span>
                     <span className="font-bold mr-2">{selectedSession.phone}</span>
                   </div>
                 </div>
@@ -1094,19 +1227,19 @@ export default function PTPage() {
                     className="w-full max-w-md h-auto"
                   />
                   <p className="text-xs text-gray-500 mt-3 text-center">
-                    امسح هذا الكود لتسجيل الحضور
+                    {t('pt.barcodeModal.scanNote')}
                   </p>
                 </div>
               ) : (
                 <div className="bg-gray-100 rounded-lg p-6 text-center">
-                  <p className="text-gray-500">⚠️ لا توجد صورة Barcode</p>
+                  <p className="text-gray-500">{t('pt.barcodeModal.noBarcode')}</p>
                 </div>
               )}
 
               {/* Barcode Text */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  رقم PT (الكود):
+                  {t('pt.barcodeModal.ptCode')}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1119,12 +1252,12 @@ export default function PTPage() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(selectedSession.qrCode || '')
-                      setMessage('✅ تم نسخ الكود!')
+                      setMessage(t('pt.barcodeModal.codeCopied'))
                       setTimeout(() => setMessage(''), 2000)
                     }}
                     className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm font-medium"
                   >
-                    📋 نسخ
+                    {t('pt.barcodeModal.copyCode')}
                   </button>
                 </div>
               </div>
@@ -1144,13 +1277,12 @@ export default function PTPage() {
                     link.click()
                     document.body.removeChild(link)
 
-                    setMessage('✅ تم تحميل Barcode!')
+                    setMessage(t('pt.barcodeModal.barcodeDownloaded'))
                     setTimeout(() => setMessage(''), 2000)
                   }}
                   className="bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold flex items-center justify-center gap-2"
                 >
-                  <span>📥</span>
-                  <span>تحميل QR</span>
+                  {t('pt.barcodeModal.downloadQR')}
                 </button>
 
                 {/* زر مشاركة Barcode (للموبايل) */}
@@ -1168,50 +1300,59 @@ export default function PTPage() {
                       if (navigator.share && navigator.canShare({ files: [file] })) {
                         await navigator.share({
                           title: `Barcode - ${selectedSession.clientName}`,
-                          text: `Barcode لـ ${selectedSession.clientName}\nالحصص المتبقية: ${selectedSession.sessionsRemaining}/${selectedSession.sessionsPurchased}\nالكوتش: ${selectedSession.coachName}`,
+                          text: t('pt.whatsappShareText', {
+                            clientName: selectedSession.clientName,
+                            sessionsRemaining: selectedSession.sessionsRemaining.toString(),
+                            sessionsPurchased: selectedSession.sessionsPurchased.toString(),
+                            coachName: selectedSession.coachName
+                          }),
                           files: [file]
                         })
-                        setMessage('✅ تم المشاركة!')
+                        setMessage(t('pt.barcodeModal.barcodeDownloaded'))
                       } else {
                         // Fallback: تحميل الصورة
                         const link = document.createElement('a')
                         link.href = selectedSession.qrCodeImage
                         link.download = `PT_${selectedSession.ptNumber}_QR.png`
                         link.click()
-                        setMessage('✅ تم تحميل Barcode (المشاركة غير مدعومة)')
+                        setMessage(t('pt.barcodeModal.shareNotSupported'))
                       }
                       setTimeout(() => setMessage(''), 2000)
                     } catch (error) {
                       console.error('Share error:', error)
-                      setMessage('⚠️ فشلت المشاركة - حاول التحميل')
+                      setMessage(t('pt.barcodeModal.shareFailed'))
                       setTimeout(() => setMessage(''), 3000)
                     }
                   }}
                   className="bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold flex items-center justify-center gap-2"
                 >
-                  <span>📤</span>
-                  <span>مشاركة QR</span>
+                  {t('pt.barcodeModal.shareQR')}
                 </button>
 
                 {/* زر إرسال رابط واتساب */}
                 <button
                   onClick={() => {
                     const checkInUrl = `${window.location.origin}/pt/check-in`
-                    const text = `مرحباً ${selectedSession.clientName}! 👋\n\n✅ لتسجيل حضور PT:\n${checkInUrl}\n\nالحصص المتبقية: ${selectedSession.sessionsRemaining} من ${selectedSession.sessionsPurchased}\nالكوتش: ${selectedSession.coachName}\n\nبالتوفيق! 🏋️\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
+                    const text = t('pt.whatsappWithLink', {
+                      clientName: selectedSession.clientName,
+                      checkInUrl,
+                      sessionsRemaining: selectedSession.sessionsRemaining.toString(),
+                      sessionsPurchased: selectedSession.sessionsPurchased.toString(),
+                      coachName: selectedSession.coachName
+                    })
                     const phone = selectedSession.phone.startsWith('0') ? '2' + selectedSession.phone : selectedSession.phone
                     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
                     window.open(whatsappUrl, '_blank')
                   }}
                   className="col-span-2 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-bold flex items-center justify-center gap-2"
                 >
-                  <span>💬</span>
-                  <span>إرسال رابط واتساب</span>
+                  {t('pt.barcodeModal.sendWhatsAppLink')}
                 </button>
               </div>
 
               <div className="bg-blue-50 border-r-4 border-blue-500 p-3 rounded">
                 <p className="text-xs text-blue-800">
-                  <strong>💡 ملاحظة:</strong> Barcode صالح لجميع حصص هذا الاشتراك. يُستخدم لتسجيل الحضور عند الكوتش.
+                  {t('pt.barcodeModal.note')}
                 </p>
               </div>
             </div>
@@ -1224,7 +1365,7 @@ export default function PTPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">💰 دفع المبلغ المتبقي</h2>
+              <h2 className="text-2xl font-bold">{t('pt.paymentModal.title')}</h2>
               <button
                 onClick={() => {
                   setShowPaymentModal(false)
@@ -1241,21 +1382,21 @@ export default function PTPage() {
               <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-lg p-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">رقم PT:</span>
+                    <span className="text-gray-600">{t('pt.ptNumber')}:</span>
                     <span className="font-bold">#{paymentSession.ptNumber}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">العميل:</span>
+                    <span className="text-gray-600">{t('pt.client')}:</span>
                     <span className="font-bold">{paymentSession.clientName}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">الكوتش:</span>
+                    <span className="text-gray-600">{t('pt.coach')}:</span>
                     <span className="font-bold">{paymentSession.coachName}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
-                    <span className="text-orange-700 font-semibold">المبلغ المتبقي:</span>
+                    <span className="text-orange-700 font-semibold">{t('pt.paymentModal.remainingAmount')}</span>
                     <span className="font-bold text-orange-600 text-lg">
-                      {(paymentSession.remainingAmount || 0).toFixed(0)} ج.م
+                      {(paymentSession.remainingAmount || 0).toFixed(0)} {t('pt.egp')}
                     </span>
                   </div>
                 </div>
@@ -1264,7 +1405,7 @@ export default function PTPage() {
               {/* مبلغ الدفع */}
               <div>
                 <label className="block text-sm font-bold mb-2">
-                  مبلغ الدفع (ج.م) <span className="text-red-600">*</span>
+                  {t('pt.paymentModal.paymentAmountRequired')}
                 </label>
                 <input
                   type="number"
@@ -1291,7 +1432,7 @@ export default function PTPage() {
                     }
                     className="flex-1 px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-sm font-medium"
                   >
-                    الكل ({(paymentSession.remainingAmount || 0).toFixed(0)})
+                    {t('pt.paymentModal.payAll')} ({(paymentSession.remainingAmount || 0).toFixed(0)})
                   </button>
                   <button
                     type="button"
@@ -1303,31 +1444,18 @@ export default function PTPage() {
                     }
                     className="flex-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-sm font-medium"
                   >
-                    النصف ({((paymentSession.remainingAmount || 0) / 2).toFixed(0)})
+                    {t('pt.paymentModal.payHalf')} ({((paymentSession.remainingAmount || 0) / 2).toFixed(0)})
                   </button>
                 </div>
               </div>
 
               {/* طريقة الدفع */}
               <div>
-                <label className="block text-sm font-bold mb-2">
-                  طريقة الدفع <span className="text-red-600">*</span>
-                </label>
-                <select
+                <PaymentMethodSelector
                   value={paymentFormData.paymentMethod}
-                  onChange={(e) =>
-                    setPaymentFormData({
-                      ...paymentFormData,
-                      paymentMethod: e.target.value as 'cash' | 'visa' | 'instapay' | 'wallet'
-                    })
-                  }
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                >
-                  <option value="cash">💵 كاش</option>
-                  <option value="visa">💳 فيزا</option>
-                  <option value="instapay">📱 إنستاباي</option>
-                  <option value="wallet">👛 محفظة</option>
-                </select>
+                  onChange={(method) => setPaymentFormData({ ...paymentFormData, paymentMethod: method as 'cash' | 'visa' | 'instapay' | 'wallet' })}
+                  required={true}
+                />
               </div>
 
               {/* المبلغ المتبقي بعد الدفع */}
@@ -1335,10 +1463,10 @@ export default function PTPage() {
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-blue-700 font-semibold">
-                      المتبقي بعد الدفع:
+                      {t('pt.paymentModal.remainingAfterPayment')}
                     </span>
                     <span className="text-lg font-bold text-blue-600">
-                      {((paymentSession.remainingAmount || 0) - paymentFormData.paymentAmount).toFixed(0)} ج.م
+                      {((paymentSession.remainingAmount || 0) - paymentFormData.paymentAmount).toFixed(0)} {t('pt.egp')}
                     </span>
                   </div>
                 </div>
@@ -1353,21 +1481,21 @@ export default function PTPage() {
                   }}
                   className="bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-bold"
                 >
-                  إلغاء
+                  {t('pt.deleteConfirm.cancel')}
                 </button>
                 <button
                   onClick={handlePayRemaining}
                   disabled={loading || paymentFormData.paymentAmount <= 0 || paymentFormData.paymentAmount > (paymentSession.remainingAmount || 0)}
                   className="bg-orange-600 text-white py-3 rounded-lg hover:bg-orange-700 font-bold disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'جاري الدفع...' : '✅ تأكيد الدفع'}
+                  {loading ? t('pt.paymentModal.paying') : t('pt.paymentModal.confirmPayment')}
                 </button>
               </div>
 
               {/* ملاحظة */}
               <div className="bg-orange-50 border-r-4 border-orange-500 p-3 rounded">
                 <p className="text-xs text-orange-800">
-                  <strong>💡 ملاحظة:</strong> سيتم إنشاء إيصال للمبلغ المدفوع وتحديث المبلغ المتبقي.
+                  {t('pt.paymentModal.note')}
                 </p>
               </div>
             </div>

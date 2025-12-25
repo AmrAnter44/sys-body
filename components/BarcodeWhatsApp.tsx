@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { useLanguage } from '../contexts/LanguageContext'
+import Toast from './Toast'
 
 interface BarcodeWhatsAppProps {
   memberNumber: number
@@ -9,9 +11,11 @@ interface BarcodeWhatsAppProps {
 }
 
 export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone }: BarcodeWhatsAppProps) {
+  const { t, direction } = useLanguage()
   const [showBarcodeModal, setShowBarcodeModal] = useState(false)
   const [barcodeImage, setBarcodeImage] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null)
 
   // توليد الباركود عن طريق API
   const handleGenerateBarcode = async () => {
@@ -28,11 +32,11 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
         setBarcodeImage(data.barcode)
         setShowBarcodeModal(true)
       } else {
-        alert('حدث خطأ أثناء توليد الباركود')
+        setToast({ message: t('barcode.errorGenerating'), type: 'error' })
       }
     } catch (error) {
       console.error('Error generating barcode:', error)
-      alert('حدث خطأ أثناء توليد الباركود')
+      setToast({ message: t('barcode.errorGenerating'), type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -47,34 +51,44 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
   }
 
   const handleSendBarcode = () => {
-    if (!barcodeImage) return alert('يجب توليد الباركود أولاً')
+    if (!barcodeImage) {
+      setToast({ message: t('barcode.mustGenerateFirst'), type: 'warning' })
+      return
+    }
 
     handleDownloadBarcode()
 
     setTimeout(() => {
-      const message = `Barcode العضوية #${memberNumber} للعضو ${memberName}\n\n🌐 *الموقع الإلكتروني:*\nhttps://www.xgym.website/`
+      const baseMessage = t('barcode.whatsappMessage', { memberNumber: memberNumber.toString(), memberName })
+
+      // إضافة الشروط والأحكام
+      const termsAndConditions = `\n\n━━━━━━━━━━━━━━━━━━━━\n*شروط وأحكام*\n━━━━━━━━━━━━━━━━━━━━\nالساده الاعضاء حرصا منا على تقديم خدمه افضل وحفاظا على سير النظام العام للمكان بشكل مرضى يرجى الالتزام بالتعليمات الاتيه :\n\n١- الاشتراك لا يرد الا خلال ٢٤ ساعه بعد خصم قيمه الحصه\n٢- لا يجوز التمرين بخلاف الزى الرياضى\n٣- ممنوع اصطحاب الاطفال او الماكولات داخل الجيم\n٤- الاداره غير مسئوله عن المتعلقات الشخصيه`
+
+      const message = baseMessage + termsAndConditions
       const phone = memberPhone.replace(/\D/g, '') // تنظيف رقم الهاتف
       const url = `https://wa.me/2${phone}?text=${encodeURIComponent(message)}`
       window.open(url, '_blank')
 
-      alert('✅ تم تحميل صورة الباركود!\n📱 سيتم فتح واتساب الآن، قم بإرفاق الصورة المحملة مع الرسالة.')
+      setToast({ message: t('barcode.downloadedOpenWhatsApp'), type: 'success' })
     }, 500)
   }
 
   return (
     <>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* زر عرض/إرسال الباركود */}
-      <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-200">
+      <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-200" dir={direction}>
         <div className="flex items-center gap-3 mb-4">
           <div className="bg-blue-100 p-3 rounded-full">
             <span className="text-3xl">📱</span>
           </div>
           <div>
-            <h3 className="text-xl font-bold">Barcode العضوية</h3>
-            <p className="text-sm text-gray-600">عرض أو إرسال باركود رقم العضوية</p>
+            <h3 className="text-xl font-bold">{t('barcode.membershipBarcode')}</h3>
+            <p className="text-sm text-gray-600">{t('barcode.viewOrSend')}</p>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={handleGenerateBarcode}
@@ -82,30 +96,22 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
             className="bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2"
           >
             <span>🔢</span>
-            <span>عرض Barcode</span>
+            <span>{t('barcode.viewBarcode')}</span>
           </button>
-          
-          <button
-            onClick={handleSendBarcode}
-            disabled={loading}
-            className="bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold flex items-center justify-center gap-2"
-          >
-            <span>📲</span>
-            <span>تحميل وإرسال واتساب</span>
-          </button>
+
         </div>
       </div>
 
       {/* Modal عرض الباركود */}
       {showBarcodeModal && barcodeImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
           style={{ zIndex: 9999 }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowBarcodeModal(false) }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()} dir={direction}>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold">🔢 Barcode العضوية</h3>
+              <h3 className="text-2xl font-bold">🔢 {t('barcode.membershipBarcode')}</h3>
               <button
                 onClick={() => setShowBarcodeModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
@@ -116,7 +122,7 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
             </div>
 
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6 text-center">
-              <p className="text-sm text-blue-600 mb-2">العضو</p>
+              <p className="text-sm text-blue-600 mb-2">{t('barcode.member')}</p>
               <p className="text-xl font-bold text-blue-800">{memberName}</p>
               <p className="text-3xl font-bold text-blue-600 mt-2">#{memberNumber}</p>
             </div>
@@ -150,7 +156,7 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
                 className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 font-bold flex items-center justify-center gap-2"
               >
                 <span>💾</span>
-                <span>تحميل الصورة</span>
+                <span>{t('barcode.downloadImage')}</span>
               </button>
 
               <button
@@ -161,14 +167,14 @@ export default function BarcodeWhatsApp({ memberNumber, memberName, memberPhone 
                 className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold flex items-center justify-center gap-2"
               >
                 <span>📲</span>
-                <span>تحميل وإرسال عبر واتساب</span>
+                <span>{t('barcode.downloadAndSendViaWhatsApp')}</span>
               </button>
 
               <button
                 onClick={() => setShowBarcodeModal(false)}
                 className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-bold"
               >
-                إغلاق
+                {t('barcode.close')}
               </button>
             </div>
           </div>

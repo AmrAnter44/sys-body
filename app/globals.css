@@ -116,6 +116,21 @@ button:disabled {
   animation: fadeIn 0.3s ease-out;
 }
 
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
 /* تحسينات للكروت */
 .card-hover {
   transition: all 0.3s ease;
