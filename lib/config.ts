@@ -19,7 +19,7 @@ export const EXTERNAL_LINKS = {
      * رابط ملف الترخيص على GitHub
      * يُستخدم للتحقق من صلاحية التطبيق
      */
-    license: process.env.NEXT_PUBLIC_GITHUB_LICENSE_URL || 'https://raw.githubusercontent.com/AmrAnter44/systems-lock/main/xgym.json',
+    license: process.env.NEXT_PUBLIC_GITHUB_LICENSE_URL || 'https://raw.githubusercontent.com/AmrAnter44/systems-lock/main/bodyfit.json',
 
     /**
      * رابط المستودع الرئيسي على GitHub

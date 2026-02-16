@@ -8,29 +8,29 @@
    ======================================== */
 :root {
   /* Primary Colors - الألوان الأساسية */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
-  --color-primary-950: #172554;
+  --color-primary-50: #fef2f2;
+  --color-primary-100: #fee2e2;
+  --color-primary-200: #fecaca;
+  --color-primary-300: #fca5a5;
+  --color-primary-400: #f87171;
+  --color-primary-500: #ef4444;
+  --color-primary-600: #dc2626;
+  --color-primary-700: #b91c1c;
+  --color-primary-800: #991b1b;
+  --color-primary-900: #7f1d1d;
+  --color-primary-950: #450a0a;
 
   /* RGB Values for transparency */
-  --color-primary-rgb: 59, 130, 246;
-  --color-primary-50-rgb: 239, 246, 255;
-  --color-primary-100-rgb: 219, 234, 254;
-  --color-primary-200-rgb: 191, 219, 254;
-  --color-primary-300-rgb: 147, 197, 253;
-  --color-primary-400-rgb: 96, 165, 250;
-  --color-primary-600-rgb: 37, 99, 235;
-  --color-primary-700-rgb: 29, 78, 216;
-  --color-primary-800-rgb: 30, 64, 175;
-  --color-primary-900-rgb: 30, 58, 138;
+  --color-primary-rgb: 239, 68, 68;
+  --color-primary-50-rgb: 254, 242, 242;
+  --color-primary-100-rgb: 254, 226, 226;
+  --color-primary-200-rgb: 254, 202, 202;
+  --color-primary-300-rgb: 252, 165, 165;
+  --color-primary-400-rgb: 248, 113, 113;
+  --color-primary-600-rgb: 220, 38, 38;
+  --color-primary-700-rgb: 185, 28, 28;
+  --color-primary-800-rgb: 153, 27, 27;
+  --color-primary-900-rgb: 127, 29, 29;
 
   /* Other colors */
   --foreground-rgb: 0, 0, 0;
@@ -41,16 +41,16 @@
 /* Dark Mode Colors */
 .dark {
   /* Dark Mode Primary Colors */
-  --color-primary-50: #1e3a8a;
-  --color-primary-100: #1e40af;
-  --color-primary-200: #1d4ed8;
-  --color-primary-300: #2563eb;
-  --color-primary-400: #3b82f6;
-  --color-primary-500: #60a5fa;
-  --color-primary-600: #93c5fd;
-  --color-primary-700: #bfdbfe;
-  --color-primary-800: #dbeafe;
-  --color-primary-900: #eff6ff;
+  --color-primary-50: #7f1d1d;
+  --color-primary-100: #991b1b;
+  --color-primary-200: #b91c1c;
+  --color-primary-300: #dc2626;
+  --color-primary-400: #ef4444;
+  --color-primary-500: #f87171;
+  --color-primary-600: #fca5a5;
+  --color-primary-700: #fecaca;
+  --color-primary-800: #fee2e2;
+  --color-primary-900: #fef2f2;
 
   /* Dark Mode Background & Foreground */
   --foreground-rgb: 255, 255, 255;
